@@ -56,7 +56,7 @@ export function Sidebar() {
   return (
     <aside className="flex h-screen w-56 flex-col justify-between border-r border-slate-200 bg-white p-4">
       <div className="overflow-y-auto">
-        <div className="mb-8 px-2 text-lg font-bold text-clinico-azul">SIRSO</div>
+        <img src="/Siro_logo.png" alt="SIRO" className="mb-8 h-20 w-full object-contain px-2" />
         <nav className="space-y-4">
           {SECCIONES.map((seccion, i) => {
             const visibles = seccion.enlaces.filter((e) => e.roles.includes(perfil?.rol))

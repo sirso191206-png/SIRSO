@@ -21,9 +21,7 @@ export function TabExpediente({ pacienteId }) {
             key={t}
             onClick={() => setSubtab(t)}
             className={`whitespace-nowrap rounded-t-lg px-3 py-1.5 text-xs font-medium ${
-              subtab === t
-                ? 'bg-clinico-azulClaro text-clinico-azul'
-                : 'text-slate-500 hover:bg-slate-50'
+              subtab === t ? 'bg-clinico-azulClaro text-clinico-azul' : 'text-slate-500 hover:bg-slate-50'
             }`}
           >
             {t}
@@ -31,20 +29,13 @@ export function TabExpediente({ pacienteId }) {
         ))}
       </div>
 
-      {subtab === 'General' && (
-        <SeccionGeneral pacienteId={pacienteId} />
-      )}
-
-      {subtab === 'Notas y consultas' && (
-        <SeccionNotas pacienteId={pacienteId} />
-      )}
-
-      {subtab === 'Signos vitales' && (
-        <SeccionSignosVitales pacienteId={pacienteId} />
-      )}
+      {subtab === 'General' && <SeccionGeneral pacienteId={pacienteId} />}
+      {subtab === 'Notas y consultas' && <SeccionNotas pacienteId={pacienteId} />}
+      {subtab === 'Signos vitales' && <SeccionSignosVitales pacienteId={pacienteId} />}
     </div>
   )
 }
+
 // ============================================================
 // General: alergias, antecedentes, datos médicos, hábitos
 // ============================================================
