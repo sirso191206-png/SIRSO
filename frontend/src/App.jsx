@@ -3,6 +3,8 @@ import { useEffect } from 'react'
 import { useAuthStore } from './store/useAuthStore'
 import { ProtectedRoute } from './components/layout/ProtectedRoute'
 import { Login } from './pages/Login'
+import { Contacto } from './pages/Contacto'
+import { RestablecerPassword } from './pages/RestablecerPassword'
 import { MiDia } from './pages/MiDia'
 import { Dashboard } from './pages/Dashboard'
 import { Pacientes } from './pages/Pacientes'
@@ -27,6 +29,8 @@ export default function App() {
       <ToastContainer />
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/contacto" element={<Contacto />} />
+        <Route path="/restablecer-password" element={<RestablecerPassword />} />
         <Route path="/" element={<ProtectedRoute><MiDia /></ProtectedRoute>} />
         <Route path="/reportes" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/pacientes" element={<ProtectedRoute><Pacientes /></ProtectedRoute>} />

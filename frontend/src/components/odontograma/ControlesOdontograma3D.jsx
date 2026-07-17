@@ -1,24 +1,49 @@
-const BOTONES = [
-  { id: 'restablecer', label: 'Restablecer vista', arco: 'ambas', vista: 'restablecer' },
-  { id: 'ambas', label: 'Ambas arcadas', arco: 'ambas', vista: 'ambas' },
-  { id: 'superior', label: 'Arcada superior', arco: 'superior', vista: 'superior' },
-  { id: 'inferior', label: 'Arcada inferior', arco: 'inferior', vista: 'inferior' },
-  { id: 'frontal', label: 'Vista frontal', vista: 'frontal' },
-  { id: 'oclusal', label: 'Vista oclusal', vista: 'oclusal' },
-  { id: 'lateral', label: 'Vista lateral', vista: 'lateral' }
+const OPCIONES_ARCADA = [
+  { value: 'ambas', label: 'Ambas arcadas' },
+  { value: 'superior', label: 'Arcada superior' },
+  { value: 'inferior', label: 'Arcada inferior' }
 ]
 
-export function ControlesOdontograma3D({ onCambiarArco, onCambiarVista }) {
+const BOTONES_VISTA = [
+  { id: 'frontal', label: 'Frontal' },
+  { id: 'oclusal', label: 'Oclusal' },
+  { id: 'lateral', label: 'Lateral' }
+]
+
+export function ControlesOdontograma3D({ arcoVisible, onCambiarArco, onCambiarVista }) {
   return (
-    <div className="flex flex-wrap gap-2" role="group" aria-label="Controles de la vista anatómica 3D">
-      {BOTONES.map((b) => (
+    <div
+      className="flex items-center gap-2 overflow-x-auto rounded-lg border border-slate-200 bg-white p-1.5"
+      role="group"
+      aria-label="Controles de la vista anatómica 3D"
+    >
+      <button
+        onClick={() => { onCambiarArco('ambas'); onCambiarVista('restablecer') }}
+        aria-label="Restablecer vista"
+        title="Restablecer vista"
+        className="shrink-0 rounded-md border border-slate-300 px-2.5 py-1.5 text-sm text-slate-600 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-clinico-azul"
+      >
+        ↻
+      </button>
+
+      <select
+        value={arcoVisible}
+        onChange={(e) => { onCambiarArco(e.target.value); onCambiarVista(e.target.value) }}
+        aria-label="Elegir arcada visible"
+        className="shrink-0 rounded-md border border-slate-300 px-2 py-1.5 text-xs font-medium text-slate-600 focus:outline-none focus:ring-2 focus:ring-clinico-azul"
+      >
+        {OPCIONES_ARCADA.map((o) => (
+          <option key={o.value} value={o.value}>{o.label}</option>
+        ))}
+      </select>
+
+      <div className="h-5 w-px shrink-0 bg-slate-200" />
+
+      {BOTONES_VISTA.map((b) => (
         <button
           key={b.id}
-          onClick={() => {
-            if (b.arco) onCambiarArco(b.arco)
-            onCambiarVista(b.vista)
-          }}
-          className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-clinico-azul"
+          onClick={() => onCambiarVista(b.id)}
+          className="shrink-0 rounded-md px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-clinico-azul"
         >
           {b.label}
         </button>

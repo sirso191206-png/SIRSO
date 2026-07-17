@@ -1,49 +1,78 @@
-import { useRef, useState } from 'react'
-import { Text } from '@react-three/drei'
-import { TIPOS_DIENTES } from './constantesOdontograma'
+import { useMemo, useState } from 'react'
+import { Html } from '@react-three/drei'
+import { COLOR_MARFIL_CORONA, COLOR_MARFIL_RAIZ } from './constantesOdontograma'
 
-// Sin modelos .glb todavía (no se descargó ningún modelo de origen o
-// licencia desconocida, tal como se pidió) — geometrías simples de
-// Three.js por tipo de diente. La lógica de selección/estado es
-// independiente de la geometría: cuando haya modelos .glb reales, solo
-// hay que cambiar la función `Corona` de aquí abajo, nada más.
-function Corona({ tipo, color, opacity }) {
+// ------------------------------------------------------------
+// Geometría temporal MEJORADA (Fase 1.5): cápsulas y esferas en vez de
+// cilindros/conos rectos, con protuberancias simples para sugerir cúspides.
+// El día que existan modelos .glb reales, solo se reemplaza el contenido
+// de <Corona> — nada de la lógica clínica/selección de aquí abajo cambia.
+// ------------------------------------------------------------
+function Corona({ tipo, color, emissive }) {
+  const material = (
+    <meshStandardMaterial color={color} emissive={emissive} emissiveIntensity={emissive ? 0.35 : 0} roughness={0.45} />
+  )
+
   switch (tipo) {
     case 'incisivo':
       return (
-        <mesh position={[0, 0.32, 0]} castShadow>
-          <boxGeometry args={[0.22, 0.34, 0.12]} />
-          <meshStandardMaterial color={color} transparent opacity={opacity} roughness={0.4} />
+        <mesh position={[0, 0.3, 0]} scale={[0.62, 1, 0.42]} castShadow>
+          <capsuleGeometry args={[0.15, 0.16, 4, 8]} />
+          {material}
         </mesh>
       )
     case 'canino':
       return (
-        <mesh position={[0, 0.34, 0]} castShadow>
-          <coneGeometry args={[0.16, 0.38, 12]} />
-          <meshStandardMaterial color={color} transparent opacity={opacity} roughness={0.4} />
-        </mesh>
+        <group>
+          <mesh position={[0, 0.28, 0]} scale={[0.72, 1, 0.72]} castShadow>
+            <capsuleGeometry args={[0.13, 0.18, 4, 8]} />
+            {material}
+          </mesh>
+          <mesh position={[0, 0.46, 0]} castShadow>
+            <coneGeometry args={[0.07, 0.12, 8]} />
+            {material}
+          </mesh>
+        </group>
       )
     case 'premolar':
       return (
-        <mesh position={[0, 0.3, 0]} castShadow>
-          <cylinderGeometry args={[0.19, 0.16, 0.3, 12]} />
-          <meshStandardMaterial color={color} transparent opacity={opacity} roughness={0.4} />
-        </mesh>
+        <group>
+          <mesh position={[0, 0.28, 0]} castShadow>
+            <capsuleGeometry args={[0.17, 0.14, 4, 10]} />
+            {material}
+          </mesh>
+          <mesh position={[-0.06, 0.4, 0]} scale={0.55} castShadow>
+            <sphereGeometry args={[0.09, 8, 8]} />
+            {material}
+          </mesh>
+          <mesh position={[0.06, 0.4, 0]} scale={0.55} castShadow>
+            <sphereGeometry args={[0.09, 8, 8]} />
+            {material}
+          </mesh>
+        </group>
       )
     case 'molar':
     default:
       return (
-        <mesh position={[0, 0.28, 0]} castShadow>
-          <cylinderGeometry args={[0.24, 0.2, 0.26, 14]} />
-          <meshStandardMaterial color={color} transparent opacity={opacity} roughness={0.4} />
-        </mesh>
+        <group>
+          <mesh position={[0, 0.26, 0]} castShadow>
+            <capsuleGeometry args={[0.22, 0.12, 4, 12]} />
+            {material}
+          </mesh>
+          {[[-0.08, 0.07], [0.08, 0.07], [-0.08, -0.07], [0.08, -0.07]].map(([x, z], i) => (
+            <mesh key={i} position={[x, 0.4, z]} scale={0.5} castShadow>
+              <sphereGeometry args={[0.09, 8, 8]} />
+              {material}
+            </mesh>
+          ))}
+        </group>
       )
   }
 }
 
 // Prioridad clínica: qué condición "gana" visualmente si la pieza tiene
-// varias caras con distinto estado. No depende solo del color — cada una
-// trae también un símbolo (se pinta como texto 3D encima del diente).
+// varias caras con distinto estado. Esto define el COLOR (estado
+// clínico) — la selección se dibuja aparte y nunca lo sobreescribe.
 function evaluarPieza(pieza) {
   if (pieza.estado === 'ausente') return { color: '#CBD5E1', simbolo: '×', opacity: 0.3, esRaiz: false }
   if (pieza.estado === 'implante') return { color: '#C4B5FD', simbolo: '◆', opacity: 1, esRaiz: true }
@@ -58,51 +87,72 @@ function evaluarPieza(pieza) {
   if (caras.some((c) => c.estado === 'fracturado')) return { color: '#FDBA74', simbolo: '●', opacity: 1, esRaiz: true }
   if (caras.some((c) => c.estado === 'obturado')) return { color: '#93C5FD', simbolo: '✓', opacity: 1, esRaiz: true }
 
-  return { color: '#FFFDF5', simbolo: null, opacity: 1, esRaiz: true }
+  return { color: COLOR_MARFIL_CORONA, simbolo: null, opacity: 1, esRaiz: true }
 }
 
-export function Diente3D({ pieza, posicion, seleccionada, onClick }) {
-  const grupoRef = useRef()
+export function Diente3D({ pieza, tipo, posicion, rotacion, escala, seleccionada, mostrarEtiqueta, onClick }) {
   const [hover, setHover] = useState(false)
-  const tipo = TIPOS_DIENTES[Number(pieza.numero_pieza)] ?? 'molar'
-  const info = evaluarPieza(pieza)
+  const info = useMemo(() => evaluarPieza(pieza), [pieza])
 
   return (
     <group
-      ref={grupoRef}
       position={posicion}
+      rotation={rotacion}
+      scale={escala}
       onClick={(e) => { e.stopPropagation(); onClick(pieza) }}
       onPointerOver={(e) => { e.stopPropagation(); setHover(true); document.body.style.cursor = 'pointer' }}
       onPointerOut={() => { setHover(false); document.body.style.cursor = 'auto' }}
     >
-      {/* Raíz — siempre visible salvo pieza ausente, color fijo (marfil/hueso) */}
+      {/* Raíz — color fijo (marfil/hueso), independiente del estado clínico de la corona */}
       {info.esRaiz && (
-        <mesh position={[0, 0.06, 0]}>
-          <coneGeometry args={[0.12, 0.3, 10]} />
-          <meshStandardMaterial color="#EADFC8" roughness={0.6} />
+        <mesh position={[0, 0.05, 0]} scale={[0.55, 1, 0.55]}>
+          <capsuleGeometry args={[0.09, 0.22, 4, 8]} />
+          <meshStandardMaterial color={COLOR_MARFIL_RAIZ} roughness={0.6} />
         </mesh>
       )}
 
-      <Corona tipo={tipo} color={info.color} opacity={info.opacity} />
+      {/* Color clínico — NUNCA lo cambia la selección, solo se le agrega
+          un ligero emissive cuando además está seleccionada */}
+      <Corona tipo={tipo} color={info.color} emissive={seleccionada ? info.color : null} />
 
-      {/* Aro de selección/hover — no depende solo del color de la pieza */}
-      {(seleccionada || hover) && (
-        <mesh position={[0, -0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[0.26, 0.31, 24]} />
-          <meshBasicMaterial color={seleccionada ? '#1E5F8C' : '#94A3B8'} transparent opacity={0.8} />
+      {/* Indicador de SELECCIÓN — completamente separado del estado
+          clínico: un anillo azul brillante en la base. Nunca reemplaza
+          el color de la pieza. */}
+      {seleccionada && (
+        <mesh position={[0, -0.03, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[0.28, 0.34, 32]} />
+          <meshBasicMaterial color="#1E5F8C" transparent opacity={0.9} />
+        </mesh>
+      )}
+      {hover && !seleccionada && (
+        <mesh position={[0, -0.03, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[0.28, 0.32, 32]} />
+          <meshBasicMaterial color="#94A3B8" transparent opacity={0.6} />
         </mesh>
       )}
 
-      {/* Número FDI, siempre visible como texto — nunca solo un índice visual */}
-      <Text position={[0, -0.12, 0]} fontSize={0.13} color="#475569" anchorX="center" anchorY="middle">
-        {pieza.numero_pieza}
-      </Text>
-
-      {/* Símbolo de estado clínico, además del color */}
+      {/* Símbolo de estado clínico (no depender solo del color) */}
       {info.simbolo && (
-        <Text position={[0.2, 0.55, 0]} fontSize={0.16} color={info.color === '#FFFDF5' ? '#94A3B8' : info.color} anchorX="center" anchorY="middle">
-          {info.simbolo}
-        </Text>
+        <Html position={[0.18, 0.58, 0]} center distanceFactor={7} occlude={false}>
+          <span className="pointer-events-none select-none text-sm font-bold" style={{ color: info.color === COLOR_MARFIL_CORONA ? '#94A3B8' : info.color }}>
+            {info.simbolo}
+          </span>
+        </Html>
+      )}
+
+      {/* Número FDI como HTML — nunca se superpone entre piezas distintas
+          porque cada una controla su propia etiqueta, y se puede ocultar
+          selectivamente en pantallas chicas. */}
+      {mostrarEtiqueta && (
+        <Html position={[0, -0.22, 0]} center distanceFactor={7} occlude={false}>
+          <span
+            className={`pointer-events-none select-none rounded px-1 text-[11px] font-medium ${
+              seleccionada ? 'bg-clinico-azul text-white' : 'text-slate-500'
+            }`}
+          >
+            {pieza.numero_pieza}
+          </span>
+        </Html>
       )}
     </group>
   )

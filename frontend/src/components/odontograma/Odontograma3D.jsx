@@ -6,7 +6,7 @@ import { ControlesOdontograma3D } from './ControlesOdontograma3D'
 import { PanelPieza3D } from './PanelPieza3D'
 import { LeyendaClinica } from './LeyendaClinica'
 
-export function Odontograma3D({ pacienteId, onVerEnExpediente }) {
+export function Odontograma3D({ pacienteId, onVerEnExpediente, onIrAPlan }) {
   // Mismos datos que la vista 2D — ni una consulta nueva a Supabase.
   const { piezas, cargando } = useOdontograma(pacienteId)
   const { tratamientos } = useTratamientos(pacienteId)
@@ -19,7 +19,7 @@ export function Odontograma3D({ pacienteId, onVerEnExpediente }) {
 
   return (
     <div className="space-y-4">
-      <ControlesOdontograma3D onCambiarArco={setArcoVisible} onCambiarVista={setVistaCamara} />
+      <ControlesOdontograma3D arcoVisible={arcoVisible} onCambiarArco={setArcoVisible} onCambiarVista={setVistaCamara} />
 
       <div className="flex flex-col gap-4 lg:flex-row">
         <div className="h-[420px] overflow-hidden rounded-xl border border-slate-200 bg-slate-50 lg:h-[520px] lg:w-[70%]">
@@ -39,6 +39,7 @@ export function Odontograma3D({ pacienteId, onVerEnExpediente }) {
             tratamientos={tratamientos}
             onCerrar={cerrarPanel}
             onVerEnExpediente={() => onVerEnExpediente?.(piezaSeleccionada)}
+            onIrAPlan={onIrAPlan}
           />
         </div>
       </div>
@@ -50,6 +51,7 @@ export function Odontograma3D({ pacienteId, onVerEnExpediente }) {
             tratamientos={tratamientos}
             onCerrar={cerrarPanel}
             onVerEnExpediente={() => onVerEnExpediente?.(piezaSeleccionada)}
+            onIrAPlan={onIrAPlan}
           />
         </div>
       )}

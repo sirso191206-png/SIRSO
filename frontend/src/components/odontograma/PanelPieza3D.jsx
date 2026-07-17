@@ -5,7 +5,7 @@ import {
 } from './constantesOdontograma'
 import { Button } from '../ui/Button'
 
-export function PanelPieza3D({ pieza, tratamientos, onCerrar, onVerEnExpediente }) {
+export function PanelPieza3D({ pieza, tratamientos, onCerrar, onVerEnExpediente, onIrAPlan }) {
   const [historial, setHistorial] = useState(null)
   const [cargandoHistorial, setCargandoHistorial] = useState(false)
 
@@ -22,6 +22,11 @@ export function PanelPieza3D({ pieza, tratamientos, onCerrar, onVerEnExpediente 
   const estadoGeneral = ESTADOS_PIEZA.find((e) => e.value === pieza.estado)?.label ?? pieza.estado
   const carasAfectadas = (pieza.caras ?? []).filter((c) => c.estado !== 'sano')
   const tratamientoVinculado = tratamientos?.find((t) => t.id === pieza.tratamiento_id)
+
+  // Sin nada que reportar: en vez de mostrar campos vacíos, un solo
+  // mensaje claro (tal como se pidió: "no mostrar campos vacíos
+  // innecesarios").
+  const sinCondiciones = pieza.estado === 'sano' && carasAfectadas.length === 0 && !pieza.diagnostico && !tratamientoVinculado && !pieza.notas
 
   const handleVerHistorial = async () => {
     setCargandoHistorial(true)
@@ -40,61 +45,70 @@ export function PanelPieza3D({ pieza, tratamientos, onCerrar, onVerEnExpediente 
         <button onClick={onCerrar} className="text-slate-400 hover:text-slate-600" aria-label="Cerrar panel">✕</button>
       </div>
 
-      <dl className="space-y-3 text-sm">
-        <div>
-          <dt className="text-xs font-medium text-slate-400">Estado clínico</dt>
-          <dd className="text-slate-700">{estadoGeneral}</dd>
-        </div>
-
-        {carasAfectadas.length > 0 && (
+      {sinCondiciones ? (
+        <p className="text-sm text-slate-400">Sin condiciones registradas.</p>
+      ) : (
+        <dl className="space-y-3 text-sm">
           <div>
-            <dt className="text-xs font-medium text-slate-400">Caras afectadas</dt>
-            <dd className="space-y-0.5 text-slate-700">
-              {carasAfectadas.map((c) => (
-                <div key={c.cara}>{nombreCara(pieza.numero_pieza, c.cara)}: {c.estado}</div>
-              ))}
-            </dd>
+            <dt className="text-xs font-medium text-slate-400">Estado clínico</dt>
+            <dd className="text-slate-700">{estadoGeneral}</dd>
           </div>
-        )}
 
-        {pieza.diagnostico && (
-          <div>
-            <dt className="text-xs font-medium text-slate-400">Diagnóstico</dt>
-            <dd className="text-slate-700">{pieza.diagnostico}</dd>
-          </div>
-        )}
+          {carasAfectadas.length > 0 && (
+            <div>
+              <dt className="text-xs font-medium text-slate-400">Caras afectadas</dt>
+              <dd className="space-y-0.5 text-slate-700">
+                {carasAfectadas.map((c) => (
+                  <div key={c.cara}>{nombreCara(pieza.numero_pieza, c.cara)}: {c.estado}</div>
+                ))}
+              </dd>
+            </div>
+          )}
 
-        {tratamientoVinculado && (
-          <div>
-            <dt className="text-xs font-medium text-slate-400">Tratamiento</dt>
-            <dd className="text-slate-700">
-              {tratamientoVinculado.descripcion}
-              <span className="ml-1 text-xs text-slate-400">
-                ({tratamientoVinculado.estado === 'completado' ? 'realizado' : 'planeado'})
-              </span>
-            </dd>
-          </div>
-        )}
+          {pieza.diagnostico && (
+            <div>
+              <dt className="text-xs font-medium text-slate-400">Diagnóstico</dt>
+              <dd className="text-slate-700">{pieza.diagnostico}</dd>
+            </div>
+          )}
 
-        {pieza.notas && (
-          <div>
-            <dt className="text-xs font-medium text-slate-400">Observaciones</dt>
-            <dd className="text-slate-700">{pieza.notas}</dd>
-          </div>
-        )}
+          {tratamientoVinculado && (
+            <div>
+              <dt className="text-xs font-medium text-slate-400">Tratamiento</dt>
+              <dd className="text-slate-700">
+                {tratamientoVinculado.descripcion}
+                <span className="ml-1 text-xs text-slate-400">
+                  ({tratamientoVinculado.estado === 'completado' ? 'realizado' : 'planeado'})
+                </span>
+              </dd>
+            </div>
+          )}
 
-        {pieza.actualizado_en && (
-          <div>
-            <dt className="text-xs font-medium text-slate-400">Última actualización</dt>
-            <dd className="text-slate-700">{new Date(pieza.actualizado_en).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}</dd>
-          </div>
-        )}
-      </dl>
+          {pieza.notas && (
+            <div>
+              <dt className="text-xs font-medium text-slate-400">Observaciones</dt>
+              <dd className="text-slate-700">{pieza.notas}</dd>
+            </div>
+          )}
 
-      <div className="mt-4">
+          {pieza.actualizado_en && (
+            <div>
+              <dt className="text-xs font-medium text-slate-400">Última actualización</dt>
+              <dd className="text-slate-700">{new Date(pieza.actualizado_en).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}</dd>
+            </div>
+          )}
+        </dl>
+      )}
+
+      <div className="mt-4 space-y-2">
         <Button variante="secundario" onClick={onVerEnExpediente} className="w-full">
           Ver expediente de la pieza
         </Button>
+        {onIrAPlan && (
+          <Button variante="secundario" onClick={onIrAPlan} className="w-full">
+            Ir al plan de tratamiento
+          </Button>
+        )}
       </div>
 
       <div className="mt-4 border-t border-slate-100 pt-3">

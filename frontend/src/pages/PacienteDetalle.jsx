@@ -219,7 +219,7 @@ export function PacienteDetalle() {
         />
       )}
       {tab === 'Historial' && <TabHistorial pacienteId={id} />}
-      {tab === 'Odontograma' && <Odontograma pacienteId={id} />}
+      {tab === 'Odontograma' && <Odontograma pacienteId={id} onIrATab={setTab} />}
       {tab === 'Plan' && <TabTratamientos pacienteId={id} paciente={paciente} />}
       {tab === 'Archivos' && <TabArchivos pacienteId={id} />}
 

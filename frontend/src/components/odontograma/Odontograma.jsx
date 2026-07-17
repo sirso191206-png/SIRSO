@@ -10,7 +10,7 @@ const Odontograma3D = lazy(() => import('./Odontograma3D').then((m) => ({ defaul
 
 const CLAVE_PREFERENCIA = 'sirso_odontograma_view'
 
-export function Odontograma({ pacienteId }) {
+export function Odontograma({ pacienteId, onIrATab }) {
   const [vista, setVista] = useState(() => {
     if (typeof window === 'undefined') return '2d'
     return localStorage.getItem(CLAVE_PREFERENCIA) === '3d' ? '3d' : '2d'
@@ -53,7 +53,11 @@ export function Odontograma({ pacienteId }) {
         <Odontograma2D pacienteId={pacienteId} />
       ) : (
         <Suspense fallback={<CargandoModelo3D />}>
-          <Odontograma3D pacienteId={pacienteId} onVerEnExpediente={() => cambiarVista('2d')} />
+          <Odontograma3D
+            pacienteId={pacienteId}
+            onVerEnExpediente={() => cambiarVista('2d')}
+            onIrAPlan={onIrATab ? () => onIrATab('Plan') : undefined}
+          />
         </Suspense>
       )}
     </div>

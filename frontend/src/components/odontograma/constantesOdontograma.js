@@ -24,6 +24,11 @@ export const COLOR_PIEZA = {
   implante: { color: '#C4B5FD', borde: '#7C3AED' }
 }
 
+// Tono marfil clínico para dientes "sanos" en 3D — ni blanco puro (se ve
+// plástico) ni un color que choque con la paleta ya usada en 2D/UI.
+export const COLOR_MARFIL_CORONA = '#F3EFE5'
+export const COLOR_MARFIL_RAIZ = '#E8DFC8'
+
 export const FILA_SUPERIOR = ['18', '17', '16', '15', '14', '13', '12', '11', '21', '22', '23', '24', '25', '26', '27', '28']
 export const FILA_INFERIOR = ['48', '47', '46', '45', '44', '43', '42', '41', '31', '32', '33', '34', '35', '36', '37', '38']
 

@@ -11,6 +11,25 @@ export default {
           verde: '#15803D',
           rojo: '#DC2626'
         }
+      },
+      keyframes: {
+        'slide-in-left': {
+          '0%': { opacity: '0', transform: 'translateX(-1.5rem)' },
+          '100%': { opacity: '1', transform: 'translateX(0)' }
+        },
+        'slide-in-right': {
+          '0%': { opacity: '0', transform: 'translateX(1.5rem)' },
+          '100%': { opacity: '1', transform: 'translateX(0)' }
+        },
+        'fade-in': {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' }
+        }
+      },
+      animation: {
+        'slide-in-left': 'slide-in-left 600ms ease both',
+        'slide-in-right': 'slide-in-right 600ms ease both',
+        'fade-in': 'fade-in 350ms ease both'
       }
     }
   },
