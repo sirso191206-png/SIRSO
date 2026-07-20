@@ -1,6 +1,18 @@
 import { supabase } from '../lib/supabase'
 import { sanitizarTerminoBusqueda } from '../lib/texto'
 
+// Si ya existe un paciente con esa CURP en la clínica, lo regresa (para
+// no crear un expediente duplicado) — si no, regresa null.
+export async function buscarPacientePorCurp(curp) {
+  const { data, error } = await supabase
+    .from('pacientes')
+    .select('id, nombre_completo, numero_expediente, archivado_en')
+    .eq('curp', curp)
+    .maybeSingle()
+  if (error) throw error
+  return data
+}
+
 export async function buscarPacientes(termino, { incluirArchivados = false } = {}) {
   let query = supabase
     .from('v_pacientes_seguro')

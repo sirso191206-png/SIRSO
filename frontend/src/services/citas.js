@@ -36,6 +36,41 @@ function mensajeError(error) {
   return error.message
 }
 
+// Cola de espera: todo lo que hoy sigue "vivo" (sin contar lo ya
+// finalizado/cancelado), ordenado para que urgencias y prioridad alta
+// salten al frente sin perder el orden de llegada dentro de cada grupo.
+export async function obtenerColaDeEspera({ dentistaId } = {}) {
+  let query = supabase
+    .from('citas')
+    .select('*, paciente:pacientes(nombre_completo, telefono), dentista:usuarios(nombre)')
+    .not('estado', 'in', '(completada,cancelada,no_asistio)')
+    .gte('inicio', new Date(new Date().setHours(0, 0, 0, 0)).toISOString())
+    .lt('inicio', new Date(new Date().setHours(24, 0, 0, 0)).toISOString())
+    .order('numero_turno', { ascending: true })
+  if (dentistaId) query = query.eq('dentista_id', dentistaId)
+
+  const { data, error } = await query
+  if (error) throw error
+
+  const pesoPrioridad = { urgente: 0, alta: 1, normal: 2 }
+  return data.sort((a, b) => (pesoPrioridad[a.prioridad] ?? 2) - (pesoPrioridad[b.prioridad] ?? 2))
+}
+
+export async function crearCitaUrgencia({ pacienteId, dentistaId, motivo, prioridad, duracionMinutos = 30 }) {
+  const inicio = new Date()
+  const fin = new Date(inicio.getTime() + duracionMinutos * 60000)
+
+  return crearCita({
+    paciente_id: pacienteId,
+    dentista_id: dentistaId ?? null,
+    inicio: inicio.toISOString(),
+    fin: fin.toISOString(),
+    motivo_consulta: motivo || 'Urgencia',
+    estado: 'en_espera',
+    es_urgencia: true,
+    prioridad: prioridad || 'urgente'
+  })
+}
 export async function crearCita(cita) {
   const { data, error } = await supabase
     .from('citas')

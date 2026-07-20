@@ -57,5 +57,5 @@ export function useCitas({ dentistaId, estado, desde, hasta }) {
     }
   }
 
-  return { citas, cargando, error, agendar, reagendar, cambiarEstado, cancelar, desagendar }
+  return { citas, cargando, error, agendar, reagendar, cambiarEstado, cancelar, desagendar, recargar }
 }

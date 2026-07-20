@@ -11,6 +11,7 @@ export const ESTADOS_CITA = [
   { value: 'confirmada', label: 'Confirmada', color: '#22C55E', fondo: '#DCFCE7', texto: '#166534' },
   { value: 'en_espera', label: 'Paciente en espera', color: '#EAB308', fondo: '#FEF9C3', texto: '#854D0E' },
   { value: 'en_consulta', label: 'Paciente en consulta', color: '#A855F7', fondo: '#F3E8FF', texto: '#6B21A8' },
+  { value: 'pausado', label: 'Pausado', color: '#F59E0B', fondo: '#FEF3C7', texto: '#92400E' },
   { value: 'completada', label: 'Completada', color: '#6B7280', fondo: '#F1F5F9', texto: '#475569' },
   { value: 'cancelada', label: 'Cancelada', color: '#FCA5A5', fondo: '#FEE2E2', texto: '#991B1B' },
   { value: 'no_asistio', label: 'No asistió', color: '#DC2626', fondo: '#FEE2E2', texto: '#7F1D1D' }

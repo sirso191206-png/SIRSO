@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePacientesLista } from '../hooks/usePacientesLista'
-import { crearPaciente, buscarPosiblesDuplicados } from '../services/pacientes'
+import { crearPaciente, buscarPosiblesDuplicados, buscarPacientePorCurp } from '../services/pacientes'
+import { validarEstructuraCurp, parsearCurp } from '../lib/curp'
 import { toastExito, toastError } from '../store/useToastStore'
 import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
@@ -183,14 +184,67 @@ function TablaPacientes({ pacientes, cargando, navigate }) {
 
 function ModalNuevoPaciente({ abierto, onCerrar }) {
   const navigate = useNavigate()
-  const [form, setForm] = useState({ nombre_completo: '', telefono: '', fecha_nacimiento: '' })
+  const [form, setForm] = useState({ nombre_completo: '', telefono: '', fecha_nacimiento: '', curp: '', sexo: '' })
   const [duplicados, setDuplicados] = useState([])
   const [guardando, setGuardando] = useState(false)
+  const [estadoCurp, setEstadoCurp] = useState(null) // null | 'valida' | 'invalida'
+  const [errorCurp, setErrorCurp] = useState('')
+  const [entidadDetectada, setEntidadDetectada] = useState(null)
+  const [pacienteExistente, setPacienteExistente] = useState(null)
+  const [verificandoCurp, setVerificandoCurp] = useState(false)
 
   const handleChange = (campo) => (e) => setForm({ ...form, [campo]: e.target.value })
 
+  const handleChangeCurp = async (e) => {
+    const valor = e.target.value.toUpperCase()
+    setForm({ ...form, curp: valor })
+    setPacienteExistente(null)
+
+    if (valor.length < 18) {
+      setEstadoCurp(null)
+      setErrorCurp('')
+      setEntidadDetectada(null)
+      return
+    }
+
+    if (!validarEstructuraCurp(valor)) {
+      setEstadoCurp('invalida')
+      setErrorCurp('La CURP no tiene una estructura válida.')
+      return
+    }
+
+    const resultado = parsearCurp(valor)
+    if (!resultado.valido) {
+      setEstadoCurp('invalida')
+      setErrorCurp(resultado.error)
+      return
+    }
+
+    // Autocompleta sin pisar lo que el usuario ya haya escrito distinto,
+    // pero si venían vacíos, se llenan solos.
+    setForm((actual) => ({
+      ...actual,
+      curp: valor,
+      fecha_nacimiento: actual.fecha_nacimiento || resultado.fechaNacimiento,
+      sexo: actual.sexo || resultado.sexo
+    }))
+    setEstadoCurp('valida')
+    setErrorCurp('')
+    setEntidadDetectada(resultado.entidadNombre)
+
+    setVerificandoCurp(true)
+    try {
+      const existente = await buscarPacientePorCurp(valor)
+      setPacienteExistente(existente)
+    } finally {
+      setVerificandoCurp(false)
+    }
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (pacienteExistente) return // no se deja avanzar, hay que usar el botón de "ir al expediente"
+
     setGuardando(true)
     try {
       const posibles = await buscarPosiblesDuplicados(form)
@@ -213,20 +267,72 @@ function ModalNuevoPaciente({ abierto, onCerrar }) {
   return (
     <Modal abierto={abierto} onCerrar={onCerrar} titulo="Nuevo paciente">
       <form onSubmit={handleSubmit} className="space-y-4">
-        <Input label="Nombre completo" required value={form.nombre_completo} onChange={handleChange('nombre_completo')} />
-        <Input label="Teléfono" required value={form.telefono} onChange={handleChange('telefono')} />
-        <Input label="Fecha de nacimiento" type="date" value={form.fecha_nacimiento} onChange={handleChange('fecha_nacimiento')} />
+        <div>
+          <Input
+            label="CURP (opcional, pero acelera el registro)"
+            value={form.curp}
+            onChange={handleChangeCurp}
+            maxLength={18}
+            className="uppercase"
+            placeholder="AAAA000000HAAAAA00"
+          />
+          {estadoCurp === 'invalida' && <p className="mt-1 text-xs text-clinico-rojo">{errorCurp}</p>}
+          {estadoCurp === 'valida' && !pacienteExistente && (
+            <p className="mt-1 text-xs text-clinico-verde">
+              CURP válida{entidadDetectada ? ` — ${entidadDetectada}` : ''}. Fecha de nacimiento y sexo autocompletados.
+            </p>
+          )}
+          {verificandoCurp && <p className="mt-1 text-xs text-slate-400">Verificando si ya existe…</p>}
+        </div>
 
-        {duplicados.length > 0 && (
+        {pacienteExistente ? (
           <div className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
-            Ya existen pacientes parecidos: {duplicados.map((d) => d.nombre_completo).join(', ')}.
-            Vuelve a dar clic en "Guardar" si aun así quieres crear uno nuevo.
+            <p className="mb-2">
+              Ya existe un expediente con esta CURP: <strong>{pacienteExistente.nombre_completo}</strong>
+              {pacienteExistente.numero_expediente && ` (${pacienteExistente.numero_expediente})`}.
+            </p>
+            <Button
+              type="button"
+              variante="secundario"
+              onClick={() => { onCerrar(); navigate(`/pacientes/${pacienteExistente.id}`) }}
+              className="w-full"
+            >
+              Ir a su expediente
+            </Button>
           </div>
-        )}
+        ) : (
+          <>
+            <Input label="Nombre completo" required value={form.nombre_completo} onChange={handleChange('nombre_completo')} />
+            <Input label="Teléfono" required value={form.telefono} onChange={handleChange('telefono')} />
+            <div className="grid grid-cols-2 gap-3">
+              <Input label="Fecha de nacimiento" type="date" value={form.fecha_nacimiento} onChange={handleChange('fecha_nacimiento')} />
+              <label className="block text-sm">
+                <span className="mb-1 block font-medium text-slate-700">Sexo</span>
+                <select
+                  value={form.sexo}
+                  onChange={handleChange('sexo')}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-clinico-azul focus:outline-none focus:ring-1 focus:ring-clinico-azul"
+                >
+                  <option value="">Sin especificar</option>
+                  <option value="M">Masculino</option>
+                  <option value="F">Femenino</option>
+                  <option value="X">Otro</option>
+                </select>
+              </label>
+            </div>
 
-        <Button type="submit" disabled={guardando} className="w-full">
-          {guardando ? 'Guardando…' : 'Guardar'}
-        </Button>
+            {duplicados.length > 0 && (
+              <div className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
+                Ya existen pacientes parecidos: {duplicados.map((d) => d.nombre_completo).join(', ')}.
+                Vuelve a dar clic en "Guardar" si aun así quieres crear uno nuevo.
+              </div>
+            )}
+
+            <Button type="submit" disabled={guardando || estadoCurp === 'invalida'} className="w-full">
+              {guardando ? 'Guardando…' : 'Guardar'}
+            </Button>
+          </>
+        )}
       </form>
     </Modal>
   )

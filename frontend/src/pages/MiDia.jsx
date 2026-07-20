@@ -4,7 +4,8 @@ import { useAuthStore } from '../store/useAuthStore'
 import { useMiDia } from '../hooks/useMiDia'
 import { toastExito, toastError } from '../store/useToastStore'
 import { capitalizarPrimeraLetra } from '../lib/texto'
-import { infoEstado } from '../components/agenda/constantes'
+import { ColaDeEspera } from '../components/ColaDeEspera'
+import { ModalNuevaUrgencia } from '../components/ModalNuevaUrgencia'
 import { Button } from '../components/ui/Button'
 
 function saludo() {
@@ -18,6 +19,8 @@ export function MiDia() {
   const perfil = useAuthStore((s) => s.perfil)
   const navigate = useNavigate()
   const { datos, cargando, error, iniciarConsulta, finalizarConsulta } = useMiDia()
+  const [modalUrgenciaAbierto, setModalUrgenciaAbierto] = useState(false)
+  const [colaVersion, setColaVersion] = useState(0)
 
   // Recepción no tiene "Mi día" en su flujo (ver menú) — si llega aquí
   // directo por URL, se le manda a donde sí trabaja.
@@ -42,6 +45,11 @@ export function MiDia() {
     new Date().toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' })
   )
 
+  const handleIniciarDesdeColaDeEspera = async (turno) => {
+    await iniciarConsulta(turno.id)
+    navigate(`/consulta/${turno.id}`)
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -53,7 +61,8 @@ export function MiDia() {
         </div>
         <div className="flex gap-2">
           <Button variante="secundario" onClick={() => navigate('/pacientes')}>+ Nuevo paciente</Button>
-          <Button onClick={() => navigate('/agenda')}>+ Nueva cita</Button>
+          <Button variante="secundario" onClick={() => navigate('/agenda')}>+ Nueva cita</Button>
+          <Button onClick={() => setModalUrgenciaAbierto(true)}>+ Nueva urgencia</Button>
         </div>
       </div>
 
@@ -66,11 +75,16 @@ export function MiDia() {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <h2 className="mb-2 text-sm font-semibold text-slate-700">Siguientes pacientes</h2>
-          <SiguientesPacientes citas={datos.siguientes} onIniciar={iniciarConsulta} />
+          <ColaDeEspera key={colaVersion} onIniciarConsulta={handleIniciarDesdeColaDeEspera} />
         </div>
         <ResumenDelDia resumen={datos.resumen} />
       </div>
+
+      <ModalNuevaUrgencia
+        abierto={modalUrgenciaAbierto}
+        onCerrar={() => setModalUrgenciaAbierto(false)}
+        onCreada={() => setColaVersion((v) => v + 1)}
+      />
     </div>
   )
 }
@@ -131,63 +145,6 @@ function PacienteActualCard({ cita, alertas, ultimaConsulta, onFinalizar }) {
         <Button variante="secundario" onClick={() => navigate(`/consulta/${cita.id}`)}>Continuar consulta</Button>
         <Button onClick={handleFinalizar} disabled={procesando}>{procesando ? 'Guardando…' : 'Finalizar consulta'}</Button>
       </div>
-    </div>
-  )
-}
-
-function SiguientesPacientes({ citas, onIniciar }) {
-  const navigate = useNavigate()
-  const [procesandoId, setProcesandoId] = useState(null)
-
-  const handleIniciar = async (citaId) => {
-    setProcesandoId(citaId)
-    try {
-      await onIniciar(citaId)
-      toastExito('Consulta iniciada.')
-      navigate(`/consulta/${citaId}`)
-    } catch (err) {
-      toastError(err.message)
-    } finally {
-      setProcesandoId(null)
-    }
-  }
-
-  if (citas.length === 0) {
-    return <p className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-400">No hay más pacientes en la fila por hoy.</p>
-  }
-
-  return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-      {citas.map((c, i) => {
-        const info = infoEstado(c.estado)
-        return (
-          <div key={c.id} className={`flex items-center justify-between px-4 py-3 text-sm ${i > 0 ? 'border-t border-slate-100' : ''}`}>
-            <div className="flex items-center gap-4">
-              <span className="w-16 font-medium text-clinico-azul">
-                {new Date(c.inicio).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
-              </span>
-              <div>
-                <div className="font-medium text-slate-800">{c.paciente?.nombre_completo}</div>
-                <div className="text-xs text-slate-500">{c.motivo_consulta || c.dentista?.nombre}</div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="rounded-full px-2 py-0.5 text-xs font-medium" style={{ backgroundColor: info.fondo, color: info.texto }}>
-                {info.label}
-              </span>
-              {c.estado === 'en_espera' && (
-                <button
-                  onClick={() => handleIniciar(c.id)}
-                  disabled={procesandoId === c.id}
-                  className="text-xs font-medium text-clinico-azul hover:underline"
-                >
-                  {procesandoId === c.id ? 'Iniciando…' : 'Iniciar consulta'}
-                </button>
-              )}
-            </div>
-          </div>
-        )
-      })}
     </div>
   )
 }

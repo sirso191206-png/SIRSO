@@ -13,6 +13,7 @@ import { CuadriculaCalendario } from '../components/agenda/CuadriculaCalendario'
 import { VistaMes } from '../components/agenda/VistaMes'
 import { PanelCita } from '../components/agenda/PanelCita'
 import { ModalNuevaCita } from '../components/agenda/ModalNuevaCita'
+import { ModalNuevaUrgencia } from '../components/ModalNuevaUrgencia'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
@@ -42,6 +43,7 @@ export function Agenda() {
   const [dentistas, setDentistas] = useState([])
 
   const [modalNuevaCita, setModalNuevaCita] = useState(false)
+  const [modalUrgenciaAbierto, setModalUrgenciaAbierto] = useState(false)
   const [fechaParaNuevaCita, setFechaParaNuevaCita] = useState(null)
   const [citaSeleccionada, setCitaSeleccionada] = useState(null)
   const [modalBloqueo, setModalBloqueo] = useState(false)
@@ -93,7 +95,7 @@ export function Agenda() {
     }
   }, [vista, fechaBase])
 
-  const { citas, error, agendar, reagendar, cambiarEstado, desagendar } = useCitas({
+  const { citas, error, agendar, reagendar, cambiarEstado, desagendar, recargar } = useCitas({
     dentistaId: filtroDentista || undefined,
     estado: filtroEstado || undefined,
     desde,
@@ -202,6 +204,9 @@ export function Agenda() {
             {puedeGestionar && (
               <Button onClick={() => { setFechaParaNuevaCita(null); setModalNuevaCita(true) }}>+ Nueva cita</Button>
             )}
+            {puedeGestionar && (
+              <Button variante="secundario" onClick={() => setModalUrgenciaAbierto(true)}>+ Urgencia</Button>
+            )}
           </div>
         </div>
 
@@ -237,6 +242,12 @@ export function Agenda() {
         onAgendar={agendar}
         dentistas={dentistas}
         fechaInicial={fechaParaNuevaCita}
+      />
+
+      <ModalNuevaUrgencia
+        abierto={modalUrgenciaAbierto}
+        onCerrar={() => setModalUrgenciaAbierto(false)}
+        onCreada={recargar}
       />
 
       <ModalBloqueoHorario
