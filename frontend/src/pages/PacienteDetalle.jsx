@@ -12,6 +12,7 @@ import { TabTratamientos } from '../components/tratamientos/TabTratamientos'
 import { TabResumen } from '../components/paciente/TabResumen'
 import { TabHistorial } from '../components/paciente/TabHistorial'
 import { TabArchivos } from '../components/paciente/TabArchivos'
+import { TabDocumentosClinicos } from '../components/documentos/TabDocumentosClinicos'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
 import { ConfirmModal } from '../components/ui/ConfirmModal'
@@ -21,6 +22,7 @@ const TODAS_LAS_TABS = [
   { nombre: 'Historial', roles: ['owner', 'dentista'] },
   { nombre: 'Odontograma', roles: ['owner', 'dentista'] },
   { nombre: 'Plan', roles: ['owner', 'dentista', 'recepcion', 'asistente'] },
+  { nombre: 'Documentos clínicos', roles: ['owner', 'dentista'] },
   { nombre: 'Archivos', roles: ['owner', 'dentista'] }
 ]
 
@@ -221,6 +223,7 @@ export function PacienteDetalle() {
       {tab === 'Historial' && <TabHistorial pacienteId={id} />}
       {tab === 'Odontograma' && <Odontograma pacienteId={id} onIrATab={setTab} />}
       {tab === 'Plan' && <TabTratamientos pacienteId={id} paciente={paciente} />}
+      {tab === 'Documentos clínicos' && <TabDocumentosClinicos pacienteId={id} paciente={paciente} />}
       {tab === 'Archivos' && <TabArchivos pacienteId={id} />}
 
       <Modal abierto={modalExpedienteCompleto} onCerrar={() => setModalExpedienteCompleto(false)} titulo="Expediente completo" ancho="grande">

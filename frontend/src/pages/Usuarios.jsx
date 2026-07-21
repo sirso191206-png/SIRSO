@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useUsuarios } from '../hooks/useUsuarios'
 import { useAuthStore } from '../store/useAuthStore'
 import { toastExito, toastError } from '../store/useToastStore'
@@ -16,8 +16,9 @@ const ROLES = [
 
 export function Usuarios() {
   const perfil = useAuthStore((s) => s.perfil)
-  const { usuarios, cargando, crear, cambiarActivo, eliminar } = useUsuarios()
+  const { usuarios, cargando, crear, actualizar, cambiarActivo, eliminar } = useUsuarios()
   const [modalAbierto, setModalAbierto] = useState(false)
+  const [usuarioAEditar, setUsuarioAEditar] = useState(null)
   const [usuarioAEliminar, setUsuarioAEliminar] = useState(null)
   const [eliminando, setEliminando] = useState(false)
 
@@ -87,22 +88,30 @@ export function Usuarios() {
                     </span>
                   </td>
                   <td className="px-4 py-2">
-                    {u.id !== perfil.id && (
-                      <div className="flex justify-end gap-3 text-xs">
-                        <button
-                          onClick={() => handleCambiarActivo(u)}
-                          className="font-medium text-clinico-azul hover:underline"
-                        >
-                          {u.activo ? 'Desactivar' : 'Reactivar'}
-                        </button>
-                        <button
-                          onClick={() => setUsuarioAEliminar(u)}
-                          className="font-medium text-clinico-rojo hover:underline"
-                        >
-                          Eliminar
-                        </button>
-                      </div>
-                    )}
+                    <div className="flex justify-end gap-3 text-xs">
+                      <button
+                        onClick={() => setUsuarioAEditar(u)}
+                        className="font-medium text-clinico-azul hover:underline"
+                      >
+                        Editar
+                      </button>
+                      {u.id !== perfil.id && (
+                        <>
+                          <button
+                            onClick={() => handleCambiarActivo(u)}
+                            className="font-medium text-clinico-azul hover:underline"
+                          >
+                            {u.activo ? 'Desactivar' : 'Reactivar'}
+                          </button>
+                          <button
+                            onClick={() => setUsuarioAEliminar(u)}
+                            className="font-medium text-clinico-rojo hover:underline"
+                          >
+                            Eliminar
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -112,6 +121,13 @@ export function Usuarios() {
       )}
 
       <ModalNuevoUsuario abierto={modalAbierto} onCerrar={() => setModalAbierto(false)} onCrear={crear} />
+
+      <ModalEditarUsuario
+        usuario={usuarioAEditar}
+        esUnoMismo={usuarioAEditar?.id === perfil.id}
+        onCerrar={() => setUsuarioAEditar(null)}
+        onGuardar={actualizar}
+      />
 
       <ConfirmModal
         abierto={!!usuarioAEliminar}
@@ -217,6 +233,78 @@ function ModalNuevoUsuario({ abierto, onCerrar, onCrear }) {
           </Button>
         </form>
       )}
+    </Modal>
+  )
+}
+
+function ModalEditarUsuario({ usuario, esUnoMismo, onCerrar, onGuardar }) {
+  const [nombre, setNombre] = useState('')
+  const [rol, setRol] = useState('recepcion')
+  const [cedulaProfesional, setCedulaProfesional] = useState('')
+  const [guardando, setGuardando] = useState(false)
+
+  // Rellena el formulario cada vez que se abre con un usuario distinto
+  useEffect(() => {
+    if (usuario) {
+      setNombre(usuario.nombre ?? '')
+      setRol(usuario.rol ?? 'recepcion')
+      setCedulaProfesional(usuario.cedula_profesional ?? '')
+    }
+  }, [usuario])
+
+  if (!usuario) return null
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setGuardando(true)
+    try {
+      await onGuardar(usuario.id, { nombre, rol, cedulaProfesional })
+      toastExito('Perfil actualizado.')
+      onCerrar()
+    } catch (err) {
+      toastError('No se pudo guardar: ' + err.message)
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  return (
+    <Modal abierto onCerrar={onCerrar} titulo={`Editar ${usuario.nombre}`}>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <Input label="Nombre completo" required value={nombre} onChange={(e) => setNombre(e.target.value)} />
+
+        <div className="text-sm">
+          <span className="mb-1 block font-medium text-slate-700">Correo</span>
+          <p className="rounded-lg bg-slate-50 px-3 py-2 text-slate-500">{usuario.correo}</p>
+          <p className="mt-1 text-xs text-slate-400">El correo no se puede cambiar desde aquí todavía.</p>
+        </div>
+
+        <label className="block text-sm">
+          <span className="mb-1 block font-medium text-slate-700">Rol</span>
+          <select
+            value={rol}
+            onChange={(e) => setRol(e.target.value)}
+            disabled={esUnoMismo}
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-400"
+          >
+            {ROLES.map((r) => (
+              <option key={r.value} value={r.value}>{r.label}</option>
+            ))}
+          </select>
+          {esUnoMismo && <p className="mt-1 text-xs text-slate-400">No puedes cambiar tu propio rol.</p>}
+        </label>
+
+        <Input
+          label="Cédula profesional (opcional)"
+          value={cedulaProfesional}
+          onChange={(e) => setCedulaProfesional(e.target.value)}
+          placeholder="Ej. 12345678"
+        />
+
+        <Button type="submit" disabled={guardando} className="w-full">
+          {guardando ? 'Guardando…' : 'Guardar cambios'}
+        </Button>
+      </form>
     </Modal>
   )
 }

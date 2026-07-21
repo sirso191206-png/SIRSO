@@ -58,6 +58,21 @@ export async function cambiarActivoUsuario(id, activo) {
   return data
 }
 
+// Edición de perfil — no incluye el correo: cambiarlo requeriría también
+// actualizar el correo en Supabase Auth (auth.admin.updateUserById), que
+// es un flujo aparte todavía no implementado. Por ahora el correo solo
+// se define al crear el usuario.
+export async function actualizarUsuario(id, { nombre, rol, cedulaProfesional }) {
+  const { data, error } = await supabase
+    .from('usuarios')
+    .update({ nombre, rol, cedula_profesional: cedulaProfesional || null })
+    .eq('id', id)
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
 export async function eliminarUsuario(usuarioId) {
   const { data, error } = await supabase.functions.invoke('eliminar-usuario', {
     body: { usuarioId }

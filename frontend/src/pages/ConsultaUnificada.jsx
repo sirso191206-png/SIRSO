@@ -8,6 +8,9 @@ import { useCatalogoTratamientos } from '../hooks/useCatalogoTratamientos'
 import { useAuthStore } from '../store/useAuthStore'
 import { toastExito, toastError } from '../store/useToastStore'
 import { Odontograma } from '../components/odontograma/Odontograma'
+import { SelectorCie10 } from '../components/SelectorCie10'
+import { InterrogatorioSistemas } from '../components/InterrogatorioSistemas'
+import { ExploracionFisica } from '../components/ExploracionFisica'
 import { TabExpediente } from '../components/expediente/TabExpediente'
 import { ModalTratamiento } from '../components/tratamientos/TabTratamientos'
 import { Button } from '../components/ui/Button'
@@ -45,7 +48,11 @@ export function ConsultaUnificada() {
 
   const [motivo, setMotivo] = useState('')
   const [hallazgos, setHallazgos] = useState('')
+  const [interrogatorioSistemas, setInterrogatorioSistemas] = useState({})
+  const [exploracionFisica, setExploracionFisica] = useState({})
   const [diagnostico, setDiagnostico] = useState('')
+  const [diagnosticoCie10Codigo, setDiagnosticoCie10Codigo] = useState('')
+  const [diagnosticoCie10Descripcion, setDiagnosticoCie10Descripcion] = useState('')
   const [notaContenido, setNotaContenido] = useState('')
   const [programarSeguimiento, setProgramarSeguimiento] = useState(false)
   const [seguimiento, setSeguimiento] = useState({ fecha: '', hora: '', duracion: 30, motivo: '' })
@@ -89,6 +96,10 @@ export function ConsultaUnificada() {
       contenido: notaContenido || '(sin nota)',
       tipo: 'consulta',
       diagnostico: diagnostico || null,
+      diagnostico_cie10_codigo: diagnosticoCie10Codigo || null,
+      diagnostico_cie10_descripcion: diagnosticoCie10Descripcion || null,
+      interrogatorio_sistemas: Object.keys(interrogatorioSistemas).length > 0 ? interrogatorioSistemas : null,
+      exploracion_fisica: Object.keys(exploracionFisica).length > 0 ? exploracionFisica : null,
       hallazgos: hallazgos || null
     })
   }
@@ -190,8 +201,25 @@ export function ConsultaUnificada() {
         </label>
       </Seccion>
 
+      <Seccion titulo="Interrogatorio por aparatos y sistemas">
+        <InterrogatorioSistemas valor={interrogatorioSistemas} onCambiar={setInterrogatorioSistemas} />
+      </Seccion>
+
+      <Seccion titulo="Exploración física">
+        <ExploracionFisica valor={exploracionFisica} onCambiar={setExploracionFisica} />
+      </Seccion>
+
       {/* Sección 3: Diagnóstico */}
       <Seccion titulo="3. Diagnóstico">
+        <label className="mb-1 block text-xs font-medium text-slate-500">Código CIE-10 (opcional)</label>
+        <SelectorCie10
+          codigo={diagnosticoCie10Codigo}
+          descripcion={diagnosticoCie10Descripcion}
+          onSeleccionar={(r) => { setDiagnosticoCie10Codigo(r.codigo); setDiagnosticoCie10Descripcion(r.descripcion) }}
+          onLimpiar={() => { setDiagnosticoCie10Codigo(''); setDiagnosticoCie10Descripcion('') }}
+        />
+
+        <label className="mb-1 mt-3 block text-xs font-medium text-slate-500">Descripción clínica</label>
         <input
           list="diagnosticos-frecuentes"
           value={diagnostico}

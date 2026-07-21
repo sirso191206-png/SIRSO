@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { listarUsuarios, crearUsuario, cambiarActivoUsuario, eliminarUsuario } from '../services/usuarios'
+import { listarUsuarios, crearUsuario, cambiarActivoUsuario, actualizarUsuario, eliminarUsuario } from '../services/usuarios'
 
 export function useUsuarios() {
   const [usuarios, setUsuarios] = useState([])
@@ -22,6 +22,11 @@ export function useUsuarios() {
     return resultado
   }
 
+  const actualizar = async (id, datos) => {
+    await actualizarUsuario(id, datos)
+    await recargar()
+  }
+
   const cambiarActivo = async (id, activo) => {
     await cambiarActivoUsuario(id, activo)
     await recargar()
@@ -32,5 +37,5 @@ export function useUsuarios() {
     await recargar()
   }
 
-  return { usuarios, cargando, crear, cambiarActivo, eliminar }
+  return { usuarios, cargando, crear, actualizar, cambiarActivo, eliminar }
 }

@@ -5,6 +5,7 @@ import { useAuthStore } from '../../store/useAuthStore'
 import { toastExito, toastError } from '../../store/useToastStore'
 import { EditorAlergias } from './EditorAlergias'
 import { EditorLista } from './EditorLista'
+import { EditorHeredofamiliares } from './EditorHeredofamiliares'
 import { Input } from '../ui/Input'
 import { Button } from '../ui/Button'
 
@@ -60,6 +61,11 @@ function SeccionGeneral({ pacienteId }) {
         onGuardar={(nueva) => guardarCampo('alergias', nueva, 'Alergias actualizadas.')}
       />
 
+      <EditorHeredofamiliares
+        familiares={expediente.antecedentes_heredofamiliares}
+        onGuardar={(nueva) => guardarCampo('antecedentes_heredofamiliares', nueva, 'Antecedentes heredofamiliares actualizados.')}
+      />
+
       <AntecedentesFamiliaresForm expediente={expediente} onGuardar={guardarAntecedentes} />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -103,7 +109,7 @@ function AntecedentesFamiliaresForm({ expediente, onGuardar }) {
     return (
       <div className="rounded-xl border border-slate-200 p-4">
         <div className="mb-1 flex items-center justify-between">
-          <span className="text-sm font-semibold text-slate-700">Antecedentes familiares</span>
+          <span className="text-sm font-semibold text-slate-700">Notas adicionales sobre antecedentes familiares</span>
           <button type="button" onClick={() => setEditando(true)} className="text-xs font-medium text-clinico-azul hover:underline">
             Editar
           </button>
@@ -134,7 +140,7 @@ function AntecedentesFamiliaresForm({ expediente, onGuardar }) {
       }}
       className="rounded-xl border border-slate-200 p-4"
     >
-      <Input label="Antecedentes familiares" value={valor} onChange={(e) => setValor(e.target.value)} />
+      <Input label="Notas adicionales sobre antecedentes familiares" value={valor} onChange={(e) => setValor(e.target.value)} />
       <div className="mt-3 flex items-center gap-3">
         <Button variante="secundario" type="submit" disabled={guardando}>{guardando ? 'Guardando…' : 'Guardar'}</Button>
         {expediente.antecedentes_familiares && (
@@ -353,10 +359,19 @@ function SeccionNotas({ pacienteId }) {
 // ============================================================
 // Signos vitales
 // ============================================================
+function calcularImc(peso, estatura) {
+  if (!peso || !estatura) return null
+  const estaturaMetros = estatura / 100
+  return (peso / (estaturaMetros * estaturaMetros)).toFixed(1)
+}
+
 function SeccionSignosVitales({ pacienteId }) {
   const { registros, cargando, agregar } = useSignosVitales(pacienteId)
   const perfil = useAuthStore((s) => s.perfil)
-  const [form, setForm] = useState({ presion_arterial: '', frecuencia_cardiaca: '', temperatura: '', peso: '', estatura: '' })
+  const [form, setForm] = useState({
+    presion_arterial: '', frecuencia_cardiaca: '', temperatura: '', peso: '', estatura: '',
+    frecuencia_respiratoria: '', saturacion_oxigeno: '', glucosa_capilar: ''
+  })
   const [guardando, setGuardando] = useState(false)
 
   const handleSubmit = async (e) => {
@@ -369,10 +384,16 @@ function SeccionSignosVitales({ pacienteId }) {
         temperatura: form.temperatura ? Number(form.temperatura) : null,
         peso: form.peso ? Number(form.peso) : null,
         estatura: form.estatura ? Number(form.estatura) : null,
+        frecuencia_respiratoria: form.frecuencia_respiratoria ? Number(form.frecuencia_respiratoria) : null,
+        saturacion_oxigeno: form.saturacion_oxigeno ? Number(form.saturacion_oxigeno) : null,
+        glucosa_capilar: form.glucosa_capilar ? Number(form.glucosa_capilar) : null,
         registrado_por: perfil.id
       })
       toastExito('Signos vitales registrados.')
-      setForm({ presion_arterial: '', frecuencia_cardiaca: '', temperatura: '', peso: '', estatura: '' })
+      setForm({
+        presion_arterial: '', frecuencia_cardiaca: '', temperatura: '', peso: '', estatura: '',
+        frecuencia_respiratoria: '', saturacion_oxigeno: '', glucosa_capilar: ''
+      })
     } catch (err) {
       toastError('No se pudo guardar: ' + err.message)
     } finally {
@@ -384,34 +405,47 @@ function SeccionSignosVitales({ pacienteId }) {
 
   return (
     <div className="space-y-4">
-      <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:grid-cols-5">
+      <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:grid-cols-4">
         <Input label="Presión arterial" placeholder="120/80" value={form.presion_arterial} onChange={(e) => setForm({ ...form, presion_arterial: e.target.value })} />
         <Input label="Frec. cardiaca" type="number" placeholder="lpm" value={form.frecuencia_cardiaca} onChange={(e) => setForm({ ...form, frecuencia_cardiaca: e.target.value })} />
+        <Input label="Frec. respiratoria" type="number" placeholder="rpm" value={form.frecuencia_respiratoria} onChange={(e) => setForm({ ...form, frecuencia_respiratoria: e.target.value })} />
+        <Input label="Saturación O₂" type="number" placeholder="%" value={form.saturacion_oxigeno} onChange={(e) => setForm({ ...form, saturacion_oxigeno: e.target.value })} />
         <Input label="Temperatura" type="number" step="0.1" placeholder="°C" value={form.temperatura} onChange={(e) => setForm({ ...form, temperatura: e.target.value })} />
+        <Input label="Glucosa capilar" type="number" placeholder="mg/dL (si aplica)" value={form.glucosa_capilar} onChange={(e) => setForm({ ...form, glucosa_capilar: e.target.value })} />
         <Input label="Peso (kg)" type="number" step="0.1" value={form.peso} onChange={(e) => setForm({ ...form, peso: e.target.value })} />
         <Input label="Estatura (cm)" type="number" step="0.1" value={form.estatura} onChange={(e) => setForm({ ...form, estatura: e.target.value })} />
-        <div className="col-span-2 sm:col-span-5">
+        {form.peso && form.estatura && (
+          <p className="col-span-2 text-xs text-slate-500 sm:col-span-4">IMC calculado: <strong>{calcularImc(form.peso, form.estatura)}</strong></p>
+        )}
+        <div className="col-span-2 sm:col-span-4">
           <Button type="submit" disabled={guardando}>{guardando ? 'Guardando…' : 'Registrar toma'}</Button>
         </div>
       </form>
 
       <div className="space-y-2">
         {registros.length === 0 && <p className="text-sm text-slate-400">Sin registros todavía.</p>}
-        {registros.map((r) => (
-          <div key={r.id} className="rounded-lg border border-slate-200 bg-white p-3 text-sm">
-            <div className="mb-1 flex justify-between text-xs text-slate-400">
-              <span>{r.usuario?.nombre}</span>
-              <span>{new Date(r.creado_en).toLocaleString('es-MX')}</span>
+        {registros.map((r) => {
+          const imc = calcularImc(r.peso, r.estatura)
+          return (
+            <div key={r.id} className="rounded-lg border border-slate-200 bg-white p-3 text-sm">
+              <div className="mb-1 flex justify-between text-xs text-slate-400">
+                <span>{r.usuario?.nombre}</span>
+                <span>{new Date(r.creado_en).toLocaleString('es-MX')}</span>
+              </div>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-slate-700">
+                {r.presion_arterial && <span>PA: {r.presion_arterial}</span>}
+                {r.frecuencia_cardiaca && <span>FC: {r.frecuencia_cardiaca} lpm</span>}
+                {r.frecuencia_respiratoria && <span>FR: {r.frecuencia_respiratoria} rpm</span>}
+                {r.saturacion_oxigeno && <span>SpO₂: {r.saturacion_oxigeno}%</span>}
+                {r.temperatura && <span>Temp: {r.temperatura}°C</span>}
+                {r.glucosa_capilar && <span>Glucosa: {r.glucosa_capilar} mg/dL</span>}
+                {r.peso && <span>Peso: {r.peso} kg</span>}
+                {r.estatura && <span>Estatura: {r.estatura} cm</span>}
+                {imc && <span>IMC: {imc}</span>}
+              </div>
             </div>
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-slate-700">
-              {r.presion_arterial && <span>PA: {r.presion_arterial}</span>}
-              {r.frecuencia_cardiaca && <span>FC: {r.frecuencia_cardiaca} lpm</span>}
-              {r.temperatura && <span>Temp: {r.temperatura}°C</span>}
-              {r.peso && <span>Peso: {r.peso} kg</span>}
-              {r.estatura && <span>Estatura: {r.estatura} cm</span>}
-            </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )

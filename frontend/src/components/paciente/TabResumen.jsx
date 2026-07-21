@@ -146,6 +146,11 @@ export function TabResumen({ pacienteId, onIrA, onNuevaConsulta, iniciandoConsul
         {ultimaNota ? (
           <div className="text-sm text-slate-600">
             <p>"{ultimaNota.contenido}"</p>
+            {ultimaNota.diagnostico_cie10_codigo && (
+              <p className="mt-1 inline-block rounded bg-clinico-azulClaro px-1.5 py-0.5 text-xs font-medium text-clinico-azul">
+                {ultimaNota.diagnostico_cie10_codigo} — {ultimaNota.diagnostico_cie10_descripcion}
+              </p>
+            )}
             <p className="mt-1 text-xs text-slate-400">{new Date(ultimaNota.creado_en).toLocaleDateString('es-MX')}</p>
           </div>
         ) : (

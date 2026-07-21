@@ -22,7 +22,7 @@ export async function obtenerLineaTiempo(pacienteId) {
     supabase.from('pagos').select('id, monto, tipo, creado_en').eq('paciente_id', pacienteId).order('creado_en', { ascending: false }).limit(LIMITE_POR_FUENTE),
     supabase.from('tratamientos').select('id, descripcion, estado, completado_en, creado_en').eq('paciente_id', pacienteId).order('creado_en', { ascending: false }).limit(LIMITE_POR_FUENTE),
     supabase.from('fotografias').select('id, etiqueta, fecha_captura').eq('paciente_id', pacienteId).order('fecha_captura', { ascending: false }).limit(LIMITE_POR_FUENTE),
-    supabase.from('notas_clinicas').select('id, contenido, creado_en').eq('expediente_id', expediente.id).is('version_anterior_id', null).order('creado_en', { ascending: false }).limit(LIMITE_POR_FUENTE),
+    supabase.from('notas_clinicas').select('id, contenido, creado_en, diagnostico_cie10_codigo, diagnostico_cie10_descripcion').eq('expediente_id', expediente.id).is('version_anterior_id', null).order('creado_en', { ascending: false }).limit(LIMITE_POR_FUENTE),
     supabase.from('documentos_clinicos').select('id, nombre, tipo, creado_en').eq('paciente_id', pacienteId).order('creado_en', { ascending: false }).limit(LIMITE_POR_FUENTE)
   ])
 
@@ -84,10 +84,11 @@ export async function obtenerLineaTiempo(pacienteId) {
   }
 
   for (const n of notas.data) {
+    const etiquetaCie10 = n.diagnostico_cie10_codigo ? ` [${n.diagnostico_cie10_codigo} — ${n.diagnostico_cie10_descripcion}]` : ''
     eventos.push({
       id: `nota-${n.id}`,
       fecha: n.creado_en,
-      texto: `Nota clínica: ${n.contenido.slice(0, 60)}${n.contenido.length > 60 ? '…' : ''}`,
+      texto: `Nota clínica: ${n.contenido.slice(0, 60)}${n.contenido.length > 60 ? '…' : ''}${etiquetaCie10}`,
       tipo: 'nota'
     })
   }

@@ -1,6 +1,7 @@
 import { lazy, Suspense, useState } from 'react'
 import { Odontograma2D } from './Odontograma2D'
 import { CargandoModelo3D } from './CargandoModelo3D'
+import { Periodontograma } from '../periodontograma/Periodontograma'
 
 // Three.js/@react-three/fiber solo se descargan si el usuario pide la
 // vista 3D — con React.lazy nunca entran al bundle inicial ni se cargan
@@ -9,11 +10,19 @@ import { CargandoModelo3D } from './CargandoModelo3D'
 const Odontograma3D = lazy(() => import('./Odontograma3D').then((m) => ({ default: m.Odontograma3D })))
 
 const CLAVE_PREFERENCIA = 'sirso_odontograma_view'
+const VISTAS_VALIDAS = ['2d', '3d', 'perio']
+
+const OPCIONES = [
+  { value: '2d', label: 'Vista clínica 2D' },
+  { value: '3d', label: 'Vista anatómica 3D' },
+  { value: 'perio', label: 'Periodontograma' }
+]
 
 export function Odontograma({ pacienteId, onIrATab }) {
   const [vista, setVista] = useState(() => {
     if (typeof window === 'undefined') return '2d'
-    return localStorage.getItem(CLAVE_PREFERENCIA) === '3d' ? '3d' : '2d'
+    const guardada = localStorage.getItem(CLAVE_PREFERENCIA)
+    return VISTAS_VALIDAS.includes(guardada) ? guardada : '2d'
   })
 
   const cambiarVista = (nueva) => {
@@ -29,29 +38,23 @@ export function Odontograma({ pacienteId, onIrATab }) {
   return (
     <div className="space-y-4">
       <div className="inline-flex rounded-lg border border-slate-300 bg-white p-0.5">
-        <button
-          onClick={() => cambiarVista('2d')}
-          aria-pressed={vista === '2d'}
-          className={`rounded-md px-4 py-1.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-clinico-azul ${
-            vista === '2d' ? 'bg-clinico-azul text-white' : 'text-slate-600'
-          }`}
-        >
-          Vista clínica 2D
-        </button>
-        <button
-          onClick={() => cambiarVista('3d')}
-          aria-pressed={vista === '3d'}
-          className={`rounded-md px-4 py-1.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-clinico-azul ${
-            vista === '3d' ? 'bg-clinico-azul text-white' : 'text-slate-600'
-          }`}
-        >
-          Vista anatómica 3D
-        </button>
+        {OPCIONES.map((o) => (
+          <button
+            key={o.value}
+            onClick={() => cambiarVista(o.value)}
+            aria-pressed={vista === o.value}
+            className={`rounded-md px-4 py-1.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-clinico-azul ${
+              vista === o.value ? 'bg-clinico-azul text-white' : 'text-slate-600'
+            }`}
+          >
+            {o.label}
+          </button>
+        ))}
       </div>
 
-      {vista === '2d' ? (
-        <Odontograma2D pacienteId={pacienteId} />
-      ) : (
+      {vista === '2d' && <Odontograma2D pacienteId={pacienteId} />}
+
+      {vista === '3d' && (
         <Suspense fallback={<CargandoModelo3D />}>
           <Odontograma3D
             pacienteId={pacienteId}
@@ -60,6 +63,8 @@ export function Odontograma({ pacienteId, onIrATab }) {
           />
         </Suspense>
       )}
+
+      {vista === 'perio' && <Periodontograma pacienteId={pacienteId} />}
     </div>
   )
 }
