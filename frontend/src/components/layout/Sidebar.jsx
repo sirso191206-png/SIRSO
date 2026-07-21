@@ -31,6 +31,7 @@ const SECCIONES = [
     titulo: 'Gestión',
     enlaces: [
       { to: '/catalogo', label: 'Tratamientos', roles: ['owner', 'dentista'] },
+      { to: '/corte-de-caja', label: 'Corte de caja', roles: ['owner', 'recepcion'] },
       { to: '/reportes', label: 'Reportes', roles: ['owner'] }
     ]
   },

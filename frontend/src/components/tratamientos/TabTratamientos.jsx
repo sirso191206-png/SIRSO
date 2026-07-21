@@ -5,6 +5,7 @@ import { usePagos } from '../../hooks/usePagos'
 import { useAuthStore } from '../../store/useAuthStore'
 import { toastExito, toastError } from '../../store/useToastStore'
 import { imprimirPresupuesto } from './imprimirPresupuesto'
+import { imprimirRecibo } from './imprimirRecibo'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
@@ -85,7 +86,7 @@ export function TabTratamientos({ pacienteId, paciente }) {
         />
       )}
 
-      <SeccionPagos pacienteId={pacienteId} />
+      <SeccionPagos pacienteId={pacienteId} paciente={paciente} />
     </div>
   )
 }
@@ -94,14 +95,26 @@ export function TabTratamientos({ pacienteId, paciente }) {
 // diagnósticos, tratamientos, presupuestos y pagos en una sola sección
 // para no tener demasiadas pestañas. La funcionalidad es la misma que
 // antes tenía su propia pestaña, solo se movió de lugar.
-function SeccionPagos({ pacienteId }) {
+function SeccionPagos({ pacienteId, paciente }) {
   const { pagos, saldo, cargando, agregar } = usePagos(pacienteId)
   const [monto, setMonto] = useState('')
   const [metodo, setMetodo] = useState('efectivo')
   const [guardando, setGuardando] = useState(false)
+  const [imprimiendoId, setImprimiendoId] = useState(null)
   const perfil = useAuthStore((s) => s.perfil)
 
   if (cargando) return null
+
+  const handleImprimir = async (pago) => {
+    setImprimiendoId(pago.id)
+    try {
+      await imprimirRecibo({ pago, paciente, clinicaId: perfil.clinica_id })
+    } catch (err) {
+      toastError(err.message)
+    } finally {
+      setImprimiendoId(null)
+    }
+  }
 
   return (
     <div className="border-t border-slate-200 pt-4">
@@ -139,10 +152,20 @@ function SeccionPagos({ pacienteId }) {
 
       <div className="space-y-2">
         {pagos.map((p) => (
-          <div key={p.id} className="flex justify-between rounded-lg border border-slate-200 p-3 text-sm">
-            <span>{p.tipo} · {p.metodo}</span>
+          <div key={p.id} className="flex items-center justify-between rounded-lg border border-slate-200 p-3 text-sm">
+            <div>
+              <span className="font-mono text-xs text-slate-400">{p.numero_recibo}</span>
+              <span className="ml-2">{p.tipo} · {p.metodo}</span>
+            </div>
             <span className="font-medium">${Number(p.monto).toFixed(2)}</span>
             <span className="text-slate-400">{new Date(p.creado_en).toLocaleDateString('es-MX')}</span>
+            <button
+              onClick={() => handleImprimir(p)}
+              disabled={imprimiendoId === p.id}
+              className="text-xs font-medium text-clinico-azul hover:underline disabled:opacity-50"
+            >
+              {imprimiendoId === p.id ? 'Generando…' : '🖨 Recibo'}
+            </button>
           </div>
         ))}
       </div>

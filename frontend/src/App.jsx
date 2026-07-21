@@ -14,6 +14,7 @@ import { Usuarios } from './pages/Usuarios'
 import { Administracion } from './pages/Administracion'
 import { AdministracionClinica } from './pages/AdministracionClinica'
 import { CatalogoTratamientos } from './pages/CatalogoTratamientos'
+import { CorteDeCaja } from './pages/CorteDeCaja'
 import { ConsultaUnificada } from './pages/ConsultaUnificada'
 import { ToastContainer } from './components/ui/Toast'
 
@@ -38,6 +39,7 @@ export default function App() {
         <Route path="/agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />
         <Route path="/usuarios" element={<ProtectedRoute><Usuarios /></ProtectedRoute>} />
         <Route path="/catalogo" element={<ProtectedRoute><CatalogoTratamientos /></ProtectedRoute>} />
+        <Route path="/corte-de-caja" element={<ProtectedRoute><CorteDeCaja /></ProtectedRoute>} />
         <Route path="/consulta/:citaId" element={<ProtectedRoute><ConsultaUnificada /></ProtectedRoute>} />
         <Route path="/administracion" element={<ProtectedRoute><Administracion /></ProtectedRoute>} />
         <Route path="/administracion/:clinicaId" element={<ProtectedRoute><AdministracionClinica /></ProtectedRoute>} />
