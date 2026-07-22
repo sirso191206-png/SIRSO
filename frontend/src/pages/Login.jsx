@@ -56,10 +56,10 @@ export function Login() {
     <div className="flex min-h-screen flex-col bg-white">
       <HeaderPublico enlace="/contacto" textoEnlace="Contacto" />
 
-      {/* Contenido principal — izquierda 42% / derecha 58% */}
-      <main className="mx-auto flex w-full max-w-[1500px] flex-1 flex-col items-center justify-center gap-12 px-6 py-16 sm:px-10 lg:flex-row lg:items-center lg:justify-between lg:gap-8 lg:py-0">
-        {/* Formulario — 42%, ~420px */}
-        <div className="w-full max-w-[420px] animate-slide-in-left lg:basis-[42%]">
+      {/* Contenido principal — formulario e ilustración centrados, separados por gap */}
+      <main className="mx-auto flex w-full max-w-[1420px] flex-1 flex-col items-center justify-center gap-16 px-6 py-16 sm:px-10 lg:flex-row lg:items-center lg:justify-center lg:gap-24 lg:py-0">
+        {/* Formulario */}
+        <div className="w-full max-w-[450px] animate-slide-in-left">
           <h1 className="mb-2 text-3xl font-bold tracking-tight text-slate-900">Iniciar sesión</h1>
           <p className="mb-8 text-sm leading-relaxed text-slate-500">
             Accede a tu cuenta para gestionar pacientes, citas y expedientes clínicos.
@@ -140,16 +140,13 @@ export function Login() {
           </p>
         </div>
 
-        {/* Ilustración — 58%, ~500px, dentro de figura orgánica ~520px */}
-        <div className="flex w-full max-w-[520px] animate-slide-in-right items-center justify-center lg:basis-[58%]">
-          <div className="relative flex aspect-square w-full max-w-[520px] items-center justify-center">
-            <div className="absolute inset-0 rounded-[45%_55%_60%_40%/50%_45%_55%_50%] bg-slate-100" />
-            <img
-              src="/ilustracion-login.svg"
-              alt="Ilustración de una consulta odontológica"
-              className="relative z-10 w-[500px] max-w-[92%]"
-            />
-          </div>
+        {/* Ilustración — más grande, acercada ligeramente al formulario */}
+        <div className="flex w-full max-w-[620px] animate-slide-in-right items-center justify-center lg:-translate-x-4">
+          <img
+            src="/ilustracion-login.svg"
+            alt="Ilustración de una consulta odontológica"
+            className="w-full max-w-[600px] object-contain"
+          />
         </div>
       </main>
 
