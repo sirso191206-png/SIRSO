@@ -5,6 +5,7 @@ export const useAuthStore = create((set, get) => ({
   session: null,
   perfil: null, // fila de la tabla `usuarios`: nombre, rol, clinica_id
   clinicaNombre: null,
+  clinicaEstado: null, // 'activa' | 'suspendida' — para bloquear acceso
   cargando: true,
 
   // Se llama una vez al montar la app
@@ -13,14 +14,14 @@ export const useAuthStore = create((set, get) => ({
     if (session) {
       await get().cargarPerfil(session)
     } else {
-      set({ session: null, perfil: null, clinicaNombre: null, cargando: false })
+      set({ session: null, perfil: null, clinicaNombre: null, clinicaEstado: null, cargando: false })
     }
 
     supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
         get().cargarPerfil(session)
       } else {
-        set({ session: null, perfil: null, clinicaNombre: null, cargando: false })
+        set({ session: null, perfil: null, clinicaNombre: null, clinicaEstado: null, cargando: false })
       }
     })
   },
@@ -43,10 +44,13 @@ export const useAuthStore = create((set, get) => ({
     if (data?.clinica_id) {
       const { data: clinica } = await supabase
         .from('clinicas')
-        .select('nombre')
+        .select('nombre, estado')
         .eq('id', data.clinica_id)
         .single()
-      set({ clinicaNombre: clinica?.nombre ?? null })
+      set({
+        clinicaNombre: clinica?.nombre ?? null,
+        clinicaEstado: clinica?.estado ?? null
+      })
     }
   },
 
@@ -67,7 +71,7 @@ export const useAuthStore = create((set, get) => ({
 
   logout: async () => {
     await supabase.auth.signOut()
-    set({ session: null, perfil: null })
+    set({ session: null, perfil: null, clinicaNombre: null, clinicaEstado: null })
   },
 
   // Helpers de permisos usados en toda la UI

@@ -3,7 +3,7 @@ import { useAuthStore } from '../../store/useAuthStore'
 import { Sidebar } from './Sidebar'
 
 export function ProtectedRoute({ children }) {
-  const { session, cargando } = useAuthStore()
+  const { session, perfil, clinicaEstado, cargando, logout } = useAuthStore()
 
   if (cargando) {
     return <div className="flex h-screen items-center justify-center text-slate-400">Cargando…</div>
@@ -11,6 +11,27 @@ export function ProtectedRoute({ children }) {
 
   if (!session) {
     return <Navigate to="/login" replace />
+  }
+
+  // Clínica suspendida: nadie de la clínica entra, salvo el super admin.
+  if (clinicaEstado === 'suspendida' && !perfil?.es_super_admin) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-slate-50 p-6">
+        <div className="max-w-md rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+          <h1 className="mb-2 text-xl font-semibold text-slate-800">Clínica suspendida</h1>
+          <p className="mb-6 text-sm text-slate-500">
+            El acceso a esta clínica está temporalmente suspendido. Contacta al
+            administrador de SIRO para regularizar tu situación.
+          </p>
+          <button
+            onClick={logout}
+            className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+          >
+            Cerrar sesión
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (

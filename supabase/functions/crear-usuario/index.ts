@@ -6,14 +6,13 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
-}
+import { buildCorsHeaders } from '../_shared/cors.ts'
 
 const ROLES_VALIDOS = ['owner', 'dentista', 'recepcion', 'asistente']
 
 serve(async (req) => {
+  // CORS por petición: refleja el Origin si está en la lista blanca.
+  const corsHeaders = buildCorsHeaders(req.headers.get('Origin'))
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
@@ -49,6 +48,29 @@ serve(async (req) => {
     if (!ROLES_VALIDOS.includes(rol)) throw new Error('Rol inválido')
 
     let clinicaIdDestino = perfilCaller.clinica_id
+
+    // Límite de usuarios del plan: solo aplica al agregar usuarios a una
+    // clínica EXISTENTE (no cuando se crea un owner con su clínica nueva).
+    if (rol !== 'owner') {
+      const { data: clinicaDestino } = await supabaseAdmin
+        .from('clinicas')
+        .select('limite_usuarios')
+        .eq('id', clinicaIdDestino)
+        .single()
+
+      if (clinicaDestino?.limite_usuarios != null) {
+        const { count } = await supabaseAdmin
+          .from('usuarios')
+          .select('id', { count: 'exact', head: true })
+          .eq('clinica_id', clinicaIdDestino)
+
+        if ((count ?? 0) >= clinicaDestino.limite_usuarios) {
+          throw new Error(
+            'Has alcanzado el límite de usuarios de tu plan. Contacta al administrador para ampliarlo.',
+          )
+        }
+      }
+    }
 
     if (rol === 'owner') {
       // Un owner nuevo es dueño de SU PROPIA clínica, independiente de la

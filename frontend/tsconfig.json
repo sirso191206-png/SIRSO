@@ -1,0 +1,15 @@
+{
+  "//": "TS acotado: por ahora solo tipa el módulo de interoperabilidad SIS. No afecta el build de Vite (que usa esbuild) ni type-checkea el JS existente. Al avanzar la migración progresiva a TS (Fase 2) se ampliará el include.",
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2020", "DOM"],
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "types": ["vitest/globals", "node"]
+  },
+  "include": ["src/features/interoperabilidad", "vitest.config.ts"]
+}
