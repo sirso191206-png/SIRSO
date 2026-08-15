@@ -38,6 +38,19 @@ serve(async (req) => {
     if (perfilError || !perfilCaller) throw new Error('No se encontró tu perfil')
     if (perfilCaller.rol !== 'owner') throw new Error('Solo el owner puede eliminar usuarios')
 
+    // Clínica suspendida: ninguna acción administrativa. Igual que en
+    // crear-usuario, esta función usa service_role y por sí sola no pasa
+    // por RLS, así que el bloqueo se valida aquí explícitamente.
+    const { data: clinicaCaller, error: clinicaCallerError } = await supabaseAdmin
+      .from('clinicas')
+      .select('estado')
+      .eq('id', perfilCaller.clinica_id)
+      .single()
+    if (clinicaCallerError || !clinicaCaller) throw new Error('No se encontró tu clínica')
+    if (clinicaCaller.estado === 'suspendida') {
+      throw new Error('Tu clínica está suspendida. No puedes eliminar usuarios en este momento.')
+    }
+
     const { usuarioId } = await req.json()
     if (!usuarioId) throw new Error('Falta usuarioId')
     if (usuarioId === user.id) throw new Error('No puedes eliminarte a ti mismo')

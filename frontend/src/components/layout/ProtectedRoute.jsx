@@ -1,9 +1,19 @@
-import { Navigate } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Navigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../../store/useAuthStore'
 import { Sidebar } from './Sidebar'
 
 export function ProtectedRoute({ children }) {
-  const { session, perfil, clinicaEstado, cargando, logout } = useAuthStore()
+  const { session, perfil, clinicaEstado, cargando, logout, refrescarEstadoClinica } = useAuthStore()
+  const location = useLocation()
+
+  // Re-consulta el estado de la clínica en cada navegación, para que una
+  // suspensión aplicada mientras la sesión ya estaba abierta se note sin
+  // esperar a un refresh manual. La protección real vive en RLS y en las
+  // Edge Functions; esto es solo para que la UI no se quede desactualizada.
+  useEffect(() => {
+    if (session) refrescarEstadoClinica()
+  }, [location.pathname, session, refrescarEstadoClinica])
 
   if (cargando) {
     return <div className="flex h-screen items-center justify-center text-slate-400">Cargando…</div>

@@ -43,6 +43,20 @@ serve(async (req) => {
     if (perfilError || !perfilCaller) throw new Error('No se encontró tu perfil')
     if (perfilCaller.rol !== 'owner') throw new Error('Solo el owner puede crear usuarios')
 
+    // Clínica suspendida: ninguna acción administrativa, ni siquiera
+    // crear otra clínica desde aquí. Esto se valida en el backend porque
+    // esta función usa service_role y por sí sola NO pasa por RLS — el
+    // bloqueo de auth_clinica_id() (migración 030) no la alcanza.
+    const { data: clinicaCaller, error: clinicaCallerError } = await supabaseAdmin
+      .from('clinicas')
+      .select('estado')
+      .eq('id', perfilCaller.clinica_id)
+      .single()
+    if (clinicaCallerError || !clinicaCaller) throw new Error('No se encontró tu clínica')
+    if (clinicaCaller.estado === 'suspendida') {
+      throw new Error('Tu clínica está suspendida. No puedes crear usuarios en este momento.')
+    }
+
     const { correo, nombre, rol, nombreClinica } = await req.json()
     if (!correo || !nombre || !rol) throw new Error('Faltan datos (correo, nombre, rol)')
     if (!ROLES_VALIDOS.includes(rol)) throw new Error('Rol inválido')

@@ -11,10 +11,13 @@
 -- Hoy `authenticated` tiene UPDATE sobre TODA la tabla clinicas, por
 -- lo que un owner podría cambiar el plan/estado de su propia clínica.
 -- Aquí se revoca ese update total y se re-otorga SOLO sobre las
--- columnas de configuración que el owner sí debe poder editar. Las
--- columnas de entitlement (estado, plan, limites, fechas) quedan
--- fuera: únicamente el super admin las cambia vía Edge Function
--- (service_role, que ignora estos grants).
+-- columnas de configuración que existan realmente, EXCLUYENDO las de
+-- entitlement (estado, plan, limites, fechas). Únicamente el super
+-- admin las cambia vía Edge Function (service_role, que ignora grants).
+--
+-- El grant se arma dinámicamente a partir del esquema en vivo para no
+-- depender de columnas que quizá no existan en esta base (p. ej. si la
+-- migración 021 no se aplicó). Es idempotente y seguro de re-ejecutar.
 -- ============================================================
 
 alter table clinicas add column if not exists estado text not null default 'activa';
@@ -37,18 +40,25 @@ begin
   end if;
 end $$;
 
--- El owner solo puede actualizar columnas de configuración de su clínica,
--- NO las de plan/estado/límites. (Las columnas de folio se incluyen porque
--- las actualizan los triggers de folio consecutivo.)
-revoke update on clinicas from authenticated;
-grant update (
-  nombre,
-  tipo_establecimiento,
-  clave_unidad_medica,
-  direccion,
-  telefono,
-  correo,
-  responsable_sanitario,
-  siguiente_folio_paciente,
-  siguiente_folio_recibo
-) on clinicas to authenticated;
+-- Re-otorga UPDATE al owner solo sobre columnas de configuración EXISTENTES,
+-- nunca sobre las de plan/estado/límites. Se construye desde el esquema real.
+do $$
+declare
+  cols text;
+begin
+  select string_agg(quote_ident(column_name), ', ')
+    into cols
+  from information_schema.columns
+  where table_schema = 'public'
+    and table_name = 'clinicas'
+    and column_name not in (
+      'id', 'creado_en',
+      'estado', 'plan', 'limite_usuarios', 'limite_pacientes',
+      'fecha_inicio', 'fecha_vencimiento'
+    );
+
+  execute 'revoke update on clinicas from authenticated';
+  if cols is not null then
+    execute 'grant update (' || cols || ') on clinicas to authenticated';
+  end if;
+end $$;
