@@ -1,11 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { obtenerPaciente, archivarPaciente, restaurarPaciente } from '../services/pacientes'
-import { actualizarCita } from '../services/citas'
-import { supabase } from '../lib/supabase'
+import { calcularEdad } from '../lib/fechas'
+import { usePacienteDetalle } from '../hooks/usePacienteDetalle'
 import { useExpediente } from '../hooks/useExpediente'
 import { useAuthStore } from '../store/useAuthStore'
-import { toastExito, toastError } from '../store/useToastStore'
 import { Odontograma } from '../components/odontograma/Odontograma'
 import { TabExpediente } from '../components/expediente/TabExpediente'
 import { TabTratamientos } from '../components/tratamientos/TabTratamientos'
@@ -26,29 +24,34 @@ const TODAS_LAS_TABS = [
   { nombre: 'Archivos', roles: ['owner', 'dentista'] }
 ]
 
-const ESTADOS_INICIABLES = ['pendiente_confirmar', 'agendada', 'confirmada', 'en_espera']
-
-function calcularEdad(fechaNacimiento) {
-  if (!fechaNacimiento) return null
-  const hoy = new Date()
-  const nacimiento = new Date(fechaNacimiento)
-  let edad = hoy.getFullYear() - nacimiento.getFullYear()
-  const m = hoy.getMonth() - nacimiento.getMonth()
-  if (m < 0 || (m === 0 && hoy.getDate() < nacimiento.getDate())) edad--
-  return edad
-}
-
 export function PacienteDetalle() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const [paciente, setPaciente] = useState(null)
+  const {
+    paciente,
+    procesando,
+    iniciandoConsulta,
+    handleArchivar,
+    handleRestaurar,
+    handleIniciarConsulta
+  } = usePacienteDetalle(id)
   const [modalArchivar, setModalArchivar] = useState(false)
   const [modalExpedienteCompleto, setModalExpedienteCompleto] = useState(false)
   const [menuAcciones, setMenuAcciones] = useState(false)
-  const [procesando, setProcesando] = useState(false)
-  const [iniciandoConsulta, setIniciandoConsulta] = useState(false)
   const perfil = useAuthStore((s) => s.perfil)
   const { expediente } = useExpediente(id)
+
+  // El hook ya maneja sus propios errores (no relanza), así que este
+  // wrapper siempre llega al finally — igual que el comportamiento
+  // original, que cerraba el modal tanto al archivar con éxito como
+  // si fallaba.
+  const handleArchivarYCerrarModal = async () => {
+    try {
+      await handleArchivar()
+    } finally {
+      setModalArchivar(false)
+    }
+  }
 
   const tabsVisibles = TODAS_LAS_TABS.filter((t) => t.roles.includes(perfil?.rol))
   const [tab, setTab] = useState(null)
@@ -59,69 +62,6 @@ export function PacienteDetalle() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [perfil?.rol])
-
-  const recargarPaciente = () => obtenerPaciente(id).then(setPaciente)
-
-  useEffect(() => {
-    recargarPaciente()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id])
-
-  const handleArchivar = async () => {
-    setProcesando(true)
-    try {
-      await archivarPaciente(id)
-      toastExito('Paciente archivado. Su historial sigue intacto, solo se ocultó de la lista.')
-      navigate('/pacientes')
-    } catch (err) {
-      toastError('No se pudo archivar: ' + err.message)
-    } finally {
-      setProcesando(false)
-      setModalArchivar(false)
-    }
-  }
-
-  const handleRestaurar = async () => {
-    setProcesando(true)
-    try {
-      await restaurarPaciente(id)
-      toastExito('Paciente restaurado.')
-      await recargarPaciente()
-    } catch (err) {
-      toastError('No se pudo restaurar: ' + err.message)
-    } finally {
-      setProcesando(false)
-    }
-  }
-
-  const handleIniciarConsulta = async () => {
-    setIniciandoConsulta(true)
-    try {
-      const inicioHoy = new Date(); inicioHoy.setHours(0, 0, 0, 0)
-      const finHoy = new Date(inicioHoy); finHoy.setDate(finHoy.getDate() + 1)
-      const { data: citasHoy, error } = await supabase
-        .from('citas')
-        .select('id, estado')
-        .eq('paciente_id', id)
-        .gte('inicio', inicioHoy.toISOString())
-        .lt('inicio', finHoy.toISOString())
-        .order('inicio')
-      if (error) throw error
-
-      const citaIniciable = citasHoy.find((c) => ESTADOS_INICIABLES.includes(c.estado))
-      if (!citaIniciable) {
-        toastError('Este paciente no tiene una cita agendada para hoy.')
-        return
-      }
-      await actualizarCita(citaIniciable.id, { estado: 'en_consulta' })
-      toastExito('Consulta iniciada.')
-      navigate(`/consulta/${citaIniciable.id}`)
-    } catch (err) {
-      toastError(err.message)
-    } finally {
-      setIniciandoConsulta(false)
-    }
-  }
 
   if (!paciente || !tab) return <SkeletonFichaPaciente />
 
@@ -233,7 +173,7 @@ export function PacienteDetalle() {
       <ConfirmModal
         abierto={modalArchivar}
         onCerrar={() => setModalArchivar(false)}
-        onConfirmar={handleArchivar}
+        onConfirmar={handleArchivarYCerrarModal}
         confirmando={procesando}
         titulo="Archivar paciente"
         mensaje={`¿Seguro que deseas archivar a ${paciente.nombre_completo}? Su expediente, tratamientos, pagos y archivos se conservan intactos — solo deja de aparecer en la lista de pacientes. Puedes restaurarlo cuando quieras.`}

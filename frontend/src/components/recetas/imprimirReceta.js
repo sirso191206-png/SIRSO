@@ -1,14 +1,6 @@
 import { supabase } from '../../lib/supabase'
-
-function calcularEdad(fechaNacimiento) {
-  if (!fechaNacimiento) return null
-  const hoy = new Date()
-  const nacimiento = new Date(fechaNacimiento)
-  let edad = hoy.getFullYear() - nacimiento.getFullYear()
-  const m = hoy.getMonth() - nacimiento.getMonth()
-  if (m < 0 || (m === 0 && hoy.getDate() < nacimiento.getDate())) edad--
-  return edad
-}
+import { abrirVentanaImpresion } from '../../lib/imprimir'
+import { calcularEdad } from '../../lib/fechas'
 
 const NOMBRE_SEXO = { M: 'Masculino', F: 'Femenino', X: 'Otro' }
 
@@ -80,10 +72,5 @@ export async function imprimirReceta({ receta, paciente, clinicaId }) {
     </html>
   `
 
-  const ventana = window.open('', '_blank')
-  if (!ventana) {
-    throw new Error('El navegador bloqueó la ventana de impresión. Permite ventanas emergentes para este sitio.')
-  }
-  ventana.document.write(html)
-  ventana.document.close()
+  abrirVentanaImpresion(html)
 }

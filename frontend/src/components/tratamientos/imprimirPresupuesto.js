@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase'
+import { abrirVentanaImpresion } from '../../lib/imprimir'
 
 export async function imprimirPresupuesto({ paciente, tratamientos, clinicaId }) {
   const { data: clinica } = await supabase.from('clinicas').select('nombre').eq('id', clinicaId).single()
@@ -63,10 +64,5 @@ export async function imprimirPresupuesto({ paciente, tratamientos, clinicaId })
     </html>
   `
 
-  const ventana = window.open('', '_blank')
-  if (!ventana) {
-    throw new Error('El navegador bloqueó la ventana de impresión. Permite ventanas emergentes para este sitio.')
-  }
-  ventana.document.write(html)
-  ventana.document.close()
+  abrirVentanaImpresion(html)
 }

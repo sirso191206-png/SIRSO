@@ -27,3 +27,15 @@ export function inicioDeSemanaLunes(fecha) {
   d.setHours(0, 0, 0, 0)
   return new Date(d.setDate(diff))
 }
+
+// Antes vivía duplicada, idéntica, en 4 archivos: imprimirReceta.js,
+// imprimirReferencia.js, Pacientes.jsx y PacienteDetalle.jsx.
+export function calcularEdad(fechaNacimiento) {
+  if (!fechaNacimiento) return null
+  const hoy = new Date()
+  const nacimiento = new Date(fechaNacimiento)
+  let edad = hoy.getFullYear() - nacimiento.getFullYear()
+  const m = hoy.getMonth() - nacimiento.getMonth()
+  if (m < 0 || (m === 0 && hoy.getDate() < nacimiento.getDate())) edad--
+  return edad
+}

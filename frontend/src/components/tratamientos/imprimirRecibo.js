@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase'
+import { abrirVentanaImpresion } from '../../lib/imprimir'
 
 const NOMBRE_METODO = { efectivo: 'Efectivo', tarjeta: 'Tarjeta', transferencia: 'Transferencia', otro: 'Otro' }
 const NOMBRE_TIPO = { anticipo: 'Anticipo', pago: 'Pago', reembolso: 'Reembolso' }
@@ -59,10 +60,5 @@ export async function imprimirRecibo({ pago, paciente, clinicaId }) {
     </html>
   `
 
-  const ventana = window.open('', '_blank')
-  if (!ventana) {
-    throw new Error('El navegador bloqueó la ventana de impresión. Permite ventanas emergentes para este sitio.')
-  }
-  ventana.document.write(html)
-  ventana.document.close()
+  abrirVentanaImpresion(html)
 }

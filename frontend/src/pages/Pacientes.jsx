@@ -3,22 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import { usePacientesLista } from '../hooks/usePacientesLista'
 import { crearPaciente, buscarPosiblesDuplicados, buscarPacientePorCurp } from '../services/pacientes'
 import { validarEstructuraCurp, parsearCurp } from '../lib/curp'
+import { calcularEdad } from '../lib/fechas'
 import { toastExito, toastError } from '../store/useToastStore'
 import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
 
 const POR_PAGINA = 15
-
-function calcularEdad(fechaNacimiento) {
-  if (!fechaNacimiento) return null
-  const hoy = new Date()
-  const nacimiento = new Date(fechaNacimiento)
-  let edad = hoy.getFullYear() - nacimiento.getFullYear()
-  const m = hoy.getMonth() - nacimiento.getMonth()
-  if (m < 0 || (m === 0 && hoy.getDate() < nacimiento.getDate())) edad--
-  return edad
-}
 
 export function Pacientes() {
   const navigate = useNavigate()

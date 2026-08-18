@@ -36,6 +36,27 @@ function mensajeError(error) {
   return error.message
 }
 
+// Antes vivía como una consulta inline dentro de PacienteDetalle.jsx
+// (handleIniciarConsulta). Busca, de las citas de HOY para este
+// paciente, la primera en un estado desde el que se puede iniciar
+// consulta (pendiente_confirmar/agendada/confirmada/en_espera).
+const ESTADOS_INICIABLES = ['pendiente_confirmar', 'agendada', 'confirmada', 'en_espera']
+
+export async function buscarCitaIniciableHoy(pacienteId) {
+  const inicioHoy = new Date(); inicioHoy.setHours(0, 0, 0, 0)
+  const finHoy = new Date(inicioHoy); finHoy.setDate(finHoy.getDate() + 1)
+  const { data: citasHoy, error } = await supabase
+    .from('citas')
+    .select('id, estado')
+    .eq('paciente_id', pacienteId)
+    .gte('inicio', inicioHoy.toISOString())
+    .lt('inicio', finHoy.toISOString())
+    .order('inicio')
+  if (error) throw error
+
+  return citasHoy.find((c) => ESTADOS_INICIABLES.includes(c.estado)) ?? null
+}
+
 // Cola de espera: todo lo que hoy sigue "vivo" (sin contar lo ya
 // finalizado/cancelado), ordenado para que urgencias y prioridad alta
 // salten al frente sin perder el orden de llegada dentro de cada grupo.
