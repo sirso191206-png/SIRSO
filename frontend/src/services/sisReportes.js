@@ -53,9 +53,9 @@ export async function obtenerSignosVitalesPorPacientes(pacienteIds) {
   if (pacienteIds.length === 0) return []
   const { data, error } = await supabase
     .from('signos_vitales')
-    .select('paciente_id, registrado_en, presion_arterial, presion_sistolica, presion_diastolica, peso, estatura, temperatura, frecuencia_cardiaca')
+    .select('paciente_id, creado_en, presion_arterial, presion_sistolica, presion_diastolica, peso, estatura, temperatura, frecuencia_cardiaca')
     .in('paciente_id', pacienteIds)
-    .order('registrado_en', { ascending: true })
+    .order('creado_en', { ascending: true })
   if (error) throw error
   return data
 }
@@ -66,8 +66,8 @@ export function signosVitalesMasCercanos(todosLosSignos, pacienteId, fechaLimite
   let mejor = null
   for (const sv of todosLosSignos) {
     if (sv.paciente_id !== pacienteId) continue
-    const t = new Date(sv.registrado_en).getTime()
-    if (t <= limite && (!mejor || t > new Date(mejor.registrado_en).getTime())) mejor = sv
+    const t = new Date(sv.creado_en).getTime()
+    if (t <= limite && (!mejor || t > new Date(mejor.creado_en).getTime())) mejor = sv
   }
   return mejor
 }
