@@ -8,15 +8,19 @@ import { Odontograma } from '../components/odontograma/Odontograma'
 import { TabExpediente } from '../components/expediente/TabExpediente'
 import { TabTratamientos } from '../components/tratamientos/TabTratamientos'
 import { TabResumen } from '../components/paciente/TabResumen'
+import { TabDatosGenerales } from '../components/paciente/TabDatosGenerales'
 import { TabHistorial } from '../components/paciente/TabHistorial'
 import { TabArchivos } from '../components/paciente/TabArchivos'
 import { TabDocumentosClinicos } from '../components/documentos/TabDocumentosClinicos'
+import { imprimirExpedienteCompleto } from '../components/expediente/imprimirExpedienteCompleto'
+import { toastError } from '../store/useToastStore'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
 import { ConfirmModal } from '../components/ui/ConfirmModal'
 
 const TODAS_LAS_TABS = [
   { nombre: 'Resumen', roles: ['owner', 'dentista'] },
+  { nombre: 'Datos generales', roles: ['owner', 'dentista', 'recepcion', 'asistente'] },
   { nombre: 'Historial', roles: ['owner', 'dentista'] },
   { nombre: 'Odontograma', roles: ['owner', 'dentista'] },
   { nombre: 'Plan', roles: ['owner', 'dentista', 'recepcion', 'asistente'] },
@@ -33,13 +37,27 @@ export function PacienteDetalle() {
     iniciandoConsulta,
     handleArchivar,
     handleRestaurar,
-    handleIniciarConsulta
+    handleIniciarConsulta,
+    recargarPaciente
   } = usePacienteDetalle(id)
   const [modalArchivar, setModalArchivar] = useState(false)
   const [modalExpedienteCompleto, setModalExpedienteCompleto] = useState(false)
   const [menuAcciones, setMenuAcciones] = useState(false)
+  const [imprimiendoExpediente, setImprimiendoExpediente] = useState(false)
   const perfil = useAuthStore((s) => s.perfil)
   const { expediente } = useExpediente(id)
+
+  const handleImprimirExpediente = async () => {
+    setMenuAcciones(false)
+    setImprimiendoExpediente(true)
+    try {
+      await imprimirExpedienteCompleto({ paciente, clinicaId: perfil.clinica_id })
+    } catch (err) {
+      toastError('No se pudo generar el expediente para imprimir: ' + err.message)
+    } finally {
+      setImprimiendoExpediente(false)
+    }
+  }
 
   // El hook ya maneja sus propios errores (no relanza), así que este
   // wrapper siempre llega al finally — igual que el comportamiento
@@ -123,6 +141,15 @@ export function PacienteDetalle() {
                       Ver expediente completo
                     </button>
                   )}
+                  {puedeIniciarConsulta && (
+                    <button
+                      onClick={handleImprimirExpediente}
+                      disabled={imprimiendoExpediente}
+                      className="block w-full px-3 py-2 text-left text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                    >
+                      {imprimiendoExpediente ? 'Preparando…' : 'Imprimir expediente completo'}
+                    </button>
+                  )}
                   {perfil?.rol === 'owner' && !paciente.archivado_en && (
                     <button
                       onClick={() => { setModalArchivar(true); setMenuAcciones(false) }}
@@ -161,6 +188,7 @@ export function PacienteDetalle() {
         />
       )}
       {tab === 'Historial' && <TabHistorial pacienteId={id} />}
+      {tab === 'Datos generales' && <TabDatosGenerales paciente={paciente} alGuardar={recargarPaciente} />}
       {tab === 'Odontograma' && <Odontograma pacienteId={id} onIrATab={setTab} />}
       {tab === 'Plan' && <TabTratamientos pacienteId={id} paciente={paciente} />}
       {tab === 'Documentos clínicos' && <TabDocumentosClinicos pacienteId={id} paciente={paciente} />}

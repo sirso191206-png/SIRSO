@@ -71,3 +71,26 @@ export async function obtenerHistorialCompletoOdontograma(pacienteId) {
   if (error) throw error
   return data
 }
+
+/**
+ * Reconstruye el estado "inicial" de cada pieza (antes del primer
+ * cambio registrado) a partir del historial — no existe una tabla de
+ * snapshot aparte, se deriva de odontograma_historial. Si una pieza
+ * nunca cambió, su estado inicial es el mismo que el actual (nunca
+ * se tocó desde que se creó en 'sano').
+ * Devuelve un mapa { numero_pieza: estado }.
+ */
+export function calcularEstadoInicial(piezas, historial) {
+  const primerCambioPorPieza = new Map()
+  for (const h of historial) {
+    if (h.cara !== null) continue // solo nos interesan cambios de la pieza completa aquí
+    const numero = h.pieza.numero_pieza
+    if (!primerCambioPorPieza.has(numero)) primerCambioPorPieza.set(numero, h)
+  }
+  const inicial = {}
+  for (const p of piezas) {
+    const primerCambio = primerCambioPorPieza.get(p.numero_pieza)
+    inicial[p.numero_pieza] = primerCambio ? (primerCambio.estado_anterior || 'sano') : p.estado
+  }
+  return inicial
+}

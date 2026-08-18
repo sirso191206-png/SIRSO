@@ -40,6 +40,23 @@ export async function actualizarClinica(clinicaId, cambios) {
   return data // { clinica }
 }
 
+// Elimina una clínica por completo: usuarios (cuentas incluidas),
+// pacientes y todo lo que cuelga de ellos, Storage, catálogos —
+// IRREVERSIBLE. Requiere el nombre exacto de la clínica como
+// confirmación (lo valida también el backend, no solo el frontend).
+// Elimina una clínica por completo: usuarios (cuentas incluidas),
+// pacientes y todo lo que cuelga de ellos, Storage, catálogos —
+// IRREVERSIBLE. Requiere el nombre exacto de la clínica como
+// confirmación (lo valida también el backend, no solo el frontend).
+export async function eliminarClinica(clinicaId, confirmarNombre) {
+  const { data, error } = await supabase.functions.invoke('admin-eliminar-clinica', {
+    body: { clinicaId, confirmarNombre }
+  })
+  if (error) throw new Error(await extraerMensajeError(error))
+  if (data?.error) throw new Error(data.error)
+  return data // { ok, advertencias }
+}
+
 // Crea una clínica nueva y su usuario dueño (owner). Solo super admin.
 // Devuelve { clinica, correo, passwordTemporal } — la contraseña temporal
 // se le entrega al dueño para su primer inicio de sesión.

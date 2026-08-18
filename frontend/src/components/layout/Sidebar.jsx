@@ -39,8 +39,12 @@ const SECCIONES = [
     titulo: 'Administración',
     enlaces: [
       { to: '/usuarios', label: 'Usuarios', roles: ['owner'] },
-      { to: '/configuracion', label: 'Configuración', roles: ['owner'] },
-      { to: '/reporte-sis', label: 'Reporte SIS', roles: ['owner'] }
+      { to: '/configuracion', label: 'Configuración', roles: ['owner'] }
+      // Reporte SIS: oculto del menú — enfoque del producto es clínicas privadas,
+      // el reporte SIS/DGIS aplica a unidades médicas de la Secretaría de Salud.
+      // La ruta /reporte-sis y todo el módulo siguen intactos, solo no se navega
+      // a él desde aquí. Reactivar es agregar de vuelta esta línea:
+      // { to: '/reporte-sis', label: 'Reporte SIS', roles: ['owner'] }
     ]
   }
 ]

@@ -70,6 +70,7 @@ export function usePacienteDetalle(id) {
     iniciandoConsulta,
     handleArchivar,
     handleRestaurar,
-    handleIniciarConsulta
+    handleIniciarConsulta,
+    recargarPaciente
   }
 }

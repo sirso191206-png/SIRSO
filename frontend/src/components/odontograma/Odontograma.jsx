@@ -1,5 +1,6 @@
 import { lazy, Suspense, useState } from 'react'
 import { Odontograma2D } from './Odontograma2D'
+import { OdontogramaHojaClinica } from './OdontogramaHojaClinica'
 import { CargandoModelo3D } from './CargandoModelo3D'
 import { Periodontograma } from '../periodontograma/Periodontograma'
 
@@ -10,12 +11,13 @@ import { Periodontograma } from '../periodontograma/Periodontograma'
 const Odontograma3D = lazy(() => import('./Odontograma3D').then((m) => ({ default: m.Odontograma3D })))
 
 const CLAVE_PREFERENCIA = 'sirso_odontograma_view'
-const VISTAS_VALIDAS = ['2d', '3d', 'perio']
+const VISTAS_VALIDAS = ['2d', '3d', 'perio', 'hoja']
 
 const OPCIONES = [
   { value: '2d', label: 'Vista clínica 2D' },
   { value: '3d', label: 'Vista anatómica 3D' },
-  { value: 'perio', label: 'Periodontograma' }
+  { value: 'perio', label: 'Periodontograma' },
+  { value: 'hoja', label: 'Hoja clínica' }
 ]
 
 export function Odontograma({ pacienteId, onIrATab }) {
@@ -65,6 +67,8 @@ export function Odontograma({ pacienteId, onIrATab }) {
       )}
 
       {vista === 'perio' && <Periodontograma pacienteId={pacienteId} />}
+
+      {vista === 'hoja' && <OdontogramaHojaClinica pacienteId={pacienteId} />}
     </div>
   )
 }
