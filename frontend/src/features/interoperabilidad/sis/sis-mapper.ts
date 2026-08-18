@@ -25,6 +25,7 @@
 import {
   PAIS_MEXICO,
   sexoDesdeCurp,
+  servicioAtencionPara,
   type CatalogosSis,
   buscarEstablecimiento,
 } from './sis-catalogs'
@@ -127,14 +128,14 @@ export interface SignosVitalesSis {
   estatura: number | null
   temperatura: number | null
   frecuencia_cardiaca: number | null
+  frecuencia_respiratoria: number | null // ya existía en SIRO antes del corte C
+  saturacion_oxigeno: number | null // ya existía en SIRO antes del corte C
+  glucosa_capilar: number | null // ya existía en SIRO antes del corte C (mismo concepto que glucemia SIS)
   // --- corte C: columnas nuevas, opcionales. Se prefieren sobre el
   // parseo de presion_arterial y sobre los defaults en "0". ---
   presion_sistolica?: number | null
   presion_diastolica?: number | null
   circunferencia_cintura?: number | null
-  frecuencia_respiratoria?: number | null
-  saturacion_oxigeno?: number | null
-  glucemia?: number | null
   glucemia_en_ayunas?: boolean | null
 }
 
@@ -443,8 +444,20 @@ export function mapearRegistroSis(entrada: EntradaMapeoSis): ResultadoMapeoSis {
   // ---------- CONSULTA, SOMATOMETRÍA ----------
   const fechaConsulta = formatoFecha(cita.inicio)
 
-  advertir('servicioAtencion', 'bloqueante', 'Requiere el catálogo SERVICIOS DE ATENCIÓN POR TIPO DE PERSONAL SIS-SB, aún no cargado.')
-  const servicioAtencion = 0
+  const servicioAtencionResuelto = servicioAtencionPara(tipoPersonal)
+  let servicioAtencion = 0
+  if (servicioAtencionResuelto !== null) {
+    servicioAtencion = servicioAtencionResuelto
+    if (servicioAtencionResuelto === 11) {
+      advertir(
+        'servicioAtencion',
+        'supuesto',
+        'El prestador es especialista (14): se asumió "11 – ODONTOLOGÍA ESPECIALIZADA", pero también podría ser "12 – ODONTOPEDIATRÍA" o "31 – CIRUGÍA MAXILOFACIAL" según el caso clínico real — revisar antes de enviar.',
+      )
+    }
+  } else {
+    advertir('servicioAtencion', 'bloqueante', `tipoPersonal (${tipoPersonal}) no tiene un servicioAtencion válido en el catálogo SIS-SB.`)
+  }
 
   const peso = signosVitales?.peso != null ? signosVitales.peso : 999
   if (signosVitales?.peso == null) advertir('peso', 'oficial', 'Sin peso capturado; se usó "999" (valor oficial de la guía).')
@@ -473,30 +486,31 @@ export function mapearRegistroSis(entrada: EntradaMapeoSis): ResultadoMapeoSis {
   const frecuenciaCardiaca = signosVitales?.frecuencia_cardiaca ?? 0
   if (signosVitales?.frecuencia_cardiaca == null) advertir('frecuenciaCardiaca', 'oficial', 'Sin dato; se usó "0" (valor oficial).')
 
-  let frecuenciaRespiratoria = 0
-  if (signosVitales?.frecuencia_respiratoria != null) {
-    frecuenciaRespiratoria = signosVitales.frecuencia_respiratoria
-  } else {
-    advertir('frecuenciaRespiratoria', 'oficial', 'SIRO no captura esto; se usó "0" (valor oficial).')
-  }
+  const frecuenciaRespiratoria = signosVitales?.frecuencia_respiratoria ?? 0
+  if (signosVitales?.frecuencia_respiratoria == null) advertir('frecuenciaRespiratoria', 'oficial', 'Sin dato; se usó "0" (valor oficial).')
 
   const temperatura = signosVitales?.temperatura ?? 0
   if (signosVitales?.temperatura == null) advertir('temperatura', 'oficial', 'Sin dato; se usó "0" (valor oficial).')
 
-  let saturacionOxigeno = 0
-  if (signosVitales?.saturacion_oxigeno != null) {
-    saturacionOxigeno = signosVitales.saturacion_oxigeno
-  } else {
-    advertir('saturacionOxigeno', 'oficial', 'SIRO no captura esto; se usó "0" (valor oficial).')
-  }
+  const saturacionOxigeno = signosVitales?.saturacion_oxigeno ?? 0
+  if (signosVitales?.saturacion_oxigeno == null) advertir('saturacionOxigeno', 'oficial', 'Sin dato; se usó "0" (valor oficial).')
 
+  // glucemia SIS = glucosa_capilar de SIRO (mismo concepto, ya se capturaba
+  // desde antes del corte C con este otro nombre de columna).
   let glucemia = 0
   let tipoMedicion = -1
-  if (signosVitales?.glucemia != null) {
-    glucemia = signosVitales.glucemia
-    tipoMedicion = signosVitales.glucemia_en_ayunas != null ? (signosVitales.glucemia_en_ayunas ? 1 : 0) : -1
+  if (signosVitales?.glucosa_capilar != null) {
+    glucemia = signosVitales.glucosa_capilar
+    // La guía exige 0 o 1 (nunca -1) en cuanto glucemia≠0 — no hay
+    // opción de "se desconoce" una vez que hay un valor de glucosa.
+    if (signosVitales.glucemia_en_ayunas != null) {
+      tipoMedicion = signosVitales.glucemia_en_ayunas ? 1 : 0
+    } else {
+      tipoMedicion = 0
+      advertir('tipoMedicion', 'supuesto', 'Hay glucosa capturada pero no se sabe si fue en ayunas; se asumió "0 – NO" (la guía no admite "-1" una vez que glucemia≠0).')
+    }
   } else {
-    advertir('glucemia', 'oficial', 'SIRO no captura esto; se usó "0" (valor oficial).')
+    advertir('glucemia', 'oficial', 'Sin dato; se usó "0" (valor oficial).')
   }
 
   const primeraVezAnio = entrada.primeraVezEnAnio ? 1 : 0

@@ -25,7 +25,11 @@ pacientes/expediente. No modifica datos clínicos: solo lee y genera el archivo.
 | UI: Acciones de salud bucal | ✅ Corte C | Checklist dentro de la consulta (`AccionSaludBucal.jsx`), conectado a `notas_clinicas.accion_salud_bucal`. |
 | `sis-validator` | ✅ Corte D + catálogos reales | Las 77 reglas de validación. Los 10 registros oficiales de ejemplo pasan sin ningún error — incluida la validación de sexo/edad de sus diagnósticos contra el catálogo real cargado. |
 | Migración 032 | ✅ Catálogo de Establecimientos | Tabla `sis_catalogo_establecimientos` (64,006 filas nacionales) — ver sección dedicada abajo. |
+| `_shared/sis-cifrado.ts` | ✅ Corte E | DES-EDE3/ECB/PKCS5, reimplementado en TS puro tras ingeniería inversa de `cifrado.jar` (la herramienta oficial de la DGIS). Vive en `supabase/functions/_shared/`, nunca en el frontend. |
+| `sis-cifrar-archivo` (Edge Function) | ✅ Corte E | Endpoint que cifra un `.TXT` a `.CIF`. La llave real vive como secreto de Supabase (`SIS_CIFRADO_LLAVE_B64`), nunca en el código. |
+| `sis-cifrado-cliente.ts` | ✅ Corte E | Cliente frontend que llama a la Edge Function — el cifrado real nunca ocurre en el navegador. |
 | `sis-report-history` | ⏳ Pendiente | Tabla `sis_reportes` (quién, clínica, periodo, fecha, hash) + descarga. |
+| Pantalla "Generar reporte SIS" | ✅ | `pages/ReporteSis.jsx` (`/reporte-sis`) — conecta mapper → validator → exporter → cifrado con datos reales de un periodo. Requiere `cita_id` en `notas_clinicas` (migración 033) para correlacionar diagnóstico↔cita. |
 
 ## Catálogos oficiales de la DGIS: qué se cargó y de dónde
 
@@ -35,10 +39,38 @@ Fuente: catálogos maestros de `gobi.salud.gob.mx/gobi/catalogos/catalogosmaestr
 | --- | --- | --- | --- | --- |
 | PAIS | `PAIS_2021_Rev_20241101.xlsx` | 225 | `sis-catalogs.ts` (constante) | Completo, sin filtrar. |
 | ENTIDAD FEDERATIVA | `ENTIDAD_FEDERATIVA_201602.xlsx` | 35 | `sis-catalogs.ts` (constante) | Incluye los códigos especiales 00/88/99 que usa la guía. |
-| DIAGNOSTICO_SIS | `DIAGNOSTICOS_20240416.zip` | 9,076 de 14,498 | `data/diagnosticos-sis.json` (carga diferida) | Filtrado a `VALID='SI'` y `DIA_SIS='SI'` (vigentes, válidos para consulta externa). **No trae la columna `VALIDO_SB`** (qué código es válido por tipo de personal) — esa relación específica sigue sin conseguirse; el catálogo real solo tiene `LSEX`/`LINF`/`LSUP` (sexo y edad), que sí se está validando. |
-| ESTABLECIMIENTO DE SALUD (CLUES) | `ESTABLECIMIENTO_SALUD_202606.xlsx` | 64,006 | Tabla `sis_catalogo_establecimientos` en Supabase (migración 032) | Demasiado grande para el frontend (~10 MB incluso recortado). El mapper solo necesita consultar UNA CLUES a la vez — ver `cargarEstablecimientoPorClues()`. |
+| DIAGNOSTICO_SIS | `DIAGNOSTICOS_20240416.zip` | 9,076 de 14,498 | `data/diagnosticos-sis.json` (carga diferida) | Filtrado a `VALID='SI'` y `DIA_SIS='SI'` (vigentes, válidos para consulta externa). |
+| TIPO PERSONAL - SIS | `TIPO_PERSONAL-SIS_2024.xlsx` | 4 de 30 (solo dentales) | `sis-catalogs.ts` (constante) | Confirmado: mi transcripción manual del texto de la guía coincidía 100% con el archivo oficial. |
+| SERVICIOS DE ATENCIÓN POR TIPO DE PERSONAL SIS-SB | `SERVICIOS_ATENCION_POR_TIPO_PERSONAL_SIS-SB.xlsx` | 4 de 73 (solo dentales) | `sis-catalogs.ts` (constante) | El cruce completo: 10 (Odontología) → pasante/odontólogo/técnico; 11 (Odontología Especializada), 12 (Odontopediatría) y 31 (Cirugía Maxilofacial) → solo especialista. Resuelve `servicioAtencion` en el mapper y lo valida en el validador (incluida la regla "Odontopediatría exige paciente menor de 18 años"). |
+| ESTABLECIMIENTO DE SALUD (CLUES, general) | `ESTABLECIMIENTO_SALUD_202606.xlsx` | 64,006 | Tabla `sis_catalogo_establecimientos` en Supabase (migración 032) | Catálogo nacional completo, todos los estatus de operación. |
 
-**Faltante:** el catálogo `SERVICIOS DE ATENCIÓN POR TIPO DE PERSONAL SIS-SB` no aparece en la lista de catálogos maestros — sigue sin conseguirse. Por eso `servicioAtencion` en `sis-mapper.ts` sigue marcado `bloqueante`.
+**Faltante:** ninguno de los catálogos identificados originalmente sigue pendiente. Los 6 de arriba están cargados con datos reales de la DGIS.
+
+### ⚠️ Hallazgo importante: `ESTABLECIMIENTO DE SALUD SIS` (archivo distinto al general)
+
+Existe un **segundo catálogo de establecimientos**, publicado aparte
+(`ESTABLECIMIENTO_DE_SALUD_SIS_202606.xlsx`, en la sección de catálogos
+específicos del SIS, no en "Catálogos Maestros"). **No es el mismo archivo**
+que el general que ya cargamos — es un **subconjunto**: 15,365 de las
+64,006 filas (todas presentes también en el general), y solo incluye
+establecimientos **actualmente en operación**.
+
+Lo más relevante para SIRO: el campo `institucion` en este catálogo
+específico del SIS solo tiene **7 valores, todos de instituciones
+públicas** (`SSA`, `IMB`, `SMM`, `SME`, `DIF`, `SMA`, `SMP`) — no aparece
+ningún código de consultorio o clínica privada, ni siquiera IMSS/ISSSTE
+regulares.
+
+**No tengo forma de confirmar por mi cuenta** si esto significa que el
+reporte SIS de Salud Bucal, tal como lo publica la DGIS, está pensado
+únicamente para instituciones públicas, o si las clínicas privadas se
+incorporan por otra vía (registro aparte, otro convenio, etc.) — es una
+pregunta de negocio/regulación, no de código. **Vale la pena confirmarlo
+directamente con la DGIS** antes de asumir que cualquier clínica privada
+con CLUES puede simplemente empezar a reportar. No cambié la tabla
+`sis_catalogo_establecimientos` para usar este archivo filtrado — se
+quedó con el catálogo general (64,006, todos los estatus), que es el dato
+más completo y neutral mientras se aclara este punto.
 
 ### Instalar el catálogo de Establecimientos (CLUES)
 
@@ -142,12 +174,71 @@ Cada campo que SIRO no captura directamente genera una advertencia con severidad
 - **`supuesto`** — no hay valor oficial de "desconocido" para esa variable; el mapper asumió algo razonable (ej. `tipoPersonal = 13`, país = México). **Debe revisarse a mano** o resolverse con captura real.
 - **`bloqueante`** — no hay dato ni valor de reemplazo válido. El registro **no debería enviarse** así. Hoy esto incluye siempre **toda la sección Salud Bucal** (SIRO no captura ninguna de sus 25 variables) y, según el paciente, CLUES/fecha de nacimiento/sexo si faltan.
 
-## Catálogo pendiente
+## Corte E: cifrado — ingeniería inversa de la herramienta oficial
 
-Solo falta **SERVICIOS DE ATENCIÓN POR TIPO DE PERSONAL SIS-SB** — no
-aparece en la lista de catálogos maestros de la DGIS; probablemente sea
-un anexo específico de la guía GIIS-B016, no un catálogo general. Sin él,
-`servicioAtencion` en `sis-mapper.ts` sigue marcado `bloqueante`.
+El paquete "Transferencia_2024.zip" (Manuales → Cifrado → Módulo de cifrado,
+en gobi.salud.gob.mx) trae `cifrado.jar` + `transferencia.jks` — la
+herramienta Java oficial para convertir `.TXT` en `.CIF` antes de subirlo a
+SINBA 2.0. Como es Java, no corre en Deno (donde viven las Edge Functions de
+Supabase) ni en el navegador — hubo que reimplementarla.
+
+**El algoritmo se determinó por ingeniería inversa** (decompilando el jar
+con `javap`) y se verificó de tres formas independientes antes de escribir
+una sola línea de la reimplementación:
+
+1. Se corrió `cifrado.jar` de verdad (con Java 21 instalado en este entorno)
+   sobre un archivo de prueba real, obteniendo un `.cif` real.
+2. Se descifró ese mismo `.cif` usando las clases reales del jar
+   (`cifrado.EncriptaArchivo.decrypt`) y se recuperó el texto original
+   exacto — confirmando el ciclo completo.
+3. Se reprodujo el mismo resultado con Node.js
+   (`crypto.createCipheriv('des-ede3-ecb', ...)`), que sí soporta este
+   cifrado nativamente (a diferencia de Deno) — confirmación independiente
+   de que el algoritmo es **DESede (Triple DES) en modo ECB, con relleno
+   PKCS5**.
+
+**Hallazgo importante sobre la "llave":** `transferencia.jks` pesa 2,340
+bytes pese a su nombre, **no es un Java KeyStore real**. La herramienta
+original solo usa los **primeros 24 bytes del archivo** directamente como
+material de llave 3DES (así es como `DESedeKeySpec` de Java trata un
+arreglo de bytes). Se verificó generando un `.cif` con un archivo que solo
+contenía esos 24 bytes: el resultado fue byte a byte idéntico al original.
+
+**Deno no soporta DES/3DES** (ni siquiera vía su compatibilidad con
+`node:crypto` — se probó directamente y lanza `"Unknown cipher"`), así que
+`_shared/sis-cifrado.ts` es una implementación **pura en TypeScript** del
+algoritmo (DES desde las tablas públicas FIPS 46-3), sin ninguna
+dependencia externa. Se probó con `deno test` — 12/12 pruebas en verde,
+incluida cifrar/descifrar el archivo oficial de ejemplo completo
+(`CSB-EJEMPLOS-2410.txt`) sin perder un solo byte.
+
+**Arquitectura:** el cifrado vive en `supabase/functions/_shared/`, **nunca
+en el frontend** — si la llave llegara al navegador, cualquiera podría
+verla con las herramientas de desarrollador. La Edge Function
+`sis-cifrar-archivo` es el único lugar donde se cifra de verdad; el
+frontend (`sis-cifrado-cliente.ts`) solo llama y recibe el `.CIF` ya listo.
+
+### Configurar la llave en producción
+
+```bash
+# primeros 24 bytes de transferencia.jks, en base64
+supabase secrets set SIS_CIFRADO_LLAVE_B64="<...>"
+supabase functions deploy sis-cifrar-archivo
+```
+
+⚠️ **Nota de seguridad honesta:** la llave usada en las pruebas
+(`sis-cifrado.test.ts`) viene de un archivo de **descarga pública** (sin
+registro previo) en gobi.salud.gob.mx — por eso se trata ahí como
+constante de prueba compartida, no como secreto personal. Si la DGIS la
+trata como confidencial pese a ser descargable, hay que sacarla del código
+de prueba y moverla a una variable de entorno de prueba.
+
+## Catálogos: estado final
+
+Los 6 catálogos que necesita la guía de Salud Bucal están cargados con
+datos reales de la DGIS. No queda ningún catálogo pendiente de
+conseguir — ver el hallazgo sobre `ESTABLECIMIENTO DE SALUD SIS` arriba,
+que es una pregunta abierta de negocio, no de datos faltantes.
 
 ## Detalles que importan (verificados contra el archivo oficial)
 
@@ -169,22 +260,33 @@ La **prueba dorada** parsea `__tests__/fixtures/CSB-EJEMPLOS-2410.txt` (archivo
 oficial de ejemplo), lo reexporta y verifica que el resultado es **idéntico byte
 a byte** al original.
 
+El módulo de cifrado (`_shared/sis-cifrado.ts`) vive fuera del árbol del
+frontend a propósito, así que se prueba aparte con el test runner nativo de
+Deno:
+
+```bash
+cd supabase/functions/_shared
+deno test --allow-read sis-cifrado.test.ts
+```
+
 ## Siguientes cortes
 
-- **C-UI** — formularios para los campos que la migración 031 ya soporta
-  pero aún no tienen pantalla: nombres separados, demográficos del
-  paciente, datos SIS del prestador, presión dividida.
-- **E** — cifrado 3DES y carga oficial (el `sis-exporter` ya deja el punto de
-  extensión con las extensiones `.CIF` y `.ZIP`). Ya se tiene identificada
-  la herramienta oficial de cifrado de la DGIS (`cifrado.jar` +
-  `transferencia.jks`, en el paquete "Transferencia_2024" del portal) —
-  pendiente de integrar.
-- **Importar el catálogo de Establecimientos** — la migración 032 y el CSV
-  ya están listos (ver sección de arriba); falta correr la importación
-  contra la base real.
-- **SERVICIOS DE ATENCIÓN POR TIPO DE PERSONAL SIS-SB** — sigue sin
-  encontrarse; resolvería la advertencia `bloqueante` de `servicioAtencion`.
-- **Wiring a la UI** — nada de esto todavía se llama desde ninguna pantalla
-  real (por eso el bundle de producción no incluye el módulo SIS todavía).
-  El siguiente paso natural es una pantalla de "Generar reporte SIS" que
-  conecte mapper → validator → exporter con datos reales de una consulta.
+- **Confirmar con la DGIS** si las clínicas privadas reportan por esta
+  misma vía o necesitan otro registro — ver el hallazgo sobre
+  `ESTABLECIMIENTO DE SALUD SIS` más arriba. Correo redactado y listo para
+  enviar a `dgis@salud.gob.mx` / `soporte.sinba@salud.gob.mx`.
+- **Carga a SINBA — no hay API pública.** SINBA 2.0 es un portal web con
+  usuario/contraseña; el acceso se solicita por correo a `dgis@salud.gob.mx`
+  o `soporte.sinba@salud.gob.mx` (asunto "Solicitud de Usuario para Módulo
+  de Carga Masiva", con CURP y datos del solicitante — es un alta manual,
+  no autoservicio). No existe documentación de una API de carga programática
+  en ninguno de los manuales oficiales revisados (Manual de Carga Masiva,
+  Manual de Cifrado). "Automatizar" la carga en este punto significaría
+  automatizar el navegador contra un portal de login (RPA) — frágil, se
+  rompe con cualquier cambio de UI del portal, y no se evaluaron sus
+  implicaciones de términos de uso. No se construyó sin decisión explícita
+  al respecto. Mientras tanto, el flujo real es: generar el `.CIF` desde
+  "Generar reporte SIS" → subirlo a mano en el portal.
+- Editar pacientes/prestadores ya creados (hoy los datos SIS solo se
+  capturan al dar de alta) — gap pre-existente, no específico de SIS.
+

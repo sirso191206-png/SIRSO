@@ -22,10 +22,40 @@ function entradaBase(): EntradaMapeoSis {
       estatura: 165,
       temperatura: 36.5,
       frecuencia_cardiaca: 72,
+      frecuencia_respiratoria: 18,
+      saturacion_oxigeno: 98,
+      glucosa_capilar: 90,
     },
     primeraVezEnAnio: false,
   }
 }
+
+describe('mapearRegistroSis — resolución de servicioAtencion (catálogo real SIS-SB)', () => {
+  it('resuelve servicioAtencion=10 (ODONTOLOGÍA) por default (tipoPersonal=13, sin advertencia extra)', () => {
+    const { registro, advertencias } = mapearRegistroSis(entradaBase())
+    expect(registro.servicioAtencion).toBe(10)
+    expect(advertencias.some((a) => a.campo === 'servicioAtencion')).toBe(false)
+  })
+
+  it('resuelve servicioAtencion=11 (ODONTOLOGÍA ESPECIALIZADA) para un especialista, con advertencia de revisión', () => {
+    const entrada = entradaBase()
+    entrada.prestador.tipo_personal_sis = 'odontologo_especialista'
+    const { registro, advertencias } = mapearRegistroSis(entrada)
+    expect(registro.servicioAtencion).toBe(11)
+    const adv = advertencias.find((a) => a.campo === 'servicioAtencion')
+    expect(adv?.severidad).toBe('supuesto')
+  })
+
+  it('resuelve servicioAtencion=10 para un pasante y para un técnico, sin advertencia extra', () => {
+    for (const tipo of ['pasante_odontologia', 'tecnico_odontologia'] as const) {
+      const entrada = entradaBase()
+      entrada.prestador.tipo_personal_sis = tipo
+      const { registro, advertencias } = mapearRegistroSis(entrada)
+      expect(registro.servicioAtencion).toBe(10)
+      expect(advertencias.some((a) => a.campo === 'servicioAtencion')).toBe(false)
+    }
+  })
+})
 
 describe('mapearRegistroSis — con datos completos', () => {
   const { registro, advertencias } = mapearRegistroSis(entradaBase())

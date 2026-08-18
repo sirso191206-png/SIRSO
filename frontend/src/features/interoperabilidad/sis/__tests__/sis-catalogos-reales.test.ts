@@ -29,7 +29,7 @@ function registroBase(): SisRegistro {
     genero: 2,
     derechohabiencia: '3',
     fechaConsulta: '01/10/2025',
-    servicioAtencion: 11,
+    servicioAtencion: 10,
     peso: 67,
     talla: 165,
     circunferenciaCintura: 85,

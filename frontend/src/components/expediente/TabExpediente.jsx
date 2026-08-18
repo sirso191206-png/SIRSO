@@ -370,7 +370,8 @@ function SeccionSignosVitales({ pacienteId }) {
   const perfil = useAuthStore((s) => s.perfil)
   const [form, setForm] = useState({
     presion_arterial: '', frecuencia_cardiaca: '', temperatura: '', peso: '', estatura: '',
-    frecuencia_respiratoria: '', saturacion_oxigeno: '', glucosa_capilar: ''
+    frecuencia_respiratoria: '', saturacion_oxigeno: '', glucosa_capilar: '',
+    presion_sistolica: '', presion_diastolica: '', circunferencia_cintura: '', glucemia_en_ayunas: ''
   })
   const [guardando, setGuardando] = useState(false)
 
@@ -387,12 +388,17 @@ function SeccionSignosVitales({ pacienteId }) {
         frecuencia_respiratoria: form.frecuencia_respiratoria ? Number(form.frecuencia_respiratoria) : null,
         saturacion_oxigeno: form.saturacion_oxigeno ? Number(form.saturacion_oxigeno) : null,
         glucosa_capilar: form.glucosa_capilar ? Number(form.glucosa_capilar) : null,
+        presion_sistolica: form.presion_sistolica ? Number(form.presion_sistolica) : null,
+        presion_diastolica: form.presion_diastolica ? Number(form.presion_diastolica) : null,
+        circunferencia_cintura: form.circunferencia_cintura ? Number(form.circunferencia_cintura) : null,
+        glucemia_en_ayunas: form.glucosa_capilar && form.glucemia_en_ayunas !== '' ? form.glucemia_en_ayunas === 'si' : null,
         registrado_por: perfil.id
       })
       toastExito('Signos vitales registrados.')
       setForm({
         presion_arterial: '', frecuencia_cardiaca: '', temperatura: '', peso: '', estatura: '',
-        frecuencia_respiratoria: '', saturacion_oxigeno: '', glucosa_capilar: ''
+        frecuencia_respiratoria: '', saturacion_oxigeno: '', glucosa_capilar: '',
+        presion_sistolica: '', presion_diastolica: '', circunferencia_cintura: '', glucemia_en_ayunas: ''
       })
     } catch (err) {
       toastError('No se pudo guardar: ' + err.message)
@@ -411,12 +417,36 @@ function SeccionSignosVitales({ pacienteId }) {
         <Input label="Frec. respiratoria" type="number" placeholder="rpm" value={form.frecuencia_respiratoria} onChange={(e) => setForm({ ...form, frecuencia_respiratoria: e.target.value })} />
         <Input label="Saturación O₂" type="number" placeholder="%" value={form.saturacion_oxigeno} onChange={(e) => setForm({ ...form, saturacion_oxigeno: e.target.value })} />
         <Input label="Temperatura" type="number" step="0.1" placeholder="°C" value={form.temperatura} onChange={(e) => setForm({ ...form, temperatura: e.target.value })} />
-        <Input label="Glucosa capilar" type="number" placeholder="mg/dL (si aplica)" value={form.glucosa_capilar} onChange={(e) => setForm({ ...form, glucosa_capilar: e.target.value })} />
         <Input label="Peso (kg)" type="number" step="0.1" value={form.peso} onChange={(e) => setForm({ ...form, peso: e.target.value })} />
         <Input label="Estatura (cm)" type="number" step="0.1" value={form.estatura} onChange={(e) => setForm({ ...form, estatura: e.target.value })} />
         {form.peso && form.estatura && (
-          <p className="col-span-2 text-xs text-slate-500 sm:col-span-4">IMC calculado: <strong>{calcularImc(form.peso, form.estatura)}</strong></p>
+          <p className="col-span-2 text-xs text-slate-500 sm:col-span-1 sm:self-end sm:pb-2">IMC: <strong>{calcularImc(form.peso, form.estatura)}</strong></p>
         )}
+
+        <div className="col-span-2 border-t border-slate-100 pt-3 sm:col-span-4">
+          <p className="mb-2 text-xs font-semibold text-slate-500">Para reporte oficial SIS (opcional)</p>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+            <Input label="Sistólica" type="number" placeholder="mmHg" value={form.presion_sistolica} onChange={(e) => setForm({ ...form, presion_sistolica: e.target.value })} />
+            <Input label="Diastólica" type="number" placeholder="mmHg" value={form.presion_diastolica} onChange={(e) => setForm({ ...form, presion_diastolica: e.target.value })} />
+            <Input label="Cintura (cm)" type="number" value={form.circunferencia_cintura} onChange={(e) => setForm({ ...form, circunferencia_cintura: e.target.value })} />
+            <Input label="Glucosa (mg/dL)" type="number" value={form.glucosa_capilar} onChange={(e) => setForm({ ...form, glucosa_capilar: e.target.value })} />
+            {form.glucosa_capilar && (
+              <label className="block text-sm">
+                <span className="mb-1 block font-medium text-slate-700">¿En ayunas?</span>
+                <select
+                  value={form.glucemia_en_ayunas}
+                  onChange={(e) => setForm({ ...form, glucemia_en_ayunas: e.target.value })}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-clinico-azul focus:outline-none focus:ring-1 focus:ring-clinico-azul"
+                >
+                  <option value="">Sin especificar</option>
+                  <option value="si">Sí</option>
+                  <option value="no">No</option>
+                </select>
+              </label>
+            )}
+          </div>
+        </div>
+
         <div className="col-span-2 sm:col-span-4">
           <Button type="submit" disabled={guardando}>{guardando ? 'Guardando…' : 'Registrar toma'}</Button>
         </div>
@@ -434,11 +464,13 @@ function SeccionSignosVitales({ pacienteId }) {
               </div>
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-slate-700">
                 {r.presion_arterial && <span>PA: {r.presion_arterial}</span>}
+                {(r.presion_sistolica || r.presion_diastolica) && <span>PA (SIS): {r.presion_sistolica ?? '—'}/{r.presion_diastolica ?? '—'}</span>}
                 {r.frecuencia_cardiaca && <span>FC: {r.frecuencia_cardiaca} lpm</span>}
                 {r.frecuencia_respiratoria && <span>FR: {r.frecuencia_respiratoria} rpm</span>}
                 {r.saturacion_oxigeno && <span>SpO₂: {r.saturacion_oxigeno}%</span>}
                 {r.temperatura && <span>Temp: {r.temperatura}°C</span>}
-                {r.glucosa_capilar && <span>Glucosa: {r.glucosa_capilar} mg/dL</span>}
+                {r.glucosa_capilar && <span>Glucosa: {r.glucosa_capilar} mg/dL{r.glucemia_en_ayunas != null && (r.glucemia_en_ayunas ? ' (ayunas)' : ' (no ayunas)')}</span>}
+                {r.circunferencia_cintura && <span>Cintura: {r.circunferencia_cintura} cm</span>}
                 {r.peso && <span>Peso: {r.peso} kg</span>}
                 {r.estatura && <span>Estatura: {r.estatura} cm</span>}
                 {imc && <span>IMC: {imc}</span>}

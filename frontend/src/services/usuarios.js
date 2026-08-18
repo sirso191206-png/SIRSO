@@ -62,10 +62,18 @@ export async function cambiarActivoUsuario(id, activo) {
 // actualizar el correo en Supabase Auth (auth.admin.updateUserById), que
 // es un flujo aparte todavía no implementado. Por ahora el correo solo
 // se define al crear el usuario.
-export async function actualizarUsuario(id, { nombre, rol, cedulaProfesional }) {
+export async function actualizarUsuario(id, { nombre, rol, cedulaProfesional, curp, primerApellido, segundoApellido, tipoPersonalSis }) {
   const { data, error } = await supabase
     .from('usuarios')
-    .update({ nombre, rol, cedula_profesional: cedulaProfesional || null })
+    .update({
+      nombre,
+      rol,
+      cedula_profesional: cedulaProfesional || null,
+      curp: curp || null,
+      primer_apellido: primerApellido || null,
+      segundo_apellido: segundoApellido || null,
+      tipo_personal_sis: tipoPersonalSis || null
+    })
     .eq('id', id)
     .select()
     .single()

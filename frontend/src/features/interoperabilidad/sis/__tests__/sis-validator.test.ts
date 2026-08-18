@@ -36,7 +36,7 @@ function registroValido(): SisRegistro {
     genero: 2,
     derechohabiencia: '3',
     fechaConsulta: '01/10/2025',
-    servicioAtencion: 11,
+    servicioAtencion: 10,
     peso: 67,
     talla: 165,
     circunferenciaCintura: 85,
@@ -252,5 +252,47 @@ describe('validarRegistroSis — casos negativos representativos', () => {
   it('acepta peso=999 (desconocido) sin error', () => {
     const r = { ...registroValido(), peso: 999 }
     expect(validarRegistroSis(r).some((e) => e.campo === 'peso')).toBe(false)
+  })
+
+  it('rechaza servicioAtencion fuera del catálogo SIS-SB (solo 10/11/12/31 son válidos)', () => {
+    const r = { ...registroValido(), servicioAtencion: 4 } // 4 = CONSULTA EXTERNA GENERAL, no es de Salud Bucal
+    expect(validarRegistroSis(r).some((e) => e.campo === 'servicioAtencion')).toBe(true)
+  })
+
+  it('rechaza servicioAtencion=11 (Odontología Especializada) para tipoPersonal=13 (odontólogo general)', () => {
+    const r = { ...registroValido(), tipoPersonal: 13, servicioAtencion: 11 }
+    expect(validarRegistroSis(r).some((e) => e.campo === 'servicioAtencion')).toBe(true)
+  })
+
+  it('acepta servicioAtencion=11 para tipoPersonal=14 (especialista)', () => {
+    const r = { ...registroValido(), tipoPersonal: 14, servicioAtencion: 11 }
+    expect(validarRegistroSis(r).some((e) => e.campo === 'servicioAtencion')).toBe(false)
+  })
+
+  it('acepta servicioAtencion=10 (Odontología) para pasante (12), odontólogo (13) y técnico (23)', () => {
+    for (const tp of [12, 13, 23]) {
+      const r = { ...registroValido(), tipoPersonal: tp, servicioAtencion: 10 }
+      expect(validarRegistroSis(r).some((e) => e.campo === 'servicioAtencion')).toBe(false)
+    }
+  })
+
+  it('rechaza servicioAtencion=12 (Odontopediatría) en un paciente de 18 años o más', () => {
+    const r = {
+      ...registroValido(),
+      tipoPersonal: 14,
+      servicioAtencion: 12,
+      fechaNacimiento: '01/01/2000', // adulto para la fecha de consulta de prueba (2025)
+    }
+    expect(validarRegistroSis(r).some((e) => e.campo === 'servicioAtencion' && /18 años/.test(e.mensaje))).toBe(true)
+  })
+
+  it('acepta servicioAtencion=12 (Odontopediatría) en un paciente menor de 18 años', () => {
+    const r = {
+      ...registroValido(),
+      tipoPersonal: 14,
+      servicioAtencion: 12,
+      fechaNacimiento: '01/01/2015', // ~10 años para la fecha de consulta de prueba
+    }
+    expect(validarRegistroSis(r).some((e) => e.campo === 'servicioAtencion')).toBe(false)
   })
 })

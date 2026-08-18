@@ -4,6 +4,7 @@ import { usePacientesLista } from '../hooks/usePacientesLista'
 import { crearPaciente, buscarPosiblesDuplicados, buscarPacientePorCurp } from '../services/pacientes'
 import { validarEstructuraCurp, parsearCurp } from '../lib/curp'
 import { calcularEdad } from '../lib/fechas'
+import { ENTIDAD_FEDERATIVA, GENERO, AFILIACION } from '../features/interoperabilidad/sis/sis-catalogs'
 import { toastExito, toastError } from '../store/useToastStore'
 import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
@@ -175,7 +176,13 @@ function TablaPacientes({ pacientes, cargando, navigate }) {
 
 function ModalNuevoPaciente({ abierto, onCerrar }) {
   const navigate = useNavigate()
-  const [form, setForm] = useState({ nombre_completo: '', telefono: '', fecha_nacimiento: '', curp: '', sexo: '' })
+  const [form, setForm] = useState({
+    nombre_completo: '', telefono: '', fecha_nacimiento: '', curp: '', sexo: '',
+    primer_apellido: '', segundo_apellido: '', entidad_nacimiento: '', sexo_biologico: '',
+    genero: '', se_autodenomina_afromexicano: '', se_considera_indigena: '', migrante: '',
+    derechohabiencia: []
+  })
+  const [mostrarDatosSis, setMostrarDatosSis] = useState(false)
   const [duplicados, setDuplicados] = useState([])
   const [guardando, setGuardando] = useState(false)
   const [estadoCurp, setEstadoCurp] = useState(null) // null | 'valida' | 'invalida'
@@ -244,7 +251,21 @@ function ModalNuevoPaciente({ abierto, onCerrar }) {
         setGuardando(false)
         return
       }
-      const paciente = await crearPaciente(form)
+      // Los campos SIS opcionales van vacíos ('') cuando no se llenan —
+      // se convierten a null para no guardar cadenas vacías.
+      const payload = {
+        ...form,
+        primer_apellido: form.primer_apellido || null,
+        segundo_apellido: form.segundo_apellido || null,
+        entidad_nacimiento: form.entidad_nacimiento || null,
+        sexo_biologico: form.sexo_biologico || null,
+        genero: form.genero || null,
+        se_autodenomina_afromexicano: form.se_autodenomina_afromexicano || null,
+        se_considera_indigena: form.se_considera_indigena || null,
+        migrante: form.migrante || null,
+        derechohabiencia: form.derechohabiencia.length > 0 ? form.derechohabiencia : null
+      }
+      const paciente = await crearPaciente(payload)
       toastExito('Paciente creado.')
       onCerrar()
       navigate(`/pacientes/${paciente.id}`)
@@ -318,6 +339,142 @@ function ModalNuevoPaciente({ abierto, onCerrar }) {
                 Vuelve a dar clic en "Guardar" si aun así quieres crear uno nuevo.
               </div>
             )}
+
+            <div className="border-t border-slate-100 pt-3">
+              <button
+                type="button"
+                onClick={() => setMostrarDatosSis((v) => !v)}
+                className="text-xs font-medium text-clinico-azul hover:underline"
+              >
+                {mostrarDatosSis ? 'Ocultar' : 'Agregar'} datos para reporte oficial SIS (opcional)
+              </button>
+
+              {mostrarDatosSis && (
+                <div className="mt-3 space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input label="Primer apellido" value={form.primer_apellido} onChange={(e) => setForm({ ...form, primer_apellido: e.target.value })} />
+                    <Input label="Segundo apellido" value={form.segundo_apellido} onChange={(e) => setForm({ ...form, segundo_apellido: e.target.value })} />
+                  </div>
+
+                  <label className="block text-sm">
+                    <span className="mb-1 block font-medium text-slate-700">Entidad de nacimiento</span>
+                    <select
+                      value={form.entidad_nacimiento}
+                      onChange={(e) => setForm({ ...form, entidad_nacimiento: e.target.value })}
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    >
+                      <option value="">Sin especificar</option>
+                      {ENTIDAD_FEDERATIVA.map((ent) => (
+                        <option key={ent.clave} value={ent.clave}>{ent.nombre}</option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="block text-sm">
+                      <span className="mb-1 block font-medium text-slate-700">Sexo biológico</span>
+                      <select
+                        value={form.sexo_biologico}
+                        onChange={(e) => setForm({ ...form, sexo_biologico: e.target.value })}
+                        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                      >
+                        <option value="">Sin especificar</option>
+                        <option value="M">Masculino</option>
+                        <option value="F">Femenino</option>
+                        <option value="X">Intersexual</option>
+                      </select>
+                    </label>
+                    <label className="block text-sm">
+                      <span className="mb-1 block font-medium text-slate-700">Identidad de género</span>
+                      <select
+                        value={form.genero}
+                        onChange={(e) => setForm({ ...form, genero: e.target.value })}
+                        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                      >
+                        <option value="">Sin especificar</option>
+                        {GENERO.filter((g) => g.value !== 0).map((g) => (
+                          <option key={g.value} value={g.label.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')}>{g.label}</option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="block text-sm">
+                      <span className="mb-1 block font-medium text-slate-700">¿Se considera indígena?</span>
+                      <select
+                        value={form.se_considera_indigena}
+                        onChange={(e) => setForm({ ...form, se_considera_indigena: e.target.value })}
+                        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                      >
+                        <option value="">Sin especificar</option>
+                        <option value="si">Sí</option>
+                        <option value="no">No</option>
+                        <option value="no_responde">No responde</option>
+                        <option value="no_sabe">No sabe</option>
+                      </select>
+                    </label>
+                    <label className="block text-sm">
+                      <span className="mb-1 block font-medium text-slate-700">¿Se autodenomina afromexicano?</span>
+                      <select
+                        value={form.se_autodenomina_afromexicano}
+                        onChange={(e) => setForm({ ...form, se_autodenomina_afromexicano: e.target.value })}
+                        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                      >
+                        <option value="">Sin especificar</option>
+                        <option value="si">Sí</option>
+                        <option value="no">No</option>
+                        <option value="no_responde">No responde</option>
+                        <option value="no_sabe">No sabe</option>
+                      </select>
+                    </label>
+                  </div>
+
+                  <label className="block text-sm">
+                    <span className="mb-1 block font-medium text-slate-700">¿Es migrante?</span>
+                    <select
+                      value={form.migrante}
+                      onChange={(e) => setForm({ ...form, migrante: e.target.value })}
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    >
+                      <option value="">Sin especificar</option>
+                      <option value="no">No</option>
+                      <option value="nacional">Sí, nacional</option>
+                      <option value="internacional">Sí, internacional</option>
+                      <option value="retornado">Retornado</option>
+                    </select>
+                  </label>
+
+                  <div>
+                    <span className="mb-1 block text-sm font-medium text-slate-700">Derechohabiencia (una o varias)</span>
+                    <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+                      {AFILIACION.filter((a) => ![0, 1, 99].includes(a.value)).map((a) => {
+                        const clave = a.label.toLowerCase().replace(/\s+/g, '_')
+                        const marcado = form.derechohabiencia.includes(clave)
+                        return (
+                          <label key={a.value} className="flex items-center gap-1.5 text-xs text-slate-700">
+                            <input
+                              type="checkbox"
+                              checked={marcado}
+                              onChange={() => {
+                                setForm((f) => ({
+                                  ...f,
+                                  derechohabiencia: marcado
+                                    ? f.derechohabiencia.filter((d) => d !== clave)
+                                    : [...f.derechohabiencia, clave]
+                                }))
+                              }}
+                              className="h-3.5 w-3.5 rounded border-slate-300"
+                            />
+                            {a.label}
+                          </label>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
 
             <Button type="submit" disabled={guardando || estadoCurp === 'invalida'} className="w-full">
               {guardando ? 'Guardando…' : 'Guardar'}

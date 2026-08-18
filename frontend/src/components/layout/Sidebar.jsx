@@ -39,7 +39,8 @@ const SECCIONES = [
     titulo: 'Administración',
     enlaces: [
       { to: '/usuarios', label: 'Usuarios', roles: ['owner'] },
-      { to: '/configuracion', label: 'Configuración', roles: ['owner'] }
+      { to: '/configuracion', label: 'Configuración', roles: ['owner'] },
+      { to: '/reporte-sis', label: 'Reporte SIS', roles: ['owner'] }
     ]
   }
 ]

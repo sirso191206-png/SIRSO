@@ -77,6 +77,7 @@ export function useConsultaForm(citaId) {
     await actualizarCita(cita.id, { motivo_consulta: motivo || null })
     await crearNotaClinica({
       expediente_id: expediente.id,
+      cita_id: cita.id,
       usuario_id: perfil.id,
       contenido: notaContenido || '(sin nota)',
       tipo: 'consulta',

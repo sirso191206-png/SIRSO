@@ -317,6 +317,43 @@ export const TIPO_PERSONAL = [
   { value: 23, label: 'TÉCNICA(O) EN ODONTOLOGÍA' },
 ] as const
 
+/**
+ * Catálogo SERVICIOS DE ATENCIÓN POR TIPO DE PERSONAL SIS-SB (variable
+ * 25, servicioAtencion), tal cual el archivo oficial
+ * SERVICIOS_ATENCION_POR_TIPO_PERSONAL_SIS-SB.xlsx (DGIS, noviembre
+ * 2024). Son solo 4 códigos válidos para Salud Bucal — el resto del
+ * catálogo general SERVICIOS_ATENCION (73 códigos, todos los
+ * subsistemas del SIS) no aplica aquí.
+ */
+export const SERVICIOS_ATENCION_SALUD_BUCAL = [
+  { value: 10, label: 'ODONTOLOGÍA', tipoPersonalValido: [12, 13, 23] },
+  { value: 11, label: 'ODONTOLOGÍA ESPECIALIZADA', tipoPersonalValido: [14] },
+  { value: 12, label: 'ODONTOPEDIATRÍA', tipoPersonalValido: [14] }, // guía: solo si edad del paciente < 18 años
+  { value: 31, label: 'CIRUGÍA MAXILOFACIAL', tipoPersonalValido: [14] },
+] as const
+
+/**
+ * Resuelve el/los código(s) de servicioAtencion válidos para un
+ * tipoPersonal dado. Si el prestador es especialista (14), puede
+ * facturar cualquiera de los 3 servicios exclusivos de especialista
+ * — se devuelve el primero (ODONTOLOGÍA ESPECIALIZADA) como default
+ * razonable; los otros dos (ODONTOPEDIATRÍA, CIRUGÍA MAXILOFACIAL) son
+ * elegibles pero dependen del caso clínico real, no se pueden inferir
+ * solo del tipoPersonal.
+ */
+export function servicioAtencionPara(tipoPersonal: number): number | null {
+  const entrada = SERVICIOS_ATENCION_SALUD_BUCAL.find((s) =>
+    (s.tipoPersonalValido as readonly number[]).includes(tipoPersonal),
+  )
+  return entrada?.value ?? null
+}
+
+export function servicioAtencionEsValidoParaTipoPersonal(servicioAtencion: number, tipoPersonal: number): boolean {
+  const entrada = SERVICIOS_ATENCION_SALUD_BUCAL.find((s) => s.value === servicioAtencion)
+  if (!entrada) return false
+  return (entrada.tipoPersonalValido as readonly number[]).includes(tipoPersonal)
+}
+
 /** Catálogo AFILIACION (variable 23). Admite multivalor con "&". */
 export const AFILIACION = [
   { value: 0, label: 'NO ESPECIFICADO' },

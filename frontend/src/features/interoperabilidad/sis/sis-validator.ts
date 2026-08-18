@@ -19,6 +19,7 @@
 
 import type { SisFieldKey, SisRegistro } from './sis-types'
 import type { CatalogosSis } from './sis-catalogs'
+import { servicioAtencionEsValidoParaTipoPersonal } from './sis-catalogs'
 
 export interface ErrorValidacion {
   campo: SisFieldKey | 'salud_bucal' // salud_bucal es una regla que cruza 25 campos a la vez
@@ -174,6 +175,22 @@ export function validarRegistroSis(registro: SisRegistro, catalogos?: CatalogosS
   }
   if (fechaConsulta && fechaConsulta.getTime() > Date.now() + 24 * 60 * 60 * 1000) {
     err('fechaConsulta', 'La fecha de consulta no puede ser posterior a hoy.')
+  }
+
+  const edadPaciente =
+    fechaNacimiento && fechaConsulta
+      ? (fechaConsulta.getTime() - fechaNacimiento.getTime()) / (1000 * 60 * 60 * 24 * 365.25)
+      : null
+
+  // ---------- servicioAtencion (variable 25) ----------
+  const servicioAtencion = valorNumero(registro.servicioAtencion)
+  if (![10, 11, 12, 31].includes(servicioAtencion)) {
+    err('servicioAtencion', 'servicioAtencion debe ser 10, 11, 12 o 31 (catálogo SIS-SB).')
+  } else if (!servicioAtencionEsValidoParaTipoPersonal(servicioAtencion, tipoPersonal)) {
+    err('servicioAtencion', `servicioAtencion ${servicioAtencion} no es válido para tipoPersonal ${tipoPersonal} (catálogo SIS-SB).`)
+  }
+  if (servicioAtencion === 12 && edadPaciente !== null && edadPaciente >= 18) {
+    err('servicioAtencion', 'servicioAtencion 12 (ODONTOPEDIATRÍA) requiere que el paciente sea menor de 18 años.')
   }
 
   const sexoCURP = valorNumero(registro.sexoCURP)
@@ -348,11 +365,6 @@ export function validarRegistroSis(registro: SisRegistro, catalogos?: CatalogosS
   }
 
   // ---------- Validación real contra DIAGNOSTICO_SIS (si el catálogo está cargado) ----------
-  const edadPaciente =
-    fechaNacimiento && fechaConsulta
-      ? (fechaConsulta.getTime() - fechaNacimiento.getTime()) / (1000 * 60 * 60 * 24 * 365.25)
-      : null
-
   // Regla de la guía: "Se debe validar que se cumplan las restricciones por
   // sexo y edad... de acuerdo a las columnas LSEX, LINF y LSUP. Si el valor
   // de sexoBiologico es INTERSEXUAL, únicamente se debe validar por edad."
