@@ -1,14 +1,52 @@
 import { useMemo, useState } from 'react'
-import { Html } from '@react-three/drei'
+import { Html, useGLTF } from '@react-three/drei'
 import { COLOR_MARFIL_CORONA, COLOR_MARFIL_RAIZ } from './constantesOdontograma'
 
+const RUTA_MODELO = '/models/odontograma.glb'
+
+// Punto de partida medido contra la geometría placeholder anterior
+// (cápsulas ~0.46 unidades de alto vs. dientes reales de Blender
+// ~2.3 unidades de alto) — no se pudo verificar visualmente desde este
+// entorno (sin GPU/navegador), así que es un valor de arranque, no un
+// ajuste fino. Si al verlo en pantalla se ve muy grande/chico, este es
+// el único número que hay que tocar.
+const FACTOR_ESCALA_MODELO_REAL = 0.2
+
+useGLTF.preload(RUTA_MODELO)
+
 // ------------------------------------------------------------
-// Geometría temporal MEJORADA (Fase 1.5): cápsulas y esferas en vez de
-// cilindros/conos rectos, con protuberancias simples para sugerir cúspides.
-// El día que existan modelos .glb reales, solo se reemplaza el contenido
-// de <Corona> — nada de la lógica clínica/selección de aquí abajo cambia.
+// Geometría REAL (Fase 2): carga el modelo exportado desde Blender
+// (SIRSO_Odontograma_Interactividad.blend → public/models/odontograma.glb).
+// Cada nodo del glb se llama exactamente por su número FDI ("11".."48"),
+// igual que pieza.numero_pieza — por eso el lookup es directo, sin mapeo.
+//
+// El color SIGUE decidiéndose aquí en React (evaluarPieza, sin cambios)
+// y no con los materiales de Blender — así el mismo dato clínico pinta
+// tanto el 2D como el 3D sin duplicar la lógica de estados en dos
+// lugares. Si el nodo no se encuentra (nombre no coincide, o el glb no
+// cargó), cae de vuelta a la cápsula placeholder — nunca se rompe la
+// vista por un dato faltante.
 // ------------------------------------------------------------
-function Corona({ tipo, color, emissive }) {
+// Punto de entrada único: intenta la geometría real por FDI; si el
+// nodo no existe en el glb (nombre no coincide, modelo no cargó, o
+// simplemente esa pieza todavía no está modelada), cae de vuelta a la
+// cápsula placeholder — la vista nunca se queda vacía por un dato
+// faltante en el modelo 3D.
+function Corona({ numeroPieza, tipo, color, emissive }) {
+  const { nodes } = useGLTF(RUTA_MODELO)
+  const nodo = nodes[String(numeroPieza)]
+
+  if (nodo && nodo.geometry) {
+    return (
+      <mesh geometry={nodo.geometry} scale={FACTOR_ESCALA_MODELO_REAL} castShadow>
+        <meshStandardMaterial color={color} emissive={emissive} emissiveIntensity={emissive ? 0.35 : 0} roughness={0.45} />
+      </mesh>
+    )
+  }
+  return <CoronaPlaceholder tipo={tipo} color={color} emissive={emissive} />
+}
+
+function CoronaPlaceholder({ tipo, color, emissive }) {
   const material = (
     <meshStandardMaterial color={color} emissive={emissive} emissiveIntensity={emissive ? 0.35 : 0} roughness={0.45} />
   )
@@ -113,7 +151,7 @@ export function Diente3D({ pieza, tipo, posicion, rotacion, escala, seleccionada
 
       {/* Color clínico — NUNCA lo cambia la selección, solo se le agrega
           un ligero emissive cuando además está seleccionada */}
-      <Corona tipo={tipo} color={info.color} emissive={seleccionada ? info.color : null} />
+      <Corona numeroPieza={pieza.numero_pieza} tipo={tipo} color={info.color} emissive={seleccionada ? info.color : null} />
 
       {/* Indicador de SELECCIÓN — completamente separado del estado
           clínico: un anillo azul brillante en la base. Nunca reemplaza

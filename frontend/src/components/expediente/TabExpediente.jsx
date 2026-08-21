@@ -5,7 +5,10 @@ import { useAuthStore } from '../../store/useAuthStore'
 import { toastExito, toastError } from '../../store/useToastStore'
 import { EditorAlergias } from './EditorAlergias'
 import { EditorLista } from './EditorLista'
+import { EditorEnfermedades } from './EditorEnfermedades'
 import { EditorHeredofamiliares } from './EditorHeredofamiliares'
+import { EditorGinecoObstetrico } from './EditorGinecoObstetrico'
+import { SUGERENCIAS_MEDICAMENTOS, SUGERENCIAS_CIRUGIAS, SUGERENCIAS_HOSPITALIZACIONES } from './catalogosAntecedentes'
 import { Input } from '../ui/Input'
 import { Button } from '../ui/Button'
 
@@ -56,6 +59,8 @@ function SeccionGeneral({ pacienteId }) {
 
   return (
     <div className="space-y-4">
+      <GrupoSanguineoForm expediente={expediente} onGuardar={guardarAntecedentes} />
+
       <EditorAlergias
         alergias={expediente.alergias}
         onGuardar={(nueva) => guardarCampo('alergias', nueva, 'Alergias actualizadas.')}
@@ -69,34 +74,89 @@ function SeccionGeneral({ pacienteId }) {
       <AntecedentesFamiliaresForm expediente={expediente} onGuardar={guardarAntecedentes} />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <EditorLista
-          etiqueta="Enfermedades actuales"
+        <EditorEnfermedades
           items={expediente.enfermedades}
-          placeholder="Ej. Diabetes tipo 2"
           onGuardar={(nueva) => guardarCampo('enfermedades', nueva, 'Enfermedades actualizadas.')}
         />
         <EditorLista
           etiqueta="Medicamentos actuales"
           items={expediente.medicamentos_actuales}
           placeholder="Ej. Metformina 850mg"
+          sugerencias={SUGERENCIAS_MEDICAMENTOS}
           onGuardar={(nueva) => guardarCampo('medicamentos_actuales', nueva, 'Medicamentos actualizados.')}
         />
         <EditorLista
           etiqueta="Cirugías anteriores"
           items={expediente.cirugias_anteriores}
           placeholder="Ej. Apendicectomía (2019)"
+          sugerencias={SUGERENCIAS_CIRUGIAS}
           onGuardar={(nueva) => guardarCampo('cirugias_anteriores', nueva, 'Cirugías actualizadas.')}
         />
         <EditorLista
           etiqueta="Hospitalizaciones"
           items={expediente.hospitalizaciones}
           placeholder="Ej. Neumonía (2021)"
+          sugerencias={SUGERENCIAS_HOSPITALIZACIONES}
           onGuardar={(nueva) => guardarCampo('hospitalizaciones', nueva, 'Hospitalizaciones actualizadas.')}
+        />
+        <EditorLista
+          etiqueta="Toxicomanías"
+          items={expediente.toxicomanias}
+          placeholder="Ej. Marihuana, uso ocasional"
+          onGuardar={(nueva) => guardarCampo('toxicomanias', nueva, 'Toxicomanías actualizadas.')}
         />
       </div>
 
+      <EditorGinecoObstetrico
+        valor={expediente.antecedentes_ginecobstetricos}
+        onGuardar={(nueva) => guardarCampo('antecedentes_ginecobstetricos', nueva, 'Antecedentes gineco-obstétricos actualizados.')}
+      />
+
       <HabitosForm expediente={expediente} onGuardar={guardarAntecedentes} />
     </div>
+  )
+}
+
+function GrupoSanguineoForm({ expediente, onGuardar }) {
+  const GRUPOS = ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-']
+  const [editando, setEditando] = useState(!expediente.grupo_sanguineo)
+  const [valor, setValor] = useState(expediente.grupo_sanguineo ?? '')
+  const [guardando, setGuardando] = useState(false)
+
+  const guardar = async (e) => {
+    e.preventDefault()
+    setGuardando(true)
+    try {
+      await onGuardar({ grupo_sanguineo: valor || null })
+      toastExito('Grupo sanguíneo actualizado.')
+      setEditando(false)
+    } catch (err) {
+      toastError('No se pudo guardar: ' + err.message)
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  if (!editando) {
+    return (
+      <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4">
+        <span className="text-sm text-slate-700">
+          <span className="font-semibold">Grupo sanguíneo:</span> {expediente.grupo_sanguineo || <span className="text-slate-400">no registrado</span>}
+        </span>
+        <button onClick={() => setEditando(true)} className="text-xs font-medium text-clinico-azul hover:underline">Editar</button>
+      </div>
+    )
+  }
+
+  return (
+    <form onSubmit={guardar} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4">
+      <span className="text-sm font-semibold text-slate-700">Grupo sanguíneo</span>
+      <select value={valor} onChange={(e) => setValor(e.target.value)} className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm">
+        <option value="">Sin especificar</option>
+        {GRUPOS.map((g) => <option key={g} value={g}>{g}</option>)}
+      </select>
+      <Button type="submit" variante="secundario" disabled={guardando}>{guardando ? 'Guardando…' : 'Guardar'}</Button>
+    </form>
   )
 }
 

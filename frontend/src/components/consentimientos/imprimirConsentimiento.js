@@ -1,8 +1,10 @@
 import { supabase } from '../../lib/supabase'
 import { abrirVentanaImpresion } from '../../lib/imprimir'
 
+const NOMBRE_URGENCIA = { electivo: 'Electivo', urgente: 'Urgente', emergencia: 'Emergencia' }
+
 export async function imprimirConsentimiento({ consentimiento, paciente, clinicaId }) {
-  const { data: clinica } = await supabase.from('clinicas').select('nombre, direccion').eq('id', clinicaId).single()
+  const { data: clinica } = await supabase.from('clinicas').select('nombre, direccion, responsable_sanitario').eq('id', clinicaId).single()
 
   const bloqueFirma = (titulo, nombre, png) => `
     <div class="firma-bloque">
@@ -13,6 +15,8 @@ export async function imprimirConsentimiento({ consentimiento, paciente, clinica
     </div>
   `
 
+  const fila = (etiqueta, valor) => (valor ? `<div class="campo"><span class="campo-etiqueta">${etiqueta}:</span> ${valor}</div>` : '')
+
   const html = `
     <!doctype html>
     <html lang="es">
@@ -20,12 +24,14 @@ export async function imprimirConsentimiento({ consentimiento, paciente, clinica
       <meta charset="utf-8" />
       <title>Consentimiento informado — ${paciente.nombre_completo}</title>
       <style>
-        body { font-family: system-ui, sans-serif; color: #1E293B; padding: 40px; max-width: 650px; margin: 0 auto; }
-        h1 { color: #1E5F8C; font-size: 18px; margin: 0 0 2px; }
-        .clinica-datos { font-size: 11px; color: #64748B; margin-bottom: 20px; }
-        .datos-paciente { border-top: 2px solid #E2E8F0; border-bottom: 2px solid #E2E8F0; padding: 12px 0; margin-bottom: 20px; font-size: 13px; }
-        h2 { font-size: 13px; color: #1E5F8C; margin: 18px 0 4px; }
-        p { font-size: 13px; color: #334155; line-height: 1.5; margin: 0; }
+        body { font-family: system-ui, sans-serif; color: #1E293B; padding: 40px; max-width: 700px; margin: 0 auto; }
+        h1 { color: #1E5F8C; font-size: 18px; margin: 0 0 2px; text-align: center; }
+        .titulo-carta { text-align: center; font-size: 15px; font-weight: 600; color: #334155; margin: 6px 0 18px; text-transform: uppercase; letter-spacing: 0.02em; }
+        .clinica-datos { font-size: 11px; color: #64748B; margin-bottom: 16px; text-align: center; }
+        .datos-paciente { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 20px; border-top: 2px solid #E2E8F0; border-bottom: 2px solid #E2E8F0; padding: 12px 0; margin-bottom: 16px; font-size: 12.5px; }
+        .campo { font-size: 13px; color: #334155; line-height: 1.6; margin-bottom: 8px; }
+        .campo-etiqueta { font-weight: 600; color: #1E5F8C; }
+        p.parrafo { font-size: 13px; color: #334155; line-height: 1.6; margin: 10px 0; text-align: justify; }
         .firmas { display: flex; gap: 24px; margin-top: 40px; }
         .firma-bloque { flex: 1; text-align: center; }
         .firma-titulo { font-size: 11px; color: #64748B; margin-bottom: 6px; }
@@ -39,33 +45,66 @@ export async function imprimirConsentimiento({ consentimiento, paciente, clinica
     </head>
     <body>
       <h1>${clinica?.nombre ?? 'Consultorio'}</h1>
-      <div class="clinica-datos">${clinica?.direccion ?? ''}</div>
+      <div class="clinica-datos">${[clinica?.direccion, clinica?.responsable_sanitario ? `Responsable sanitario: ${clinica.responsable_sanitario}` : null].filter(Boolean).join(' · ')}</div>
+      <div class="titulo-carta">Carta de consentimiento informado odontológico</div>
 
       <div class="datos-paciente">
         <div><strong>Paciente:</strong> ${paciente.nombre_completo}${paciente.numero_expediente ? ` (${paciente.numero_expediente})` : ''}</div>
         <div><strong>Fecha:</strong> ${new Date(consentimiento.creado_en).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+        <div><strong>Lugar:</strong> ${consentimiento.lugar || clinica?.direccion || '—'}</div>
+        <div><strong>Grado de urgencia:</strong> ${NOMBRE_URGENCIA[consentimiento.grado_urgencia] ?? 'Electivo'}</div>
+        ${consentimiento.fecha_procedimiento ? `<div><strong>Fecha del procedimiento:</strong> ${new Date(consentimiento.fecha_procedimiento + 'T00:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}</div>` : ''}
       </div>
 
-      <h2>Procedimiento</h2>
-      <p>${consentimiento.procedimiento}</p>
+      ${consentimiento.revocado_en ? `
+        <div style="background:#FEF2F2; border:1px solid #FCA5A5; border-radius:8px; padding:12px; margin-bottom:16px; font-size:13px; color:#991B1B;">
+          <strong>⚠ Este consentimiento fue revocado</strong> el ${new Date(consentimiento.revocado_en).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}.
+          ${consentimiento.motivo_revocacion ? `Motivo: ${consentimiento.motivo_revocacion}` : ''}
+        </div>
+      ` : ''}
 
-      ${consentimiento.riesgos ? `<h2>Riesgos</h2><p>${consentimiento.riesgos}</p>` : ''}
-      ${consentimiento.beneficios ? `<h2>Beneficios</h2><p>${consentimiento.beneficios}</p>` : ''}
-      ${consentimiento.alternativas ? `<h2>Alternativas</h2><p>${consentimiento.alternativas}</p>` : ''}
+      ${fila('Diagnóstico', consentimiento.diagnostico)}
+      ${fila('Procedimiento(s) estomatológico(s)', consentimiento.procedimiento)}
+      ${fila('Pronóstico', consentimiento.pronostico)}
 
-      <p style="margin-top: 20px; font-style: italic;">
-        Declaro que se me ha explicado el procedimiento descrito, sus riesgos, beneficios y alternativas,
-        y que todas mis dudas han sido resueltas. Doy mi consentimiento de manera libre e informada.
+      <p class="parrafo">
+        La o el profesional me ha informado satisfactoriamente de la naturaleza y propósito del/los
+        procedimiento(s) descritos. Además, he sido informado(a) del tipo de anestesia (cuando aplique) y
+        de los riesgos derivados de dicho procedimiento.
+      </p>
+
+      ${fila('Riesgos y complicaciones', consentimiento.riesgos)}
+      ${fila('Posibles molestias o efectos secundarios', consentimiento.molestias_efectos_secundarios)}
+      ${fila('Beneficios esperados', consentimiento.beneficios)}
+      ${fila('Alternativa(s) de tratamiento', consentimiento.alternativas)}
+      ${fila('Motivo de elección', consentimiento.motivo_eleccion)}
+
+      <p class="parrafo">
+        Autorizo al personal de este consultorio/clínica para que realice el o los estudios y
+        tratamientos previamente descritos, así como, ante cualquier complicación o efecto adverso durante
+        el/los procedimiento(s) — especialmente ante una urgencia — que se practiquen las técnicas y
+        procedimientos necesarios.
+      </p>
+      <p class="parrafo">
+        Acepto que no se me pueden dar garantías o seguridad absoluta respecto a que el resultado del
+        procedimiento sea el más satisfactorio, por lo que existe la posibilidad de necesitar cualquier
+        intervención posterior para mejorar el resultado final, y me comprometo a seguir responsablemente
+        las recomendaciones recibidas antes y después de la intervención, así como a acudir a las citas de
+        revisión post-operatoria durante el tiempo indicado.
+      </p>
+      <p class="parrafo">
+        Tengo la plena libertad de revocar esta autorización en cualquier momento antes de realizarse el
+        tratamiento.
       </p>
 
       <div class="firmas">
-        ${bloqueFirma('Firma del paciente', consentimiento.firma_paciente_nombre, consentimiento.firma_paciente_png)}
+        ${bloqueFirma('Firma del paciente o tutor', consentimiento.firma_paciente_nombre, consentimiento.firma_paciente_png)}
         ${bloqueFirma('Firma del profesional', consentimiento.firma_medico_nombre ?? consentimiento.dentista?.nombre, consentimiento.firma_medico_png)}
       </div>
 
       ${(consentimiento.testigo1_nombre || consentimiento.testigo2_nombre) ? `
         <div class="testigos">
-          <strong>Testigos:</strong> ${[consentimiento.testigo1_nombre, consentimiento.testigo2_nombre].filter(Boolean).join(' · ')}
+          <strong>Testigo(s):</strong> ${[consentimiento.testigo1_nombre, consentimiento.testigo2_nombre].filter(Boolean).join(' · ')}
         </div>
       ` : ''}
 

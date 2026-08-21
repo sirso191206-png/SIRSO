@@ -9,6 +9,13 @@ import { Modal } from '../ui/Modal'
 
 const MEDICAMENTO_VACIO = { medicamento: '', presentacion: '', dosis: '', via: '', frecuencia: '', duracion: '', indicaciones: '' }
 
+function calcularVencida(receta) {
+  const emision = new Date(receta.creado_en)
+  const vence = new Date(emision)
+  vence.setDate(vence.getDate() + (receta.vigencia_dias ?? 30))
+  return vence < new Date()
+}
+
 export function TabRecetas({ pacienteId, paciente }) {
   const { recetas, cargando, agregar } = useRecetas(pacienteId)
   const perfil = useAuthStore((s) => s.perfil)
@@ -38,9 +45,19 @@ export function TabRecetas({ pacienteId, paciente }) {
         {recetas.map((r) => (
           <div key={r.id} className="rounded-xl border border-slate-200 bg-white p-4">
             <div className="mb-2 flex items-center justify-between">
-              <div className="text-sm text-slate-500">
+              <div className="flex items-center gap-2 text-sm text-slate-500">
                 {new Date(r.creado_en).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}
                 {r.dentista?.nombre && ` · ${r.dentista.nombre}`}
+                {r.es_controlada && (
+                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-amber-800">
+                    Controlada
+                  </span>
+                )}
+                {calcularVencida(r) ? (
+                  <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-red-700">Vencida</span>
+                ) : (
+                  <span className="text-[10px] text-slate-400">vigente {r.vigencia_dias ?? 30} días</span>
+                )}
               </div>
               <button
                 onClick={() => handleImprimir(r)}
@@ -81,11 +98,15 @@ export function TabRecetas({ pacienteId, paciente }) {
 function ModalNuevaReceta({ abierto, onCerrar, onGuardar, perfil }) {
   const [medicamentos, setMedicamentos] = useState([{ ...MEDICAMENTO_VACIO }])
   const [indicacionesGenerales, setIndicacionesGenerales] = useState('')
+  const [vigenciaDias, setVigenciaDias] = useState(30)
+  const [esControlada, setEsControlada] = useState(false)
   const [guardando, setGuardando] = useState(false)
 
   const cerrar = () => {
     setMedicamentos([{ ...MEDICAMENTO_VACIO }])
     setIndicacionesGenerales('')
+    setVigenciaDias(30)
+    setEsControlada(false)
     onCerrar()
   }
 
@@ -108,7 +129,9 @@ function ModalNuevaReceta({ abierto, onCerrar, onGuardar, perfil }) {
       await onGuardar({
         dentista_id: perfil.id,
         medicamentos: validos,
-        indicaciones_generales: indicacionesGenerales || null
+        indicaciones_generales: indicacionesGenerales || null,
+        vigencia_dias: Number(vigenciaDias) || 30,
+        es_controlada: esControlada
       })
       toastExito('Receta guardada.')
       cerrar()
@@ -164,6 +187,26 @@ function ModalNuevaReceta({ abierto, onCerrar, onGuardar, perfil }) {
             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
           />
         </label>
+
+        <div className="grid grid-cols-1 gap-3 rounded-lg border border-slate-200 p-3 sm:grid-cols-2">
+          <Input
+            label="Vigencia (días)"
+            type="number"
+            min="1"
+            value={vigenciaDias}
+            onChange={(e) => setVigenciaDias(e.target.value)}
+          />
+          <label className="flex items-end gap-2 pb-2 text-sm">
+            <input type="checkbox" checked={esControlada} onChange={(e) => setEsControlada(e.target.checked)} className="h-4 w-4 rounded border-slate-300" />
+            <span className="text-slate-700">Contiene medicamento controlado</span>
+          </label>
+          {esControlada && (
+            <p className="col-span-full text-xs text-amber-700">
+              SIRO no emite recetario especial numerado (COFEPRIS) — esta marca solo advierte que el
+              medicamento lo requiere; el trámite del recetario especial es aparte.
+            </p>
+          )}
+        </div>
 
         <Button type="submit" disabled={guardando} className="w-full">
           {guardando ? 'Guardando…' : 'Guardar receta'}

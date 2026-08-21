@@ -1,6 +1,7 @@
 import { useState } from 'react'
+import { CampoAutocompletar } from './CampoAutocompletar'
 
-export function EditorLista({ etiqueta, items, onGuardar, placeholder, destacar = false }) {
+export function EditorLista({ etiqueta, items, onGuardar, placeholder, destacar = false, sugerencias = [] }) {
   const [nuevoItem, setNuevoItem] = useState('')
   const [guardando, setGuardando] = useState(false)
 
@@ -48,11 +49,11 @@ export function EditorLista({ etiqueta, items, onGuardar, placeholder, destacar 
       {lista.length === 0 && <p className="mb-2 text-xs text-slate-400">Ninguno registrado.</p>}
 
       <form onSubmit={agregar} className="flex gap-2">
-        <input
+        <CampoAutocompletar
           value={nuevoItem}
           onChange={(e) => setNuevoItem(e.target.value)}
+          sugerencias={sugerencias}
           placeholder={placeholder}
-          className="flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
         />
         <button
           type="submit"

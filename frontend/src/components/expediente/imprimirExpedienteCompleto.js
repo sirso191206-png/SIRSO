@@ -41,7 +41,18 @@ function listaOTexto(valor) {
   if (!valor) return null
   if (Array.isArray(valor)) {
     if (valor.length === 0) return null
-    return valor.map((v) => (typeof v === 'string' ? v : v.nombre || v.enfermedad || JSON.stringify(v))).join(', ')
+    return valor
+      .map((v) => {
+        if (typeof v === 'string') return v
+        const nombre = v.nombre || v.enfermedad || JSON.stringify(v)
+        const detalle = [
+          v.desde_cuando && `desde ${v.desde_cuando}`,
+          v.controlada && (v.controlada === 'controlada' ? 'controlada' : 'no controlada'),
+          v.medicacion && `medicación: ${v.medicacion}`,
+        ].filter(Boolean).join(', ')
+        return detalle ? `${nombre} (${detalle})` : nombre
+      })
+      .join('; ')
   }
   return String(valor).trim() || null
 }

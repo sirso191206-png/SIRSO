@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { actualizarPaciente } from '../../services/pacientes'
+import { calcularEdad } from '../../lib/fechas'
 import { toastExito, toastError } from '../../store/useToastStore'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
@@ -37,6 +38,7 @@ const campoVacio = (v) => v ?? ''
 function datosIniciales(paciente) {
   const emergencia = paciente.contacto_emergencia || {}
   const seguro = paciente.seguro_medico || {}
+  const tutor = paciente.tutor_legal || {}
   return {
     nombre_completo: campoVacio(paciente.nombre_completo),
     primer_apellido: campoVacio(paciente.primer_apellido),
@@ -65,6 +67,10 @@ function datosIniciales(paciente) {
     emergencia_telefono_alterno: campoVacio(emergencia.telefono_alterno),
     seguro_aseguradora: campoVacio(seguro.aseguradora),
     seguro_numero_poliza: campoVacio(seguro.numero_poliza),
+    tutor_nombre: campoVacio(tutor.nombre),
+    tutor_parentesco: campoVacio(tutor.parentesco),
+    tutor_identificacion: campoVacio(tutor.identificacion),
+    tutor_telefono: campoVacio(tutor.telefono),
     tipo_paciente: campoVacio(paciente.tipo_paciente),
     estado_expediente: campoVacio(paciente.estado_expediente) || 'activo',
     referido_por: campoVacio(paciente.referido_por),
@@ -154,6 +160,14 @@ export function TabDatosGenerales({ paciente, alGuardar }) {
         seguro_medico: (form.seguro_aseguradora || form.seguro_numero_poliza)
           ? { aseguradora: form.seguro_aseguradora || null, numero_poliza: form.seguro_numero_poliza || null }
           : null,
+        tutor_legal: (form.tutor_nombre || form.tutor_telefono)
+          ? {
+              nombre: form.tutor_nombre || null,
+              parentesco: form.tutor_parentesco || null,
+              identificacion: form.tutor_identificacion || null,
+              telefono: form.tutor_telefono || null,
+            }
+          : null,
         tipo_paciente: form.tipo_paciente || null,
         estado_expediente: form.estado_expediente || 'activo',
         referido_por: form.referido_por || null,
@@ -172,6 +186,7 @@ export function TabDatosGenerales({ paciente, alGuardar }) {
   if (!editando) {
     const emergencia = paciente.contacto_emergencia || {}
     const seguro = paciente.seguro_medico || {}
+    const tutor = paciente.tutor_legal || {}
     return (
       <div>
         <div className="mb-4 flex justify-end">
@@ -215,6 +230,36 @@ export function TabDatosGenerales({ paciente, alGuardar }) {
           <Campo label="Teléfono" valor={emergencia.telefono} />
           <Campo label="Teléfono alterno" valor={emergencia.telefono_alterno} />
         </Seccion>
+
+        {(() => {
+          const edad = calcularEdad(paciente.fecha_nacimiento)
+          const esMenor = edad !== null && edad < 18
+          const sinTutor = !tutor.nombre
+          return (
+            <div className="mb-6">
+              <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
+                Tutor / representante legal
+                {esMenor && sinTutor && (
+                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold normal-case tracking-normal text-amber-800">
+                    ⚠ Paciente menor de edad sin tutor registrado
+                  </span>
+                )}
+              </h3>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <Campo label="Nombre completo" valor={tutor.nombre} />
+                <Campo label="Parentesco" valor={tutor.parentesco} />
+                <Campo label="Identificación" valor={tutor.identificacion} />
+                <Campo label="Teléfono" valor={tutor.telefono} />
+              </div>
+              {esMenor && (
+                <p className="mt-2 text-xs text-slate-400">
+                  Un menor de edad no puede otorgar consentimiento informado válido por sí mismo — al
+                  generar un consentimiento para este paciente, usa el nombre del tutor en la firma.
+                </p>
+              )}
+            </div>
+          )
+        })()}
 
         <Seccion titulo="Administrativo">
           <Campo label="Número de expediente" valor={paciente.numero_expediente} />
@@ -271,6 +316,13 @@ export function TabDatosGenerales({ paciente, alGuardar }) {
         <Input label="Parentesco" value={form.emergencia_parentesco} onChange={campo('emergencia_parentesco')} />
         <Input label="Teléfono" value={form.emergencia_telefono} onChange={campo('emergencia_telefono')} />
         <Input label="Teléfono alterno" value={form.emergencia_telefono_alterno} onChange={campo('emergencia_telefono_alterno')} />
+      </Seccion>
+
+      <Seccion titulo="Tutor / representante legal (para menores de edad)">
+        <Input label="Nombre completo" value={form.tutor_nombre} onChange={campo('tutor_nombre')} />
+        <Input label="Parentesco" value={form.tutor_parentesco} onChange={campo('tutor_parentesco')} />
+        <Input label="Identificación" value={form.tutor_identificacion} onChange={campo('tutor_identificacion')} />
+        <Input label="Teléfono" value={form.tutor_telefono} onChange={campo('tutor_telefono')} />
       </Seccion>
 
       <Seccion titulo="Administrativo">

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { obtenerConsentimientos, crearConsentimiento } from '../services/consentimientos'
+import { obtenerConsentimientos, crearConsentimiento, revocarConsentimiento } from '../services/consentimientos'
 
 export function useConsentimientos(pacienteId) {
   const [consentimientos, setConsentimientos] = useState([])
@@ -22,5 +22,11 @@ export function useConsentimientos(pacienteId) {
     return nuevo
   }
 
-  return { consentimientos, cargando, agregar }
+  const revocar = async (id, datos) => {
+    const actualizado = await revocarConsentimiento(id, datos)
+    await recargar()
+    return actualizado
+  }
+
+  return { consentimientos, cargando, agregar, revocar }
 }
