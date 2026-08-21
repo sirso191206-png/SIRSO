@@ -59,7 +59,7 @@ export function Odontograma3D({ pacienteId, onVerEnExpediente, onIrAPlan }) {
       <LeyendaClinica />
 
       <p className="text-xs text-slate-400">
-        Vista de demostración: usa geometrías simples mientras no haya modelos anatómicos 3D reales cargados. Arrastra para rotar, rueda del mouse para acercar/alejar.
+        Modelo anatómico 3D interactivo. Arrastra para rotar y usa la rueda del mouse para acercar o alejar.
       </p>
     </div>
   )

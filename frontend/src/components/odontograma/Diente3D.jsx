@@ -15,6 +15,33 @@ const RUTA_MODELO = '/models/odontograma.glb'
 // de ambas geometrías.
 const FACTOR_ESCALA_MODELO_REAL = 0.3
 
+// ------------------------------------------------------------
+// Rotación base del MODELO (no de la arcada). El eje largo del diente
+// tal como se exportó desde Blender queda en Z, no en Y — verificado
+// midiendo directo los vértices del .glb (ejemplo real: X≈0.73,
+// Y≈0.62, Z≈2.33 en una pieza). Three.js usa Y como vertical, así que
+// sin esta corrección el diente queda acostado.
+//
+// El signo (+90°, no -90°) se verificó con datos, no se asumió:
+// midiendo en qué extremo de Z está la parte más ancha de cada pieza
+// (la corona es más ancha que la raíz, que se afila), se encontró que
+// la corona está en Z+ en las piezas SUPERIORES y en Z- en las
+// INFERIORES — anatómicamente correcto, porque al cerrar la boca
+// arriba y abajo se enfrentan en direcciones opuestas. Con
+// rotationX=+90°, la nueva posición vertical es Y = -Z_original, lo
+// cual manda la corona superior hacia abajo (Y-, hacia el plano de
+// mordida) Y la corona inferior hacia arriba (Y+, también hacia el
+// plano de mordida) — una sola rotación universal funciona para
+// ambas arcadas a la vez. Verificado numéricamente contra los 8
+// dientes 11/18/21/28/31/38/41/48 antes de aplicarlo: los 8 quedan
+// con la corona apuntando al plano de mordida.
+//
+// Se aplica SOLO al <mesh> de la geometría real, nunca al <group> del
+// diente (que sigue siendo responsabilidad exclusiva de
+// configuracionDental.js para la rotación del arco) — son dos
+// transformaciones separadas a propósito, no un solo Euler combinado.
+const ROTACION_BASE_MODELO = [Math.PI / 2, 0, 0]
+
 useGLTF.preload(RUTA_MODELO)
 
 // ------------------------------------------------------------
@@ -58,7 +85,7 @@ function Corona({ numeroPieza, tipo, color, emissive }) {
 
   if (geometriaCentrada) {
     return (
-      <mesh geometry={geometriaCentrada} scale={FACTOR_ESCALA_MODELO_REAL} castShadow>
+      <mesh geometry={geometriaCentrada} rotation={ROTACION_BASE_MODELO} scale={FACTOR_ESCALA_MODELO_REAL} castShadow>
         <meshStandardMaterial color={color} emissive={emissive} emissiveIntensity={emissive ? 0.35 : 0} roughness={0.45} />
       </mesh>
     )
