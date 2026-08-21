@@ -1,10 +1,11 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { OrbitControls } from '@react-three/drei'
+import { OrbitControls, useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
-import { Diente3D } from './Diente3D'
+import { Diente3D, RUTA_MODELO } from './Diente3D'
 import { FILA_SUPERIOR, FILA_INFERIOR } from './constantesOdontograma'
 import { CONFIGURACION_DENTAL } from './configuracionDental'
+import { calcularPosicionAnatomicaReal } from './posicionAnatomicaReal'
 
 // Cámara mucho más cerca que antes (antes pos:[0,0.8,6] fov:45 dejaba el
 // modelo ocupando una fracción chica del canvas). Con las arcadas ahora
@@ -54,21 +55,34 @@ function AnimadorCamara({ vistaObjetivo, controlsRef }) {
   return null
 }
 
-function Arcada({ numeros, piezasPorNumero, piezaSeleccionadaId, onSeleccionar, mostrarEtiquetas }) {
+function Arcada({ numeros, piezasPorNumero, piezaSeleccionadaId, onSeleccionar, mostrarEtiquetas, posicionesReales }) {
   return (
     <>
       {numeros.map((numero) => {
         const pieza = piezasPorNumero[numero]
         const config = CONFIGURACION_DENTAL[numero]
         if (!pieza || !config) return null
+
+        // Si hay geometría real para este FDI, su posición/rotación
+        // real (derivada del .glb) reemplaza la curva sintética de
+        // configuracionDental.js — ver posicionAnatomicaReal.js para
+        // el porqué. La escala también cambia: sin ESCALA_POR_TIPO,
+        // porque la geometría real YA tiene las proporciones
+        // correctas por tipo de diente horneadas — aplicar esa
+        // escala también duplicaría la diferenciación de tamaño.
+        const real = posicionesReales[numero]
+        const posicion = real ? real.posicion : config.posicion
+        const rotacion = real ? real.rotacion : config.rotacion
+        const escala = real ? 1 : config.escala
+
         return (
           <Diente3D
             key={numero}
             pieza={pieza}
             tipo={config.tipo}
-            posicion={config.posicion}
-            rotacion={config.rotacion}
-            escala={config.escala}
+            posicion={posicion}
+            rotacion={rotacion}
+            escala={escala}
             seleccionada={piezaSeleccionadaId === pieza.id}
             mostrarEtiqueta={mostrarEtiquetas}
             onClick={onSeleccionar}
@@ -99,6 +113,13 @@ export function EscenaDental3D({ piezas, piezaSeleccionadaId, onSeleccionarPieza
   const controlsRef = useRef()
   const piezasPorNumero = Object.fromEntries(piezas.map((p) => [p.numero_pieza, p]))
 
+  // Se calcula UNA sola vez (memoizado) mientras nodes no cambie —
+  // useGLTF cachea internamente (drei), así que esto no dispara una
+  // segunda carga de red aunque Diente3D también llame a useGLTF más
+  // abajo en el árbol.
+  const { nodes } = useGLTF(RUTA_MODELO)
+  const posicionesReales = useMemo(() => calcularPosicionAnatomicaReal(nodes), [nodes])
+
   return (
     <Canvas
       shadows={false}
@@ -119,6 +140,7 @@ export function EscenaDental3D({ piezas, piezaSeleccionadaId, onSeleccionarPieza
           piezaSeleccionadaId={piezaSeleccionadaId}
           onSeleccionar={onSeleccionarPieza}
           mostrarEtiquetas={mostrarEtiquetas}
+          posicionesReales={posicionesReales}
         />
       )}
       {(arcoVisible === 'ambas' || arcoVisible === 'inferior') && (
@@ -128,6 +150,7 @@ export function EscenaDental3D({ piezas, piezaSeleccionadaId, onSeleccionarPieza
           piezaSeleccionadaId={piezaSeleccionadaId}
           onSeleccionar={onSeleccionarPieza}
           mostrarEtiquetas={mostrarEtiquetas}
+          posicionesReales={posicionesReales}
         />
       )}
 

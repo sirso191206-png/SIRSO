@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Html, useGLTF } from '@react-three/drei'
 import { COLOR_MARFIL_CORONA, COLOR_MARFIL_RAIZ } from './constantesOdontograma'
 
-const RUTA_MODELO = '/models/odontograma.glb'
+export const RUTA_MODELO = '/models/odontograma.glb'
 
 // Calculado comparando la altura TOTAL del ensamble placeholder viejo
 // (corona + raíz artificial juntas, el caso molar que es el más alto:
