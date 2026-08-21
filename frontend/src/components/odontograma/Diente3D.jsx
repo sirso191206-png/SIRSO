@@ -4,13 +4,16 @@ import { COLOR_MARFIL_CORONA, COLOR_MARFIL_RAIZ } from './constantesOdontograma'
 
 const RUTA_MODELO = '/models/odontograma.glb'
 
-// Punto de partida medido contra la geometría placeholder anterior
-// (cápsulas ~0.46 unidades de alto vs. dientes reales de Blender
-// ~2.3 unidades de alto) — no se pudo verificar visualmente desde este
-// entorno (sin GPU/navegador), así que es un valor de arranque, no un
-// ajuste fino. Si al verlo en pantalla se ve muy grande/chico, este es
-// el único número que hay que tocar.
-const FACTOR_ESCALA_MODELO_REAL = 0.2
+// Calculado comparando la altura TOTAL del ensamble placeholder viejo
+// (corona + raíz artificial juntas, el caso molar que es el más alto:
+// corona 0.56 unidades + raíz 0.4 unidades, desde el fondo de la raíz
+// hasta la punta de la corona = 0.69 unidades) contra la altura real
+// medida directo del .glb (~2.3 unidades, promedio de varias piezas).
+// 0.69 / 2.3 = 0.30. Sigue siendo una estimación por matemática, no
+// una verificación visual — no tengo navegador/GPU en este entorno —
+// pero ya no es un número "a ojo": está anclado a las medidas reales
+// de ambas geometrías.
+const FACTOR_ESCALA_MODELO_REAL = 0.3
 
 useGLTF.preload(RUTA_MODELO)
 
@@ -36,9 +39,26 @@ function Corona({ numeroPieza, tipo, color, emissive }) {
   const { nodes } = useGLTF(RUTA_MODELO)
   const nodo = nodes[String(numeroPieza)]
 
-  if (nodo && nodo.geometry) {
+  // IMPORTANTE: los vértices que vienen de Blender traen "horneada" la
+  // posición absoluta de cada diente dentro del arco original (se
+  // verificó directamente: el centro de cada diente cae en un punto
+  // distinto y lejos de [0,0,0], no cerca de su propio origen). Si se
+  // usa la geometría tal cual, queda desplazada y los overlays
+  // (anillo de selección, símbolo) —que sí asumen que el diente está
+  // centrado en su origen local— se ven flotando en un punto distinto
+  // al del diente real. .center() la recentra una sola vez (memoizado,
+  // no en cada render) para que encaje con la posición que ya calcula
+  // configuracionDental.js, igual que encajaba la cápsula placeholder.
+  const geometriaCentrada = useMemo(() => {
+    if (!nodo || !nodo.geometry) return null
+    const geo = nodo.geometry.clone()
+    geo.center()
+    return geo
+  }, [nodo?.geometry])
+
+  if (geometriaCentrada) {
     return (
-      <mesh geometry={nodo.geometry} scale={FACTOR_ESCALA_MODELO_REAL} castShadow>
+      <mesh geometry={geometriaCentrada} scale={FACTOR_ESCALA_MODELO_REAL} castShadow>
         <meshStandardMaterial color={color} emissive={emissive} emissiveIntensity={emissive ? 0.35 : 0} roughness={0.45} />
       </mesh>
     )
@@ -111,7 +131,7 @@ function CoronaPlaceholder({ tipo, color, emissive }) {
 // Prioridad clínica: qué condición "gana" visualmente si la pieza tiene
 // varias caras con distinto estado. Esto define el COLOR (estado
 // clínico) — la selección se dibuja aparte y nunca lo sobreescribe.
-function evaluarPieza(pieza) {
+export function evaluarPieza(pieza) {
   if (pieza.estado === 'ausente') return { color: '#CBD5E1', simbolo: '×', opacity: 0.3, esRaiz: false }
   if (pieza.estado === 'implante') return { color: '#C4B5FD', simbolo: '◆', opacity: 1, esRaiz: true }
   if (pieza.estado === 'corona') return { color: '#FCD34D', simbolo: '●', opacity: 1, esRaiz: true }
@@ -132,6 +152,13 @@ export function Diente3D({ pieza, tipo, posicion, rotacion, escala, seleccionada
   const [hover, setHover] = useState(false)
   const info = useMemo(() => evaluarPieza(pieza), [pieza])
 
+  // Mismo lookup que hace Corona() para decidir si usa geometría real
+  // o el placeholder — se necesita aquí también para saber si mostrar
+  // la raíz artificial. useGLTF cachea internamente (drei), así que
+  // llamarlo dos veces no dispara una segunda carga de red.
+  const { nodes } = useGLTF(RUTA_MODELO)
+  const usaGeometriaReal = Boolean(nodes[String(pieza.numero_pieza)]?.geometry)
+
   return (
     <group
       position={posicion}
@@ -141,8 +168,12 @@ export function Diente3D({ pieza, tipo, posicion, rotacion, escala, seleccionada
       onPointerOver={(e) => { e.stopPropagation(); setHover(true); document.body.style.cursor = 'pointer' }}
       onPointerOut={() => { setHover(false); document.body.style.cursor = 'auto' }}
     >
-      {/* Raíz — color fijo (marfil/hueso), independiente del estado clínico de la corona */}
-      {info.esRaiz && (
+      {/* Raíz artificial — SOLO para la geometría placeholder (cápsulas).
+          El modelo real de Blender ya trae la raíz incluida en la misma
+          malla (verificado: 1 sola primitiva por diente, ~2.3 unidades
+          de alto, consistente con corona+raíz combinadas) — agregarla
+          aparte cuando ya hay geometría real duplicaría anatomía. */}
+      {info.esRaiz && !usaGeometriaReal && (
         <mesh position={[0, 0.05, 0]} scale={[0.55, 1, 0.55]}>
           <capsuleGeometry args={[0.09, 0.22, 4, 8]} />
           <meshStandardMaterial color={COLOR_MARFIL_RAIZ} roughness={0.6} />

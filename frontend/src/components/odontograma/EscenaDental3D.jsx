@@ -81,6 +81,11 @@ function Arcada({ numeros, piezasPorNumero, piezaSeleccionadaId, onSeleccionar, 
 
 // Plano de referencia sutil debajo del modelo — ayuda a anclar la escena
 // sin agregar cuadrículas ni fondos oscuros.
+// PlanoReferencia() — DESACTIVADO a propósito. Generaba la franja gris
+// grande que atravesaba las arcadas (círculo radio 3.2 en Y=-0.02,
+// justo entre la arcada superior en +0.62 y la inferior en -0.62). No
+// se elimina el código por si algún día se quiere una sombra sutil
+// bien calibrada, pero no se renderiza más abajo.
 function PlanoReferencia() {
   return (
     <mesh position={[0, -0.02, -0.6]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
@@ -105,7 +110,7 @@ export function EscenaDental3D({ piezas, piezaSeleccionadaId, onSeleccionarPieza
       <directionalLight position={[2.5, 4, 3]} intensity={0.65} />
       <directionalLight position={[-2.5, -1.5, 2]} intensity={0.25} />
 
-      <PlanoReferencia />
+      {/* <PlanoReferencia /> — desactivado, ver comentario en la definición de arriba */}
 
       {(arcoVisible === 'ambas' || arcoVisible === 'superior') && (
         <Arcada
