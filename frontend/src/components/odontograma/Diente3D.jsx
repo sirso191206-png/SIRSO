@@ -1,19 +1,18 @@
 import { useMemo, useState } from 'react'
 import { Html, useGLTF } from '@react-three/drei'
+import { Vector3 } from 'three'
 import { COLOR_MARFIL_CORONA, COLOR_MARFIL_RAIZ } from './constantesOdontograma'
 
 export const RUTA_MODELO = '/models/odontograma.glb'
 
-// Calculado comparando la altura TOTAL del ensamble placeholder viejo
-// (corona + raíz artificial juntas, el caso molar que es el más alto:
-// corona 0.56 unidades + raíz 0.4 unidades, desde el fondo de la raíz
-// hasta la punta de la corona = 0.69 unidades) contra la altura real
-// medida directo del .glb (~2.3 unidades, promedio de varias piezas).
-// 0.69 / 2.3 = 0.30. Sigue siendo una estimación por matemática, no
-// una verificación visual — no tengo navegador/GPU en este entorno —
-// pero ya no es un número "a ojo": está anclado a las medidas reales
-// de ambas geometrías.
-const FACTOR_ESCALA_MODELO_REAL = 0.3
+// NO se aplica ningún factor de escala artificial a la geometría real:
+// se renderiza en unidades nativas de Blender (1:1), tal como pediste.
+// Encoger la geometría sin escalar también la POSICIÓN del grupo
+// exterior (que usa las coordenadas reales, sin escalar, de
+// posicionAnatomicaReal.js) era exactamente el bug que dejaba los
+// dientes "muy separados": piezas encogidas paradas en posiciones
+// pensadas para piezas de tamaño completo. La cámara es la que ahora
+// se ajusta al tamaño real de la escena — ver calcularEncuadreCamara.js.
 
 // ------------------------------------------------------------
 // Rotación base del MODELO (no de la arcada). El eje largo del diente
@@ -85,7 +84,7 @@ function Corona({ numeroPieza, tipo, color, emissive }) {
 
   if (geometriaCentrada) {
     return (
-      <mesh geometry={geometriaCentrada} rotation={ROTACION_BASE_MODELO} scale={FACTOR_ESCALA_MODELO_REAL} castShadow>
+      <mesh geometry={geometriaCentrada} rotation={ROTACION_BASE_MODELO} castShadow>
         <meshStandardMaterial color={color} emissive={emissive} emissiveIntensity={emissive ? 0.35 : 0} roughness={0.45} />
       </mesh>
     )
@@ -184,7 +183,41 @@ export function Diente3D({ pieza, tipo, posicion, rotacion, escala, seleccionada
   // la raíz artificial. useGLTF cachea internamente (drei), así que
   // llamarlo dos veces no dispara una segunda carga de red.
   const { nodes } = useGLTF(RUTA_MODELO)
-  const usaGeometriaReal = Boolean(nodes[String(pieza.numero_pieza)]?.geometry)
+  const nodo = nodes[String(pieza.numero_pieza)]
+  const usaGeometriaReal = Boolean(nodo?.geometry)
+
+  // Overlays (anillo de selección, símbolo, etiqueta) proporcionales
+  // al tamaño REAL de esta pieza — antes usaban offsets fijos
+  // ([0,0.05,0], radio 0.28-0.34) calibrados para la cápsula
+  // placeholder (~0.5 unidades de alto). Con la geometría real sin
+  // escalar (nativa de Blender, ~2.3-2.9 unidades), esos offsets fijos
+  // dejaban los símbolos flotando lejos del diente. El placeholder
+  // SIGUE usando sus offsets fijos de siempre (si usaGeometriaReal es
+  // falso) — siguen siendo correctos para esa geometría.
+  const dimensionesReales = useMemo(() => {
+    if (!nodo?.geometry) return null
+    nodo.geometry.computeBoundingBox()
+    const tam = new Vector3()
+    nodo.geometry.boundingBox.getSize(tam)
+    // mismo remapeo de ejes que ROTACION_BASE_MODELO: alto real = Z original, ancho = X original
+    return { ancho: tam.x, alto: tam.z, profundo: tam.y }
+  }, [nodo])
+
+  const overlay = usaGeometriaReal && dimensionesReales
+    ? {
+        anilloY: -dimensionesReales.alto * 0.15,
+        anilloRadioInterno: Math.max(dimensionesReales.ancho, dimensionesReales.profundo) * 0.33,
+        anilloRadioExterno: Math.max(dimensionesReales.ancho, dimensionesReales.profundo) * 0.4,
+        simboloY: dimensionesReales.alto * 0.38,
+        etiquetaY: -dimensionesReales.alto * 0.58,
+      }
+    : {
+        anilloY: -0.03,
+        anilloRadioInterno: 0.28,
+        anilloRadioExterno: 0.34,
+        simboloY: 0.58,
+        etiquetaY: -0.22,
+      }
 
   return (
     <group
@@ -215,21 +248,21 @@ export function Diente3D({ pieza, tipo, posicion, rotacion, escala, seleccionada
           clínico: un anillo azul brillante en la base. Nunca reemplaza
           el color de la pieza. */}
       {seleccionada && (
-        <mesh position={[0, -0.03, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[0.28, 0.34, 32]} />
+        <mesh position={[0, overlay.anilloY, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[overlay.anilloRadioInterno, overlay.anilloRadioExterno, 32]} />
           <meshBasicMaterial color="#1E5F8C" transparent opacity={0.9} />
         </mesh>
       )}
       {hover && !seleccionada && (
-        <mesh position={[0, -0.03, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[0.28, 0.32, 32]} />
+        <mesh position={[0, overlay.anilloY, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[overlay.anilloRadioInterno, overlay.anilloRadioExterno * 0.94, 32]} />
           <meshBasicMaterial color="#94A3B8" transparent opacity={0.6} />
         </mesh>
       )}
 
       {/* Símbolo de estado clínico (no depender solo del color) */}
       {info.simbolo && (
-        <Html position={[0.18, 0.58, 0]} center distanceFactor={7} occlude={false}>
+        <Html position={[0.18, overlay.simboloY, 0]} center distanceFactor={7} occlude={false}>
           <span className="pointer-events-none select-none text-sm font-bold" style={{ color: info.color === COLOR_MARFIL_CORONA ? '#94A3B8' : info.color }}>
             {info.simbolo}
           </span>
@@ -240,7 +273,7 @@ export function Diente3D({ pieza, tipo, posicion, rotacion, escala, seleccionada
           porque cada una controla su propia etiqueta, y se puede ocultar
           selectivamente en pantallas chicas. */}
       {mostrarEtiqueta && (
-        <Html position={[0, -0.22, 0]} center distanceFactor={7} occlude={false}>
+        <Html position={[0, overlay.etiquetaY, 0]} center distanceFactor={7} occlude={false}>
           <span
             className={`pointer-events-none select-none rounded px-1 text-[11px] font-medium ${
               seleccionada ? 'bg-clinico-azul text-white' : 'text-slate-500'

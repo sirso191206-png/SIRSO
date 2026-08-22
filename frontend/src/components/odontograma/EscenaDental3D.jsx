@@ -6,25 +6,16 @@ import { Diente3D, RUTA_MODELO } from './Diente3D'
 import { FILA_SUPERIOR, FILA_INFERIOR } from './constantesOdontograma'
 import { CONFIGURACION_DENTAL } from './configuracionDental'
 import { calcularPosicionAnatomicaReal } from './posicionAnatomicaReal'
+import { calcularVistasCamara } from './calcularEncuadreCamara'
 
-// Cámara mucho más cerca que antes (antes pos:[0,0.8,6] fov:45 dejaba el
-// modelo ocupando una fracción chica del canvas). Con las arcadas ahora
-// más juntas (±0.62 en vez de ±1.3), esta posición deja el conjunto
-// ocupando ~70% del encuadre, tal como se pidió.
-export const VISTAS_CAMARA = {
-  restablecer: { pos: [0, 0.35, 4.2], target: [0, 0, -0.6] },
-  ambas: { pos: [0, 0.35, 4.2], target: [0, 0, -0.6] },
-  superior: { pos: [0, 1.7, 2.3], target: [0, 0.62, -0.6] },
-  inferior: { pos: [0, -1.7, 2.3], target: [0, -0.62, -0.6] },
-  frontal: { pos: [0, 0, 4.6], target: [0, 0, -0.4] },
-  oclusal: { pos: [0, 3.8, -0.6], target: [0, 0, -0.6] },
-  lateral: { pos: [3.9, 0.2, 0.8], target: [0, 0, -0.6] }
-}
+const FOV_GRADOS = 40
 
 // Anima la cámara suavemente (200-400ms) hacia la vista solicitada, en
 // vez de saltar de golpe — vive dentro del Canvas porque necesita el
-// contexto de R3F (useThree/useFrame).
-function AnimadorCamara({ vistaObjetivo, controlsRef }) {
+// contexto de R3F (useThree/useFrame). `vistasCamara` ya no es un
+// valor fijo del módulo — se calcula del tamaño real del modelo (ver
+// calcularEncuadreCamara.js) y se recibe por prop.
+function AnimadorCamara({ vistaObjetivo, controlsRef, vistasCamara }) {
   const { camera } = useThree()
   const inicio = useRef({ pos: new THREE.Vector3(), target: new THREE.Vector3() })
   const fin = useRef({ pos: new THREE.Vector3(), target: new THREE.Vector3() })
@@ -32,14 +23,14 @@ function AnimadorCamara({ vistaObjetivo, controlsRef }) {
   const DURACION = 0.3
 
   useEffect(() => {
-    const destino = VISTAS_CAMARA[vistaObjetivo] ?? VISTAS_CAMARA.restablecer
+    const destino = vistasCamara[vistaObjetivo] ?? vistasCamara.restablecer
     inicio.current.pos.copy(camera.position)
     inicio.current.target.copy(controlsRef.current?.target ?? new THREE.Vector3())
-    fin.current.pos.set(...destino.pos)
+    fin.current.pos.set(...destino.posicion)
     fin.current.target.set(...destino.target)
     progreso.current = 0
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vistaObjetivo])
+  }, [vistaObjetivo, vistasCamara])
 
   useFrame((_, delta) => {
     if (progreso.current >= 1) return
@@ -55,6 +46,52 @@ function AnimadorCamara({ vistaObjetivo, controlsRef }) {
   return null
 }
 
+/**
+ * Mueve suavemente la cámara para enfocar un diente específico por su
+ * FDI — adicional a la vista general, no la reemplaza (sección 11 del
+ * pedido). Calcula el bounding box de ESE diente únicamente (no de
+ * toda la boca) y encuadra sobre su centro real.
+ */
+function useFocusOnTooth(nodes, camera, controlsRef) {
+  return useMemo(() => {
+    return function focusOnTooth(fdi, { fovGrados = FOV_GRADOS, margen = 2.5, duracionMs = 400 } = {}) {
+      const nodo = nodes[String(fdi)]
+      if (!nodo || !nodo.geometry) return
+      nodo.geometry.computeBoundingBox()
+      const bb = nodo.geometry.boundingBox
+      const centroLocal = new THREE.Vector3()
+      bb.getCenter(centroLocal)
+      const tamanoLocal = new THREE.Vector3()
+      bb.getSize(tamanoLocal)
+      // mismo eje remapeado que ROTACION_BASE_MODELO/posicionAnatomicaReal: (x,y,z)->(x,-z,y)
+      const centro = [centroLocal.x, -centroLocal.z, centroLocal.y]
+      const tamanoMax = Math.max(tamanoLocal.x, tamanoLocal.y, tamanoLocal.z)
+      const distancia = (tamanoMax / 2 / Math.tan((fovGrados * Math.PI) / 360)) * margen
+
+      const dirActual = camera.position.clone().sub(controlsRef.current?.target ?? new THREE.Vector3()).normalize()
+      const posicionFinal = new THREE.Vector3(...centro).addScaledVector(dirActual, distancia)
+
+      const inicioPos = camera.position.clone()
+      const inicioTarget = (controlsRef.current?.target ?? new THREE.Vector3()).clone()
+      const targetFinal = new THREE.Vector3(...centro)
+      const t0 = performance.now()
+
+      function paso() {
+        const t = Math.min(1, (performance.now() - t0) / duracionMs)
+        const suave = 1 - Math.pow(1 - t, 3)
+        camera.position.lerpVectors(inicioPos, posicionFinal, suave)
+        if (controlsRef.current) {
+          controlsRef.current.target.lerpVectors(inicioTarget, targetFinal, suave)
+          controlsRef.current.update()
+        }
+        if (t < 1) requestAnimationFrame(paso)
+      }
+      requestAnimationFrame(paso)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodes])
+}
+
 function Arcada({ numeros, piezasPorNumero, piezaSeleccionadaId, onSeleccionar, mostrarEtiquetas, posicionesReales }) {
   return (
     <>
@@ -66,10 +103,9 @@ function Arcada({ numeros, piezasPorNumero, piezaSeleccionadaId, onSeleccionar, 
         // Si hay geometría real para este FDI, su posición/rotación
         // real (derivada del .glb) reemplaza la curva sintética de
         // configuracionDental.js — ver posicionAnatomicaReal.js para
-        // el porqué. La escala también cambia: sin ESCALA_POR_TIPO,
-        // porque la geometría real YA tiene las proporciones
-        // correctas por tipo de diente horneadas — aplicar esa
-        // escala también duplicaría la diferenciación de tamaño.
+        // el porqué. Escala siempre 1 para geometría real: la
+        // geometría se renderiza en unidades nativas de Blender, sin
+        // ningún factor artificial — ver nota en Diente3D.jsx.
         const real = posicionesReales[numero]
         const posicion = real ? real.posicion : config.posicion
         const rotacion = real ? real.rotacion : config.rotacion
@@ -109,21 +145,81 @@ function PlanoReferencia() {
   )
 }
 
-export function EscenaDental3D({ piezas, piezaSeleccionadaId, onSeleccionarPieza, arcoVisible, vistaCamara, mostrarEtiquetas = true }) {
+/** Vive dentro del <Canvas> — expone la función focusOnTooth al padre vía onListo, si se necesita. */
+function ControladorCamara({ vistaCamara, vistasCamara, onListoFocusOnTooth }) {
   const controlsRef = useRef()
+  const { camera } = useThree()
+  const { nodes } = useGLTF(RUTA_MODELO)
+  const focusOnTooth = useFocusOnTooth(nodes, camera, controlsRef)
+
+  useEffect(() => {
+    onListoFocusOnTooth?.(focusOnTooth)
+  }, [focusOnTooth, onListoFocusOnTooth])
+
+  const distanciaModelo = vistasCamara.__distanciaModelo
+
+  return (
+    <>
+      <OrbitControls
+        ref={controlsRef}
+        enableDamping
+        dampingFactor={0.15}
+        enablePan={false}
+        // Límites de zoom proporcionales al tamaño REAL de la escena,
+        // no valores fijos — sección 9 del pedido. MIN suficiente para
+        // no atravesar los dientes, MAX suficiente para alejarse más
+        // allá del encuadre inicial.
+        minDistance={distanciaModelo * 0.12}
+        maxDistance={distanciaModelo * 4}
+        minPolarAngle={Math.PI * 0.05}
+        maxPolarAngle={Math.PI * 0.95}
+        target={vistasCamara.restablecer.target}
+      />
+      <AnimadorCamara vistaObjetivo={vistaCamara} controlsRef={controlsRef} vistasCamara={vistasCamara} />
+    </>
+  )
+}
+
+export function EscenaDental3D({ piezas, piezaSeleccionadaId, onSeleccionarPieza, arcoVisible, vistaCamara, mostrarEtiquetas = true, onFocusOnToothListo }) {
   const piezasPorNumero = Object.fromEntries(piezas.map((p) => [p.numero_pieza, p]))
 
-  // Se calcula UNA sola vez (memoizado) mientras nodes no cambie —
-  // useGLTF cachea internamente (drei), así que esto no dispara una
+  // Se calcula UNA sola vez (memoizado) mientras nodes/scene no cambien
+  // — useGLTF cachea internamente (drei), así que esto no dispara una
   // segunda carga de red aunque Diente3D también llame a useGLTF más
   // abajo en el árbol.
-  const { nodes } = useGLTF(RUTA_MODELO)
+  const { nodes, scene } = useGLTF(RUTA_MODELO)
   const posicionesReales = useMemo(() => calcularPosicionAnatomicaReal(nodes), [nodes])
+
+  // Bounding box REAL de las 32 piezas — Box3.setFromObject sobre la
+  // escena tal cual la entrega el GLTFLoader, que ya aplica solo la
+  // rotación propia del nodo (verificado: coincide exacto con el
+  // cálculo manual de posicionAnatomicaReal.js). De aquí sale el
+  // encuadre de cámara automático — sección 8 del pedido, ya no hay
+  // ningún VISTAS_CAMARA fijo/adivinado.
+  const { centro, tamano, distanciaModelo } = useMemo(() => {
+    const caja = new THREE.Box3().setFromObject(scene)
+    const c = new THREE.Vector3()
+    const t = new THREE.Vector3()
+    caja.getCenter(c)
+    caja.getSize(t)
+    return { centro: c.toArray(), tamano: t.toArray(), distanciaModelo: Math.max(t.x, t.y, t.z) }
+  }, [scene])
+
+  const vistasCamara = useMemo(() => {
+    const v = calcularVistasCamara({ centro, tamano, fovGrados: FOV_GRADOS })
+    v.__distanciaModelo = distanciaModelo
+    return v
+  }, [centro, tamano, distanciaModelo])
 
   return (
     <Canvas
       shadows={false}
-      camera={{ position: VISTAS_CAMARA.restablecer.pos, fov: 40, near: 0.1, far: 30 }}
+      camera={{
+        position: vistasCamara.restablecer.posicion,
+        fov: FOV_GRADOS,
+        near: Math.max(0.01, distanciaModelo * 0.01),
+        far: distanciaModelo * 15,
+      }}
       dpr={[1, 1.5]}
     >
       <color attach="background" args={['#F8FAFC']} />
@@ -154,18 +250,7 @@ export function EscenaDental3D({ piezas, piezaSeleccionadaId, onSeleccionarPieza
         />
       )}
 
-      <OrbitControls
-        ref={controlsRef}
-        enableDamping
-        dampingFactor={0.15}
-        enablePan={false}
-        minDistance={1.8}
-        maxDistance={7}
-        minPolarAngle={Math.PI * 0.12}
-        maxPolarAngle={Math.PI * 0.88}
-        target={VISTAS_CAMARA.restablecer.target}
-      />
-      <AnimadorCamara vistaObjetivo={vistaCamara} controlsRef={controlsRef} />
+      <ControladorCamara vistaCamara={vistaCamara} vistasCamara={vistasCamara} onListoFocusOnTooth={onFocusOnToothListo} />
     </Canvas>
   )
 }
