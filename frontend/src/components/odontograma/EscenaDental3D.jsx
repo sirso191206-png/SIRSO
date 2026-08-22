@@ -106,9 +106,15 @@ function Arcada({ numeros, piezasPorNumero, piezaSeleccionadaId, onSeleccionar, 
         // el porqué. Escala siempre 1 para geometría real: la
         // geometría se renderiza en unidades nativas de Blender, sin
         // ningún factor artificial — ver nota en Diente3D.jsx.
+        // Para geometría real: SIN rotación de grupo — la orientación
+        // de cada pieza ya viene horneada en sus propios vértices
+        // (verificado con datos: PCA de la sección transversal varía
+        // sistemáticamente por diente, ~156° en 18 hasta ~8° en 11).
+        // La única rotación permitida es ROTACION_BASE_MODELO sobre la
+        // malla, en Diente3D.jsx — nunca sobre este grupo.
         const real = posicionesReales[numero]
         const posicion = real ? real.posicion : config.posicion
-        const rotacion = real ? real.rotacion : config.rotacion
+        const rotacion = real ? [0, 0, 0] : config.rotacion
         const escala = real ? 1 : config.escala
 
         return (

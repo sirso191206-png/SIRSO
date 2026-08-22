@@ -39,7 +39,7 @@ export const RUTA_MODELO = '/models/odontograma.glb'
 // diente (que sigue siendo responsabilidad exclusiva de
 // configuracionDental.js para la rotación del arco) — son dos
 // transformaciones separadas a propósito, no un solo Euler combinado.
-const ROTACION_BASE_MODELO = [Math.PI / 2, 0, 0]
+export const ROTACION_BASE_MODELO = [Math.PI / 2, 0, 0]
 
 useGLTF.preload(RUTA_MODELO)
 

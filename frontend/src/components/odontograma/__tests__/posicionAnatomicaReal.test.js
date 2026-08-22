@@ -86,11 +86,10 @@ describe('calcularPosicionAnatomicaReal — con geometría real de Three.js desd
     }
   })
 
-  it('cada pieza tiene una rotación en el eje Y (mirando hacia afuera del arco), sin rotación en X/Z', () => {
-    for (const info of Object.values(posiciones)) {
-      expect(info.rotacion[0]).toBe(0)
-      expect(typeof info.rotacion[1]).toBe('number')
-      expect(info.rotacion[2]).toBe(0)
+  it('NO produce ninguna propiedad "rotacion" — sin rotación artificial por tangente/tipo, la orientación ya viene de los vértices', () => {
+    for (const [fdi, info] of Object.entries(posiciones)) {
+      expect(info, `pieza ${fdi}`).not.toHaveProperty('rotacion')
+      expect(Object.keys(info)).toEqual(['posicion'])
     }
   })
 })

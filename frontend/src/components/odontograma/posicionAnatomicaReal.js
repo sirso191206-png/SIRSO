@@ -12,10 +12,17 @@
 // modelo real (confirmado: en el .glb, 41 y 48 caen del lado X
 // positivo; en la curva sintética, del lado negativo).
 //
-// Se verificó también que las posiciones reales trazan una curva
-// suave y sin saltos anómalos (distancias entre dientes consecutivos
-// entre 0.5 y 1.1 unidades, sin outliers) — es una arcada real
-// coherente, no datos desordenados.
+// CORRECCIÓN IMPORTANTE (ronda posterior): este archivo calculaba
+// además una rotación Y por tangente entre dientes vecinos, para que
+// cada pieza "mirara hacia afuera" siguiendo la curva. Se retiró:
+// verificado con datos (PCA de la sección transversal en el plano
+// perpendicular al eje corona-raíz) que la ORIENTACIÓN de cada diente
+// ya viene horneada en sus vértices crudos — varía de forma real y
+// sistemática de una pieza a otra (ej. ~156° en la pieza 18 hasta ~8°
+// en la 11), y esa información sobrevive a geometry.center() (que
+// solo traslada, nunca rota). Agregar una rotación calculada aparte
+// duplicaba una orientación que la geometría ya traía resuelta —
+// "double rotation", causando piezas torcidas.
 //
 // configuracionDental.js NO se modifica — sigue siendo el respaldo
 // para cualquier pieza que use geometría placeholder (FDI sin
@@ -46,40 +53,27 @@ function centroDeGeometria(geometry) {
 }
 
 /**
- * Dado `nodes` (de useGLTF), calcula { [fdi]: { posicion, rotacion } }
- * para cada FDI que tenga geometría real. La rotación es la tangente
- * entre este diente y su vecino más cercano en la misma arcada (el
- * siguiente, o el anterior si es la última pieza de la fila) — para
- * que cada pieza "mire hacia afuera" siguiendo la curvatura REAL del
- * arco, no una curvatura inventada.
+ * Dado `nodes` (de useGLTF), calcula { [fdi]: { posicion } } para cada
+ * FDI que tenga geometría real — SOLO posición, tomada del centro del
+ * bounding box de la geometría ORIGINAL (antes de centrarla),
+ * transformada al sistema de ejes de Three.js. Sin ninguna rotación
+ * adicional: la orientación de cada pieza ya viene resuelta en sus
+ * propios vértices, y la única rotación que le corresponde es
+ * ROTACION_BASE_MODELO sobre la malla misma (ver Diente3D.jsx) — el
+ * grupo que envuelve la pieza real no debe rotarse.
  */
 export function calcularPosicionAnatomicaReal(nodes) {
   const resultado = {}
 
   for (const fila of [FILA_SUPERIOR_ORDEN, FILA_INFERIOR_ORDEN]) {
-    const centros = fila.map((fdi) => {
+    for (const fdi of fila) {
       const nodo = nodes[fdi]
-      if (!nodo || !nodo.geometry) return null
+      if (!nodo || !nodo.geometry) continue
       const [x, y, z] = centroDeGeometria(nodo.geometry)
-      return transformarPuntoAEjesThree(x, y, z)
-    })
-
-    fila.forEach((fdi, i) => {
-      const centro = centros[i]
-      if (!centro) return
-      const [x, y, z] = centro
-
-      const vecino = centros[i + 1] ?? centros[i - 1]
-      let angulo = 0
-      if (vecino) {
-        const dx = vecino[0] - x
-        const dz = vecino[2] - z
-        angulo = Math.atan2(dx, dz)
-      }
-
-      resultado[fdi] = { posicion: [x, y, z], rotacion: [0, angulo, 0] }
-    })
+      resultado[fdi] = { posicion: transformarPuntoAEjesThree(x, y, z) }
+    }
   }
 
   return resultado
 }
+
