@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { datosProfesionalParaImprimir, bloqueSignosVitales } from '../imprimirReceta'
+import { datosProfesionalParaImprimir, bloqueSignosVitales, renderEncabezadoMedico } from '../imprimirReceta'
 
 describe('datosProfesionalParaImprimir — snapshot histórico con respaldo a datos en vivo', () => {
   it('usa el snapshot cuando existe (receta ya emitida con los datos correctos)', () => {
@@ -95,5 +95,51 @@ describe('bloqueSignosVitales — se recuperan solos, sección opcional', () => 
     for (const fragmento of ['Presión arterial', 'Frecuencia cardiaca', 'Frecuencia respiratoria', 'Temperatura', 'SpO₂', 'Peso', 'Talla']) {
       expect(html).toContain(fragmento)
     }
+  })
+})
+
+describe('renderEncabezadoMedico — formato exacto pedido: nombre + cada dato en su propia línea, orden Cédula → RFC → Universidad', () => {
+  it('con los 4 datos completos, reproduce exactamente el ejemplo dado', () => {
+    const html = renderEncabezadoMedico({
+      nombre: 'Eduardo Iglesias Arines',
+      cedula: '91425012',
+      rfc: 'AISB750521',
+      escuela: 'Universidad Autónoma del Estado de México',
+    })
+    expect(html).toContain('Eduardo Iglesias Arines')
+    expect(html).toContain('Cédula profesional: 91425012')
+    expect(html).toContain('RFC: AISB750521')
+    expect(html).toContain('Universidad: Universidad Autónoma del Estado de México')
+
+    // Orden: cédula antes que RFC, RFC antes que universidad — igual que el ejemplo.
+    const posCedula = html.indexOf('Cédula profesional')
+    const posRfc = html.indexOf('RFC:')
+    const posUniversidad = html.indexOf('Universidad:')
+    expect(posCedula).toBeLessThan(posRfc)
+    expect(posRfc).toBeLessThan(posUniversidad)
+  })
+
+  it('sin RFC: omite esa línea por completo, no deja un hueco ni "No disponible"', () => {
+    const html = renderEncabezadoMedico({ nombre: 'Dra. Ana Gómez', cedula: '12345678', rfc: null, escuela: 'UNAM' })
+    expect(html).not.toContain('RFC')
+    expect(html).not.toContain('No disponible')
+    expect(html).toContain('Cédula profesional: 12345678')
+    expect(html).toContain('Universidad: UNAM')
+  })
+
+  it('sin cédula ni universidad, solo con RFC: solo aparece esa línea', () => {
+    const html = renderEncabezadoMedico({ nombre: 'Dr. Juan Pérez', cedula: null, rfc: 'PEJU850101XYZ', escuela: null })
+    expect(html).not.toContain('Cédula profesional')
+    expect(html).not.toContain('Universidad:')
+    expect(html).toContain('RFC: PEJU850101XYZ')
+  })
+
+  it('sin ningún dato profesional capturado: solo aparece el nombre, sin ninguna línea vacía', () => {
+    const html = renderEncabezadoMedico({ nombre: 'Dr. Sin Datos', cedula: null, rfc: null, escuela: null })
+    expect(html).toContain('Dr. Sin Datos')
+    expect(html).not.toContain('Cédula profesional')
+    expect(html).not.toContain('RFC')
+    expect(html).not.toContain('Universidad:')
+    expect(html).not.toContain('No disponible')
   })
 })

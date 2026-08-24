@@ -62,17 +62,19 @@ export async function cambiarActivoUsuario(id, activo) {
 // actualizar el correo en Supabase Auth (auth.admin.updateUserById), que
 // es un flujo aparte todavía no implementado. Por ahora el correo solo
 // se define al crear el usuario.
-export async function actualizarUsuario(id, { nombre, rol, cedulaProfesional, curp, primerApellido, segundoApellido, tipoPersonalSis, rfc, escuelaProcedencia }) {
+// SIRO no trabaja con SIS — curp/primer_apellido/segundo_apellido/
+// tipo_personal_sis existen todavía como columnas (no se tocan, no se
+// crea ninguna migración), pero esta función ya NO los lee ni escribe:
+// la interfaz actual nunca los envía, y si esta función siguiera
+// incluyéndolos, cada guardado los pondría en null silenciosamente
+// aunque un usuario ya tuviera datos ahí de antes.
+export async function actualizarUsuario(id, { nombre, rol, cedulaProfesional, rfc, escuelaProcedencia }) {
   const { data, error } = await supabase
     .from('usuarios')
     .update({
       nombre,
       rol,
       cedula_profesional: cedulaProfesional || null,
-      curp: curp || null,
-      primer_apellido: primerApellido || null,
-      segundo_apellido: segundoApellido || null,
-      tipo_personal_sis: tipoPersonalSis || null,
       rfc: rfc || null,
       escuela_procedencia: escuelaProcedencia || null
     })

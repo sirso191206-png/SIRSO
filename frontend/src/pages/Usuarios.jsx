@@ -6,7 +6,6 @@ import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { ConfirmModal } from '../components/ui/ConfirmModal'
-import { validarEstructuraCurp } from '../lib/curp'
 
 const ROLES = [
   { value: 'owner', label: 'Owner' },
@@ -244,12 +243,6 @@ function ModalEditarUsuario({ usuario, esUnoMismo, onCerrar, onGuardar }) {
   const [cedulaProfesional, setCedulaProfesional] = useState('')
   const [rfc, setRfc] = useState('')
   const [escuelaProcedencia, setEscuelaProcedencia] = useState('')
-  const [curp, setCurp] = useState('')
-  const [primerApellido, setPrimerApellido] = useState('')
-  const [segundoApellido, setSegundoApellido] = useState('')
-  const [tipoPersonalSis, setTipoPersonalSis] = useState('')
-  const [mostrarDatosSis, setMostrarDatosSis] = useState(false)
-  const [errorCurp, setErrorCurp] = useState('')
   const [guardando, setGuardando] = useState(false)
 
   // Rellena el formulario cada vez que se abre con un usuario distinto
@@ -260,34 +253,16 @@ function ModalEditarUsuario({ usuario, esUnoMismo, onCerrar, onGuardar }) {
       setCedulaProfesional(usuario.cedula_profesional ?? '')
       setRfc(usuario.rfc ?? '')
       setEscuelaProcedencia(usuario.escuela_procedencia ?? '')
-      setCurp(usuario.curp ?? '')
-      setPrimerApellido(usuario.primer_apellido ?? '')
-      setSegundoApellido(usuario.segundo_apellido ?? '')
-      setTipoPersonalSis(usuario.tipo_personal_sis ?? '')
-      setErrorCurp('')
     }
   }, [usuario])
 
   if (!usuario) return null
 
-  const handleChangeCurp = (e) => {
-    const valor = e.target.value.toUpperCase()
-    setCurp(valor)
-    if (valor && !validarEstructuraCurp(valor)) {
-      setErrorCurp('La CURP no tiene una estructura válida.')
-    } else {
-      setErrorCurp('')
-    }
-  }
-
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (curp && !validarEstructuraCurp(curp)) return
     setGuardando(true)
     try {
-      await onGuardar(usuario.id, {
-        nombre, rol, cedulaProfesional, curp, primerApellido, segundoApellido, tipoPersonalSis, rfc, escuelaProcedencia
-      })
+      await onGuardar(usuario.id, { nombre, rol, cedulaProfesional, rfc, escuelaProcedencia })
       toastExito('Perfil actualizado.')
       onCerrar()
     } catch (err) {
@@ -347,44 +322,7 @@ function ModalEditarUsuario({ usuario, esUnoMismo, onCerrar, onGuardar }) {
           también puede capturarlos él mismo desde "Datos profesionales" en su propia sesión.
         </p>
 
-        <div className="border-t border-slate-100 pt-3">
-          <button
-            type="button"
-            onClick={() => setMostrarDatosSis((v) => !v)}
-            className="text-xs font-medium text-clinico-azul hover:underline"
-          >
-            {mostrarDatosSis ? 'Ocultar' : 'Agregar'} datos para reporte oficial SIS (opcional)
-          </button>
-
-          {mostrarDatosSis && (
-            <div className="mt-3 space-y-3">
-              <div>
-                <Input label="CURP" value={curp} onChange={handleChangeCurp} maxLength={18} className="uppercase" placeholder="AAAA000000HAAAAA00" />
-                {errorCurp && <p className="mt-1 text-xs text-clinico-rojo">{errorCurp}</p>}
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Input label="Primer apellido" value={primerApellido} onChange={(e) => setPrimerApellido(e.target.value)} />
-                <Input label="Segundo apellido" value={segundoApellido} onChange={(e) => setSegundoApellido(e.target.value)} />
-              </div>
-              <label className="block text-sm">
-                <span className="mb-1 block font-medium text-slate-700">Tipo de personal (catálogo SIS-SB)</span>
-                <select
-                  value={tipoPersonalSis}
-                  onChange={(e) => setTipoPersonalSis(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                >
-                  <option value="">Sin especificar</option>
-                  <option value="pasante_odontologia">Pasante en Odontología</option>
-                  <option value="odontologo">Odontóloga(o)</option>
-                  <option value="odontologo_especialista">Odontóloga(o) especialista</option>
-                  <option value="tecnico_odontologia">Técnica(o) en Odontología</option>
-                </select>
-              </label>
-            </div>
-          )}
-        </div>
-
-        <Button type="submit" disabled={guardando || (curp && errorCurp)} className="w-full">
+        <Button type="submit" disabled={guardando} className="w-full">
           {guardando ? 'Guardando…' : 'Guardar cambios'}
         </Button>
       </form>

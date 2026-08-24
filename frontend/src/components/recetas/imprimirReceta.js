@@ -44,6 +44,23 @@ export function bloqueSignosVitales(sv) {
   `
 }
 
+/**
+ * Genera el bloque HTML del encabezado médico — nombre + datos
+ * profesionales, cada uno en su propia línea, en el orden pedido
+ * (Cédula → RFC → Universidad), omitiendo por completo cualquier
+ * campo vacío (nunca una línea en blanco ni "No disponible").
+ */
+export function renderEncabezadoMedico(profesional) {
+  return `
+    <div class="encabezado-medico">
+      <div class="encabezado-medico-nombre">${profesional.nombre}</div>
+      ${profesional.cedula ? `<div class="encabezado-medico-dato">Cédula profesional: ${profesional.cedula}</div>` : ''}
+      ${profesional.rfc ? `<div class="encabezado-medico-dato">RFC: ${profesional.rfc}</div>` : ''}
+      ${profesional.escuela ? `<div class="encabezado-medico-dato">Universidad: ${profesional.escuela}</div>` : ''}
+    </div>
+  `
+}
+
 export async function imprimirReceta({ receta, paciente, clinicaId, incluirSignosVitales = true }) {
   const [{ data: clinica }, signosVitalesLista] = await Promise.all([
     supabase.from('clinicas').select('nombre, direccion, telefono').eq('id', clinicaId).single(),
@@ -79,8 +96,8 @@ export async function imprimirReceta({ receta, paciente, clinicaId, incluirSigno
       <style>
         body { font-family: system-ui, sans-serif; color: #1E293B; padding: 40px; max-width: 600px; margin: 0 auto; }
         .encabezado-medico { text-align: center; margin-bottom: 4px; }
-        .encabezado-medico-nombre { font-size: 16px; font-weight: 700; color: #1E293B; }
-        .encabezado-medico-datos { font-size: 11px; color: #64748B; margin-top: 2px; }
+        .encabezado-medico-nombre { font-size: 15px; font-weight: 700; color: #1E293B; }
+        .encabezado-medico-dato { font-size: 10.5px; line-height: 1.5; color: #64748B; }
         h1 { color: #1E5F8C; font-size: 13px; font-weight: 600; text-align: center; margin: 14px 0 2px; text-transform: uppercase; letter-spacing: 0.03em; }
         .clinica-datos { font-size: 11px; color: #64748B; margin-bottom: 20px; text-align: center; }
         .datos-paciente { border-top: 2px solid #E2E8F0; border-bottom: 2px solid #E2E8F0; padding: 12px 0; margin-bottom: 20px; font-size: 13px; }
@@ -101,13 +118,7 @@ export async function imprimirReceta({ receta, paciente, clinicaId, incluirSigno
       </style>
     </head>
     <body>
-      <div class="encabezado-medico">
-        <div class="encabezado-medico-nombre">${profesional.nombre}</div>
-        <div class="encabezado-medico-datos">
-          ${[profesional.rfc && `RFC: ${profesional.rfc}`, profesional.cedula && `Cédula profesional: ${profesional.cedula}`].filter(Boolean).join(' · ')}
-        </div>
-        ${profesional.escuela ? `<div class="encabezado-medico-datos">${profesional.escuela}</div>` : ''}
-      </div>
+      ${renderEncabezadoMedico(profesional)}
 
       <h1>Receta médica / odontológica</h1>
       <div class="clinica-datos">${clinica?.nombre ?? ''}${clinica?.direccion ? ` — ${clinica.direccion}` : ''}${clinica?.telefono ? ` · ${clinica.telefono}` : ''}</div>
