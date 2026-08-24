@@ -87,6 +87,14 @@ export const useAuthStore = create((set, get) => ({
     if (data?.error) throw new Error(data.error)
   },
 
+  // Vuelve a traer la fila de `usuarios` del usuario actual — para que
+  // el sidebar/UI reflejen de inmediato un cambio de perfil (ej. datos
+  // profesionales) sin tener que cerrar sesión y volver a entrar.
+  recargarPerfil: async () => {
+    const session = get().session
+    if (session) await get().cargarPerfil(session)
+  },
+
   logout: async () => {
     await supabase.auth.signOut()
     set({ session: null, perfil: null, clinicaNombre: null, clinicaEstado: null })

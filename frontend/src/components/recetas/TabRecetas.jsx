@@ -131,7 +131,14 @@ function ModalNuevaReceta({ abierto, onCerrar, onGuardar, perfil }) {
         medicamentos: validos,
         indicaciones_generales: indicacionesGenerales || null,
         vigencia_dias: Number(vigenciaDias) || 30,
-        es_controlada: esControlada
+        es_controlada: esControlada,
+        // Snapshot de los datos profesionales AL MOMENTO de emitir la
+        // receta — si el odontólogo corrige su perfil después, esta
+        // receta ya generada debe seguir mostrando estos mismos datos.
+        nombre_medico_snapshot: perfil.nombre ?? null,
+        rfc_snapshot: perfil.rfc ?? null,
+        cedula_profesional_snapshot: perfil.cedula_profesional ?? null,
+        escuela_snapshot: perfil.escuela_procedencia ?? null
       })
       toastExito('Receta guardada.')
       cerrar()

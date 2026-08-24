@@ -62,7 +62,7 @@ export async function cambiarActivoUsuario(id, activo) {
 // actualizar el correo en Supabase Auth (auth.admin.updateUserById), que
 // es un flujo aparte todavía no implementado. Por ahora el correo solo
 // se define al crear el usuario.
-export async function actualizarUsuario(id, { nombre, rol, cedulaProfesional, curp, primerApellido, segundoApellido, tipoPersonalSis }) {
+export async function actualizarUsuario(id, { nombre, rol, cedulaProfesional, curp, primerApellido, segundoApellido, tipoPersonalSis, rfc, escuelaProcedencia }) {
   const { data, error } = await supabase
     .from('usuarios')
     .update({
@@ -72,7 +72,29 @@ export async function actualizarUsuario(id, { nombre, rol, cedulaProfesional, cu
       curp: curp || null,
       primer_apellido: primerApellido || null,
       segundo_apellido: segundoApellido || null,
-      tipo_personal_sis: tipoPersonalSis || null
+      tipo_personal_sis: tipoPersonalSis || null,
+      rfc: rfc || null,
+      escuela_procedencia: escuelaProcedencia || null
+    })
+    .eq('id', id)
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+// Autoedición del propio perfil profesional — a propósito NO toca
+// rol/clinica_id/es_super_admin/activo (ni los recibe como parámetro):
+// la policy usuarios_update_self de Supabase exige que esos campos
+// queden exactamente igual, así que ni se intenta mandarlos.
+export async function actualizarMiPerfilProfesional(id, { nombre, rfc, cedulaProfesional, escuelaProcedencia }) {
+  const { data, error } = await supabase
+    .from('usuarios')
+    .update({
+      nombre,
+      rfc: rfc || null,
+      cedula_profesional: cedulaProfesional || null,
+      escuela_procedencia: escuelaProcedencia || null
     })
     .eq('id', id)
     .select()

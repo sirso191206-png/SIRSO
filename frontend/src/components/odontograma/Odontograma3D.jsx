@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { useOdontograma } from '../../hooks/useOdontograma'
 import { useTratamientos } from '../../hooks/useTratamientos'
 import { useOdontograma3D } from '../../hooks/useOdontograma3D'
@@ -12,14 +13,28 @@ export function Odontograma3D({ pacienteId, onVerEnExpediente, onIrAPlan }) {
   const { tratamientos } = useTratamientos(pacienteId)
   const {
     piezaSeleccionada, seleccionarPieza, cerrarPanel,
-    arcoVisible, setArcoVisible, vistaCamara, setVistaCamara
+    arcoVisible, setArcoVisible, vistaCamara, setVistaCamara,
+    mostrarEtiquetas, setMostrarEtiquetas
   } = useOdontograma3D()
+
+  // Las funciones de zoom las expone EscenaDental3D en cuanto la
+  // cámara está lista (mismo patrón que focusOnTooth) — se guardan en
+  // un ref para no provocar un re-render cada vez que se conectan.
+  const controlesZoomRef = useRef(null)
 
   if (cargando) return <p className="text-slate-400">Cargando odontograma…</p>
 
   return (
     <div className="space-y-4">
-      <ControlesOdontograma3D arcoVisible={arcoVisible} onCambiarArco={setArcoVisible} onCambiarVista={setVistaCamara} />
+      <ControlesOdontograma3D
+        arcoVisible={arcoVisible}
+        onCambiarArco={setArcoVisible}
+        onCambiarVista={setVistaCamara}
+        mostrarEtiquetas={mostrarEtiquetas}
+        onCambiarEtiquetas={setMostrarEtiquetas}
+        onZoomIn={() => controlesZoomRef.current?.zoomIn()}
+        onZoomOut={() => controlesZoomRef.current?.zoomOut()}
+      />
 
       <div className="flex flex-col gap-4 lg:flex-row">
         <div className="h-[420px] overflow-hidden rounded-xl border border-slate-200 bg-slate-50 lg:h-[520px] lg:w-[70%]">
@@ -29,6 +44,8 @@ export function Odontograma3D({ pacienteId, onVerEnExpediente, onIrAPlan }) {
             onSeleccionarPieza={seleccionarPieza}
             arcoVisible={arcoVisible}
             vistaCamara={vistaCamara}
+            mostrarEtiquetas={mostrarEtiquetas}
+            onZoomControlsListo={(controles) => { controlesZoomRef.current = controles }}
           />
         </div>
 

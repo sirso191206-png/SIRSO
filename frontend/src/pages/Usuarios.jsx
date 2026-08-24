@@ -242,6 +242,8 @@ function ModalEditarUsuario({ usuario, esUnoMismo, onCerrar, onGuardar }) {
   const [nombre, setNombre] = useState('')
   const [rol, setRol] = useState('recepcion')
   const [cedulaProfesional, setCedulaProfesional] = useState('')
+  const [rfc, setRfc] = useState('')
+  const [escuelaProcedencia, setEscuelaProcedencia] = useState('')
   const [curp, setCurp] = useState('')
   const [primerApellido, setPrimerApellido] = useState('')
   const [segundoApellido, setSegundoApellido] = useState('')
@@ -256,6 +258,8 @@ function ModalEditarUsuario({ usuario, esUnoMismo, onCerrar, onGuardar }) {
       setNombre(usuario.nombre ?? '')
       setRol(usuario.rol ?? 'recepcion')
       setCedulaProfesional(usuario.cedula_profesional ?? '')
+      setRfc(usuario.rfc ?? '')
+      setEscuelaProcedencia(usuario.escuela_procedencia ?? '')
       setCurp(usuario.curp ?? '')
       setPrimerApellido(usuario.primer_apellido ?? '')
       setSegundoApellido(usuario.segundo_apellido ?? '')
@@ -282,7 +286,7 @@ function ModalEditarUsuario({ usuario, esUnoMismo, onCerrar, onGuardar }) {
     setGuardando(true)
     try {
       await onGuardar(usuario.id, {
-        nombre, rol, cedulaProfesional, curp, primerApellido, segundoApellido, tipoPersonalSis
+        nombre, rol, cedulaProfesional, curp, primerApellido, segundoApellido, tipoPersonalSis, rfc, escuelaProcedencia
       })
       toastExito('Perfil actualizado.')
       onCerrar()
@@ -319,12 +323,29 @@ function ModalEditarUsuario({ usuario, esUnoMismo, onCerrar, onGuardar }) {
           {esUnoMismo && <p className="mt-1 text-xs text-slate-400">No puedes cambiar tu propio rol.</p>}
         </label>
 
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Input
+            label="Cédula profesional (opcional)"
+            value={cedulaProfesional}
+            onChange={(e) => setCedulaProfesional(e.target.value)}
+            placeholder="Ej. 12345678"
+          />
+          <Input
+            label="RFC (opcional)"
+            value={rfc}
+            onChange={(e) => setRfc(e.target.value.toUpperCase())}
+            maxLength={13}
+          />
+        </div>
         <Input
-          label="Cédula profesional (opcional)"
-          value={cedulaProfesional}
-          onChange={(e) => setCedulaProfesional(e.target.value)}
-          placeholder="Ej. 12345678"
+          label="Universidad / institución de procedencia (opcional)"
+          value={escuelaProcedencia}
+          onChange={(e) => setEscuelaProcedencia(e.target.value)}
         />
+        <p className="text-xs text-slate-400">
+          Cédula, RFC y universidad aparecen automáticamente en las recetas que emita este usuario —
+          también puede capturarlos él mismo desde "Datos profesionales" en su propia sesión.
+        </p>
 
         <div className="border-t border-slate-100 pt-3">
           <button

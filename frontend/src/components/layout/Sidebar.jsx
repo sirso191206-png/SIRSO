@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuthStore } from '../../store/useAuthStore'
 import { toastExito, toastError } from '../../store/useToastStore'
+import { actualizarMiPerfilProfesional } from '../../services/usuarios'
 import { Modal } from '../ui/Modal'
 import { Input } from '../ui/Input'
 import { Button } from '../ui/Button'
@@ -59,6 +60,7 @@ const ETIQUETA_ROL = {
 export function Sidebar() {
   const { perfil, clinicaNombre, logout } = useAuthStore()
   const [modalAbierto, setModalAbierto] = useState(false)
+  const [modalPerfilAbierto, setModalPerfilAbierto] = useState(false)
 
   return (
     <aside className="flex h-screen w-56 flex-col justify-between border-r border-slate-200 bg-white p-4">
@@ -124,6 +126,12 @@ export function Sidebar() {
           </div>
         </div>
         <button
+          onClick={() => setModalPerfilAbierto(true)}
+          className="block text-sm text-slate-400 hover:text-clinico-azul"
+        >
+          Datos profesionales
+        </button>
+        <button
           onClick={() => setModalAbierto(true)}
           className="block text-sm text-slate-400 hover:text-clinico-azul"
         >
@@ -135,6 +143,7 @@ export function Sidebar() {
       </div>
 
       <ModalCambiarPassword abierto={modalAbierto} onCerrar={() => setModalAbierto(false)} />
+      <ModalPerfilProfesional abierto={modalPerfilAbierto} onCerrar={() => setModalPerfilAbierto(false)} />
     </aside>
   )
 }
@@ -212,6 +221,79 @@ function ModalCambiarPassword({ abierto, onCerrar }) {
           </Button>
         </form>
       )}
+    </Modal>
+  )
+}
+
+function ModalPerfilProfesional({ abierto, onCerrar }) {
+  const perfil = useAuthStore((s) => s.perfil)
+  const recargarPerfil = useAuthStore((s) => s.recargarPerfil)
+  const [form, setForm] = useState({ nombre: '', rfc: '', cedulaProfesional: '', escuelaProcedencia: '' })
+  const [guardando, setGuardando] = useState(false)
+
+  // Se sincroniza con el perfil real cada vez que se abre — así
+  // siempre parte de los datos guardados actuales, no de lo que haya
+  // quedado escrito de una apertura anterior.
+  useEffect(() => {
+    if (abierto && perfil) {
+      setForm({
+        nombre: perfil.nombre ?? '',
+        rfc: perfil.rfc ?? '',
+        cedulaProfesional: perfil.cedula_profesional ?? '',
+        escuelaProcedencia: perfil.escuela_procedencia ?? ''
+      })
+    }
+  }, [abierto, perfil])
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setGuardando(true)
+    try {
+      await actualizarMiPerfilProfesional(perfil.id, form)
+      await recargarPerfil()
+      toastExito('Datos profesionales actualizados.')
+      onCerrar()
+    } catch (err) {
+      toastError('No se pudo guardar: ' + err.message)
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  return (
+    <Modal abierto={abierto} onCerrar={onCerrar} titulo="Datos profesionales">
+      <p className="mb-4 text-sm text-slate-500">
+        Esta información aparece automáticamente en tus recetas — no hace falta volver a escribirla
+        cada vez. Si la cambias, solo afecta a las recetas nuevas; las que ya emitiste conservan los
+        datos con los que se generaron.
+      </p>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <Input
+          label="Nombre completo"
+          required
+          value={form.nombre}
+          onChange={(e) => setForm({ ...form, nombre: e.target.value })}
+        />
+        <Input
+          label="RFC"
+          value={form.rfc}
+          onChange={(e) => setForm({ ...form, rfc: e.target.value.toUpperCase() })}
+          maxLength={13}
+        />
+        <Input
+          label="Cédula profesional"
+          value={form.cedulaProfesional}
+          onChange={(e) => setForm({ ...form, cedulaProfesional: e.target.value })}
+        />
+        <Input
+          label="Universidad / institución de procedencia"
+          value={form.escuelaProcedencia}
+          onChange={(e) => setForm({ ...form, escuelaProcedencia: e.target.value })}
+        />
+        <Button type="submit" disabled={guardando} className="w-full">
+          {guardando ? 'Guardando…' : 'Guardar datos profesionales'}
+        </Button>
+      </form>
     </Modal>
   )
 }

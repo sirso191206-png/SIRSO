@@ -8,6 +8,7 @@ export function useOdontograma3D() {
   const [piezaSeleccionada, setPiezaSeleccionada] = useState(null)
   const [arcoVisible, setArcoVisible] = useState('ambas') // ambas | superior | inferior
   const [vistaCamara, setVistaCamara] = useState('restablecer')
+  const [mostrarEtiquetas, setMostrarEtiquetas] = useState(true)
 
   const seleccionarPieza = (pieza) => {
     setPiezaSeleccionada((actual) => (actual?.id === pieza.id ? null : pieza))
@@ -20,6 +21,8 @@ export function useOdontograma3D() {
     arcoVisible,
     setArcoVisible,
     vistaCamara,
-    setVistaCamara
+    setVistaCamara,
+    mostrarEtiquetas,
+    setMostrarEtiquetas
   }
 }

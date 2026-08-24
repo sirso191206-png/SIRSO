@@ -1,4 +1,13 @@
 // ============================================================
+// ⚠ RETIRADA del flujo principal (ronda posterior de correcciones).
+// ------------------------------------------------------------
+// EscenaDental3D.jsx ya NO usa este archivo: la arquitectura actual
+// renderiza la escena del .glb directa vía <primitive object={scene}>
+// (ver identificarNodosFdi.js), sin reconstruir la posición de ningún
+// diente — ni siquiera con datos reales como hacía este archivo. Se
+// conserva (con sus pruebas) por si algún día se necesita un cálculo
+// de posición aislado, pero no forma parte del render clínico.
+// ------------------------------------------------------------
 // Posición anatómica REAL — derivada directo del .glb, no de una
 // curva sintética independiente.
 // ------------------------------------------------------------
