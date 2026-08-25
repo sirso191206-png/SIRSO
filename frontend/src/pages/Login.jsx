@@ -136,7 +136,7 @@ export function Login() {
           </form>
 
           <p className="mt-8 text-center text-xs font-medium uppercase tracking-wide text-slate-400">
-            Sistema Integral de Registro Odontológico
+            Solución Integral de Registro Odontológico
           </p>
         </div>
 
