@@ -122,14 +122,17 @@ describe('renderEncabezadoMedico — formato exacto pedido: nombre + cada dato e
     expect(html).toContain('Eduardo Iglesias Arines')
     expect(html).toContain('Cédula profesional: 91425012')
     expect(html).toContain('RFC: AISB750521')
-    expect(html).toContain('Universidad: Universidad Autónoma del Estado de México')
+    // La universidad va SIN el prefijo "Universidad:" — solo el nombre
+    // de la institución tal como está guardado.
+    expect(html).toContain('Universidad Autónoma del Estado de México')
+    expect(html).not.toContain('Universidad:')
 
-    // Orden: cédula antes que RFC, RFC antes que universidad — igual que el ejemplo.
+    // Orden: cédula antes que RFC, RFC antes que la línea de escuela.
     const posCedula = html.indexOf('Cédula profesional')
     const posRfc = html.indexOf('RFC:')
-    const posUniversidad = html.indexOf('Universidad:')
+    const posEscuela = html.indexOf('Universidad Autónoma del Estado de México')
     expect(posCedula).toBeLessThan(posRfc)
-    expect(posRfc).toBeLessThan(posUniversidad)
+    expect(posRfc).toBeLessThan(posEscuela)
   })
 
   it('sin RFC: omite esa línea por completo, no deja un hueco ni "No disponible"', () => {
@@ -137,13 +140,14 @@ describe('renderEncabezadoMedico — formato exacto pedido: nombre + cada dato e
     expect(html).not.toContain('RFC')
     expect(html).not.toContain('No disponible')
     expect(html).toContain('Cédula profesional: 12345678')
-    expect(html).toContain('Universidad: UNAM')
+    expect(html).toContain('UNAM')
+    expect(html).not.toContain('Universidad:')
   })
 
   it('sin cédula ni universidad, solo con RFC: solo aparece esa línea', () => {
     const html = renderEncabezadoMedico({ nombre: 'Dr. Juan Pérez', cedula: null, rfc: 'PEJU850101XYZ', escuela: null })
     expect(html).not.toContain('Cédula profesional')
-    expect(html).not.toContain('Universidad:')
+    expect(html).not.toContain('Universidad')
     expect(html).toContain('RFC: PEJU850101XYZ')
   })
 
@@ -152,7 +156,8 @@ describe('renderEncabezadoMedico — formato exacto pedido: nombre + cada dato e
     expect(html).toContain('Dr. Sin Datos')
     expect(html).not.toContain('Cédula profesional')
     expect(html).not.toContain('RFC')
-    expect(html).not.toContain('Universidad:')
+    expect(html).not.toContain('Universidad')
     expect(html).not.toContain('No disponible')
   })
 })
+
