@@ -110,45 +110,45 @@ export async function imprimirReceta({ receta, paciente, clinicaId, incluirSigno
       <meta charset="utf-8" />
       <title>Receta — ${paciente.nombre_completo}</title>
       <style>
-        @page { size: letter portrait; margin: 12mm 16mm; }
+        @page { size: 5.5in 8.5in; margin: 8mm 10mm; }
         * { box-sizing: border-box; }
-        body { font-family: 'Times New Roman', Georgia, serif; color: #111827; max-width: 680px; margin: 0 auto; padding: 0; font-size: 18px; }
+        body { font-family: Arial, Helvetica, sans-serif; color: #111827; max-width: 100%; margin: 0 auto; padding: 0; font-size: 12px; }
 
         .encabezado {
           position: relative;
           text-align: center;
-          padding: 6px 60px 12px;
+          padding: 4px 40px 8px;
         }
         .logo-clinica { position: absolute; top: 0; left: 0; }
-        .logo-clinica img { max-height: 68px; max-width: 130px; object-fit: contain; }
-        .folio { position: absolute; top: 0; right: 0; font-size: 14px; font-style: italic; color: #374151; }
-        .clinica-datos-nombre { font-size: 22px; font-weight: 700; }
-        .encabezado-medico-nombre { font-size: 21px; font-weight: 700; margin-top: 4px; }
-        .encabezado-medico-dato { font-size: 14px; line-height: 1.6; color: #374151; }
-        .clinica-datos { font-size: 14px; line-height: 1.6; color: #374151; }
+        .logo-clinica img { max-height: 44px; max-width: 90px; object-fit: contain; }
+        .folio { position: absolute; top: 0; right: 0; font-size: 10px; font-style: italic; color: #374151; }
+        .clinica-datos-nombre { font-size: 15px; font-weight: 700; }
+        .encabezado-medico-nombre { font-size: 14px; font-weight: 700; margin-top: 3px; }
+        .encabezado-medico-dato { font-size: 10px; line-height: 1.5; color: #374151; }
+        .clinica-datos { font-size: 10px; line-height: 1.5; color: #374151; }
 
-        .doble-linea { border-top: 1.5px solid #111827; border-bottom: 1.5px solid #111827; height: 3px; margin: 10px 0 20px; }
+        .doble-linea { border-top: 1.5px solid #111827; border-bottom: 1.5px solid #111827; height: 3px; margin: 8px 0 14px; }
 
-        h1 { color: #111827; font-size: 15px; font-weight: 700; text-align: center; margin: 0 0 20px; text-transform: uppercase; letter-spacing: 0.04em; }
+        h1 { color: #111827; font-size: 11px; font-weight: 700; text-align: center; margin: 0 0 14px; text-transform: uppercase; letter-spacing: 0.04em; }
 
-        .campo-fila { display: flex; gap: 24px; margin-bottom: 16px; }
+        .campo-fila { display: flex; gap: 16px; margin-bottom: 12px; }
         .campo { flex: 1; }
-        .campo-valor { font-size: 17px; padding-bottom: 4px; border-bottom: 1.5px solid #111827; min-height: 22px; }
-        .campo-etiqueta { font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; color: #374151; margin-top: 3px; text-align: center; }
+        .campo-valor { font-size: 12px; padding-bottom: 3px; border-bottom: 1.5px solid #111827; min-height: 16px; }
+        .campo-etiqueta { font-size: 8px; letter-spacing: 0.05em; text-transform: uppercase; color: #374151; margin-top: 2px; text-align: center; }
         .campo-fila .campo:first-child { flex: 2; }
 
-        .rp { font-size: 26px; font-weight: 800; margin: 10px 0 12px; }
-        .medicamento { margin-bottom: 16px; padding-left: 14px; border-left: 3px solid #D1D5DB; }
-        .medicamento-nombre { font-weight: 700; font-size: 18px; }
-        .medicamento-detalle { font-size: 15px; color: #374151; margin-top: 2px; }
-        .medicamento-indicaciones { font-size: 15px; color: #4B5563; font-style: italic; margin-top: 3px; }
-        .indicaciones-generales { margin-top: 18px; font-size: 15px; color: #374151; }
-        .signos-vitales { margin-top: 18px; padding: 12px 14px; border: 1.5px solid #D1D5DB; border-radius: 6px; }
-        .signos-vitales-titulo { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 5px; }
-        .signos-vitales-fila { font-size: 15px; color: #374151; }
-        .firma { margin-top: 56px; text-align: center; }
-        .firma-linea { border-top: 1.5px solid #111827; width: 280px; margin: 0 auto 6px; }
-        .firma-texto { font-size: 15px; color: #374151; }
+        .rp { font-size: 18px; font-weight: 800; margin: 8px 0 10px; }
+        .medicamento { margin-bottom: 12px; padding-left: 10px; border-left: 3px solid #D1D5DB; }
+        .medicamento-nombre { font-weight: 700; font-size: 12px; }
+        .medicamento-detalle { font-size: 10px; color: #374151; margin-top: 2px; }
+        .medicamento-indicaciones { font-size: 10px; color: #4B5563; font-style: italic; margin-top: 3px; }
+        .indicaciones-generales { margin-top: 14px; font-size: 10px; color: #374151; }
+        .signos-vitales { margin-top: 14px; padding: 8px 10px; border: 1.5px solid #D1D5DB; border-radius: 6px; }
+        .signos-vitales-titulo { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
+        .signos-vitales-fila { font-size: 10px; color: #374151; }
+        .firma { margin-top: 36px; text-align: center; }
+        .firma-linea { border-top: 1.5px solid #111827; width: 200px; margin: 0 auto 5px; }
+        .firma-texto { font-size: 10px; color: #374151; }
         @media print { body { padding: 0; } }
       </style>
     </head>
@@ -194,7 +194,15 @@ export async function imprimirReceta({ receta, paciente, clinicaId, incluirSigno
         </div>
       </div>
 
-      <script>window.print()</script>
+      <script>
+        // window.print() no debe llamarse de inmediato: si hay logo,
+        // la imagen aún puede estar descargándose desde Supabase Storage
+        // y se imprimiría en blanco. 'load' sí espera a que todas las
+        // imágenes terminen de cargar (o fallen) antes de disparar.
+        window.addEventListener('load', function () {
+          setTimeout(function () { window.print() }, 150)
+        })
+      </script>
     </body>
     </html>
   `
