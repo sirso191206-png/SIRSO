@@ -45,16 +45,17 @@ export function bloqueSignosVitales(sv) {
 }
 
 /**
- * Genera el bloque HTML del encabezado médico — nombre + datos
- * profesionales, cada uno en su propia línea, en el orden pedido
- * (Cédula → RFC → Universidad), omitiendo por completo cualquier
- * campo vacío (nunca una línea en blanco ni "No disponible").
+ * Genera el bloque HTML del encabezado médico — clínica (si se pasa)
+ * + nombre del médico + datos profesionales, cada uno en su propia
+ * línea, en el orden pedido (Clínica → Médico → Cédula → RFC →
+ * Universidad), omitiendo por completo cualquier campo vacío (nunca
+ * una línea en blanco ni "No disponible").
  */
 export function renderEncabezadoMedico(profesional, datosClinicaHtml = '') {
   return `
     <div class="encabezado-medico">
-      <div class="encabezado-medico-nombre">${profesional.nombre}</div>
       ${datosClinicaHtml}
+      <div class="encabezado-medico-nombre">${profesional.nombre}</div>
       ${profesional.cedula ? `<div class="encabezado-medico-dato">Cédula profesional: ${profesional.cedula}</div>` : ''}
       ${profesional.rfc ? `<div class="encabezado-medico-dato">RFC: ${profesional.rfc}</div>` : ''}
       ${profesional.escuela ? `<div class="encabezado-medico-dato">${profesional.escuela}</div>` : ''}
@@ -109,44 +110,45 @@ export async function imprimirReceta({ receta, paciente, clinicaId, incluirSigno
       <meta charset="utf-8" />
       <title>Receta — ${paciente.nombre_completo}</title>
       <style>
-        @page { size: letter portrait; margin: 10mm 14mm; }
+        @page { size: letter portrait; margin: 12mm 16mm; }
         * { box-sizing: border-box; }
-        body { font-family: 'Times New Roman', Georgia, serif; color: #111827; max-width: 480px; margin: 0 auto; padding: 0; font-size: 13px; }
+        body { font-family: 'Times New Roman', Georgia, serif; color: #111827; max-width: 680px; margin: 0 auto; padding: 0; font-size: 18px; }
 
         .encabezado {
           position: relative;
           text-align: center;
-          padding: 4px 40px 8px;
+          padding: 6px 60px 12px;
         }
         .logo-clinica { position: absolute; top: 0; left: 0; }
-        .logo-clinica img { max-height: 48px; max-width: 90px; object-fit: contain; }
-        .folio { position: absolute; top: 0; right: 0; font-size: 10px; font-style: italic; color: #374151; }
-        .encabezado-medico-nombre { font-size: 15px; font-weight: 700; }
-        .encabezado-medico-dato { font-size: 10px; line-height: 1.5; color: #374151; }
-        .clinica-datos { font-size: 10px; line-height: 1.5; color: #374151; }
+        .logo-clinica img { max-height: 68px; max-width: 130px; object-fit: contain; }
+        .folio { position: absolute; top: 0; right: 0; font-size: 14px; font-style: italic; color: #374151; }
+        .clinica-datos-nombre { font-size: 22px; font-weight: 700; }
+        .encabezado-medico-nombre { font-size: 21px; font-weight: 700; margin-top: 4px; }
+        .encabezado-medico-dato { font-size: 14px; line-height: 1.6; color: #374151; }
+        .clinica-datos { font-size: 14px; line-height: 1.6; color: #374151; }
 
-        .doble-linea { border-top: 1px solid #111827; border-bottom: 1px solid #111827; height: 2px; margin: 6px 0 14px; }
+        .doble-linea { border-top: 1.5px solid #111827; border-bottom: 1.5px solid #111827; height: 3px; margin: 10px 0 20px; }
 
-        h1 { color: #111827; font-size: 11px; font-weight: 700; text-align: center; margin: 0 0 14px; text-transform: uppercase; letter-spacing: 0.03em; }
+        h1 { color: #111827; font-size: 15px; font-weight: 700; text-align: center; margin: 0 0 20px; text-transform: uppercase; letter-spacing: 0.04em; }
 
-        .campo-fila { display: flex; gap: 18px; margin-bottom: 10px; }
+        .campo-fila { display: flex; gap: 24px; margin-bottom: 16px; }
         .campo { flex: 1; }
-        .campo-valor { font-size: 12px; padding-bottom: 3px; border-bottom: 1px solid #111827; min-height: 16px; }
-        .campo-etiqueta { font-size: 8px; letter-spacing: 0.04em; text-transform: uppercase; color: #374151; margin-top: 2px; text-align: center; }
+        .campo-valor { font-size: 17px; padding-bottom: 4px; border-bottom: 1.5px solid #111827; min-height: 22px; }
+        .campo-etiqueta { font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; color: #374151; margin-top: 3px; text-align: center; }
         .campo-fila .campo:first-child { flex: 2; }
 
-        .rp { font-size: 18px; font-weight: 800; margin: 6px 0 8px; }
-        .medicamento { margin-bottom: 10px; padding-left: 10px; border-left: 2px solid #D1D5DB; }
-        .medicamento-nombre { font-weight: 700; font-size: 13px; }
-        .medicamento-detalle { font-size: 11px; color: #374151; margin-top: 1px; }
-        .medicamento-indicaciones { font-size: 11px; color: #4B5563; font-style: italic; margin-top: 2px; }
-        .indicaciones-generales { margin-top: 12px; font-size: 11px; color: #374151; }
-        .signos-vitales { margin-top: 12px; padding: 8px 10px; border: 1px solid #D1D5DB; border-radius: 4px; }
-        .signos-vitales-titulo { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 3px; }
-        .signos-vitales-fila { font-size: 11px; color: #374151; }
-        .firma { margin-top: 40px; text-align: center; }
-        .firma-linea { border-top: 1px solid #111827; width: 200px; margin: 0 auto 4px; }
-        .firma-texto { font-size: 11px; color: #374151; }
+        .rp { font-size: 26px; font-weight: 800; margin: 10px 0 12px; }
+        .medicamento { margin-bottom: 16px; padding-left: 14px; border-left: 3px solid #D1D5DB; }
+        .medicamento-nombre { font-weight: 700; font-size: 18px; }
+        .medicamento-detalle { font-size: 15px; color: #374151; margin-top: 2px; }
+        .medicamento-indicaciones { font-size: 15px; color: #4B5563; font-style: italic; margin-top: 3px; }
+        .indicaciones-generales { margin-top: 18px; font-size: 15px; color: #374151; }
+        .signos-vitales { margin-top: 18px; padding: 12px 14px; border: 1.5px solid #D1D5DB; border-radius: 6px; }
+        .signos-vitales-titulo { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 5px; }
+        .signos-vitales-fila { font-size: 15px; color: #374151; }
+        .firma { margin-top: 56px; text-align: center; }
+        .firma-linea { border-top: 1.5px solid #111827; width: 280px; margin: 0 auto 6px; }
+        .firma-texto { font-size: 15px; color: #374151; }
         @media print { body { padding: 0; } }
       </style>
     </head>
@@ -158,7 +160,7 @@ export async function imprimirReceta({ receta, paciente, clinicaId, incluirSigno
         ${renderEncabezadoMedico(
           profesional,
           (clinica?.nombre || clinica?.direccion || clinica?.telefono)
-            ? `<div class="clinica-datos">${clinica?.nombre ?? ''}${clinica?.direccion ? ` — ${clinica.direccion}` : ''}${clinica?.telefono ? ` · ${clinica.telefono}` : ''}</div>`
+            ? `<div class="clinica-datos">${clinica?.nombre ? `<div class="clinica-datos-nombre">${clinica.nombre}</div>` : ''}${clinica?.direccion || clinica?.telefono ? `<div>${[clinica?.direccion, clinica?.telefono].filter(Boolean).join(' · ')}</div>` : ''}</div>`
             : ''
         )}
       </div>
