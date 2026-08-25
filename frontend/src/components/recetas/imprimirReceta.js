@@ -110,49 +110,72 @@ export async function imprimirReceta({ receta, paciente, clinicaId, incluirSigno
       <meta charset="utf-8" />
       <title>Receta — ${paciente.nombre_completo}</title>
       <style>
-        @page { size: 5.5in 8.5in; margin: 8mm 10mm; }
+        @page { size: letter portrait; margin: 0; }
         * { box-sizing: border-box; }
-        body { font-family: Arial, Helvetica, sans-serif; color: #111827; max-width: 100%; margin: 0 auto; padding: 0; font-size: 12px; }
+        html, body { margin: 0; padding: 0; }
+        body { font-family: Arial, Helvetica, sans-serif; color: #111827; }
+
+        /* La receta vive en un bloque fijo de 5.5in — exactamente la
+           mitad de una hoja carta (11in) — con una línea punteada al
+           final marcando dónde cortar. Todo lo que sigue después del
+           corte (la mitad inferior de la hoja) queda en blanco. */
+        .hoja-media-carta {
+          width: 8.5in;
+          height: 5.5in;
+          padding: 9mm 16mm 7mm;
+          border-bottom: 1.5px dashed #9CA3AF;
+          position: relative;
+          font-size: 16px;
+        }
+        .guia-corte {
+          position: absolute;
+          bottom: -8px;
+          right: 16mm;
+          font-size: 9px;
+          color: #9CA3AF;
+          background: #fff;
+          padding: 0 4px;
+        }
 
         .encabezado {
           position: relative;
           text-align: center;
-          padding: 4px 40px 8px;
+          padding: 4px 60px 10px;
         }
         .logo-clinica { position: absolute; top: 0; left: 0; }
-        .logo-clinica img { max-height: 44px; max-width: 90px; object-fit: contain; }
-        .folio { position: absolute; top: 0; right: 0; font-size: 10px; font-style: italic; color: #374151; }
-        .clinica-datos-nombre { font-size: 15px; font-weight: 700; }
-        .encabezado-medico-nombre { font-size: 14px; font-weight: 700; margin-top: 3px; }
-        .encabezado-medico-dato { font-size: 10px; line-height: 1.5; color: #374151; }
-        .clinica-datos { font-size: 10px; line-height: 1.5; color: #374151; }
+        .logo-clinica img { max-height: 60px; max-width: 120px; object-fit: contain; }
+        .folio { position: absolute; top: 0; right: 0; font-size: 13px; font-style: italic; color: #374151; }
+        .clinica-datos-nombre { font-size: 20px; font-weight: 700; }
+        .encabezado-medico-nombre { font-size: 19px; font-weight: 700; margin-top: 4px; }
+        .encabezado-medico-dato { font-size: 13px; line-height: 1.55; color: #374151; }
+        .clinica-datos { font-size: 13px; line-height: 1.55; color: #374151; }
 
         .doble-linea { border-top: 1.5px solid #111827; border-bottom: 1.5px solid #111827; height: 3px; margin: 8px 0 14px; }
 
-        h1 { color: #111827; font-size: 11px; font-weight: 700; text-align: center; margin: 0 0 14px; text-transform: uppercase; letter-spacing: 0.04em; }
+        h1 { color: #111827; font-size: 13px; font-weight: 700; text-align: center; margin: 0 0 14px; text-transform: uppercase; letter-spacing: 0.04em; }
 
-        .campo-fila { display: flex; gap: 16px; margin-bottom: 12px; }
+        .campo-fila { display: flex; gap: 28px; margin-bottom: 12px; }
         .campo { flex: 1; }
-        .campo-valor { font-size: 12px; padding-bottom: 3px; border-bottom: 1.5px solid #111827; min-height: 16px; }
-        .campo-etiqueta { font-size: 8px; letter-spacing: 0.05em; text-transform: uppercase; color: #374151; margin-top: 2px; text-align: center; }
+        .campo-valor { font-size: 15px; padding-bottom: 3px; border-bottom: 1.5px solid #111827; min-height: 19px; }
+        .campo-etiqueta { font-size: 9.5px; letter-spacing: 0.05em; text-transform: uppercase; color: #374151; margin-top: 3px; text-align: center; }
         .campo-fila .campo:first-child { flex: 2; }
 
-        .rp { font-size: 18px; font-weight: 800; margin: 8px 0 10px; }
-        .medicamento { margin-bottom: 12px; padding-left: 10px; border-left: 3px solid #D1D5DB; }
-        .medicamento-nombre { font-weight: 700; font-size: 12px; }
-        .medicamento-detalle { font-size: 10px; color: #374151; margin-top: 2px; }
-        .medicamento-indicaciones { font-size: 10px; color: #4B5563; font-style: italic; margin-top: 3px; }
-        .indicaciones-generales { margin-top: 14px; font-size: 10px; color: #374151; }
-        .signos-vitales { margin-top: 14px; padding: 8px 10px; border: 1.5px solid #D1D5DB; border-radius: 6px; }
-        .signos-vitales-titulo { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
-        .signos-vitales-fila { font-size: 10px; color: #374151; }
-        .firma { margin-top: 36px; text-align: center; }
-        .firma-linea { border-top: 1.5px solid #111827; width: 200px; margin: 0 auto 5px; }
-        .firma-texto { font-size: 10px; color: #374151; }
-        @media print { body { padding: 0; } }
+        .rp { font-size: 22px; font-weight: 800; margin: 8px 0 10px; }
+        .medicamento { margin-bottom: 10px; padding-left: 12px; border-left: 3px solid #D1D5DB; }
+        .medicamento-nombre { font-weight: 700; font-size: 15px; }
+        .medicamento-detalle { font-size: 12.5px; color: #374151; margin-top: 2px; }
+        .medicamento-indicaciones { font-size: 12.5px; color: #4B5563; font-style: italic; margin-top: 3px; }
+        .indicaciones-generales { margin-top: 10px; font-size: 12.5px; color: #374151; }
+        .signos-vitales { margin-top: 10px; padding: 8px 12px; border: 1.5px solid #D1D5DB; border-radius: 6px; }
+        .signos-vitales-titulo { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
+        .signos-vitales-fila { font-size: 12.5px; color: #374151; }
+        .firma { margin-top: 14px; text-align: center; }
+        .firma-linea { border-top: 1.5px solid #111827; width: 220px; margin: 0 auto 5px; }
+        .firma-texto { font-size: 12.5px; color: #374151; }
       </style>
     </head>
     <body>
+      <div class="hoja-media-carta">
       <div class="encabezado">
         ${clinica?.logo_url ? `<div class="logo-clinica"><img src="${clinica.logo_url}" alt="" /></div>` : ''}
         ${receta.folio ? `<div class="folio">Folio ${receta.folio}</div>` : ''}
@@ -192,6 +215,8 @@ export async function imprimirReceta({ receta, paciente, clinicaId, incluirSigno
           ${profesional.nombre}
           ${profesional.cedula ? `<br/>Céd. Prof. ${profesional.cedula}` : ''}
         </div>
+      </div>
+      <div class="guia-corte">✂ cortar aquí</div>
       </div>
 
       <script>
