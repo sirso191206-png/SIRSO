@@ -71,6 +71,23 @@ export async function actualizarPaciente(id, cambios) {
   return data
 }
 
+// Reasignación de odontólogo responsable — separada de
+// actualizarPaciente() a propósito: en la base, un trigger
+// (fn_validar_reasignacion_paciente) bloquea este cambio específico si
+// quien lo hace no es owner, aunque el resto de la fila sí se pudiera
+// editar. Tener una función aparte deja claro en el código que esta
+// acción tiene una regla de permisos distinta al resto del formulario.
+export async function reasignarPaciente(id, dentistaResponsableId) {
+  const { data, error } = await supabase
+    .from('pacientes')
+    .update({ dentista_responsable_id: dentistaResponsableId })
+    .eq('id', id)
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
 export async function obtenerSaldo(pacienteId) {
   const { data, error } = await supabase
     .from('v_saldo_pacientes')

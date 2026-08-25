@@ -484,7 +484,7 @@ function SeccionSignosVitales({ pacienteId }) {
         )}
 
         <div className="col-span-2 border-t border-slate-100 pt-3 sm:col-span-4">
-          <p className="mb-2 text-xs font-semibold text-slate-500">Para reporte oficial SIS (opcional)</p>
+          <p className="mb-2 text-xs font-semibold text-slate-500">Signos vitales adicionales (opcional)</p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
             <Input label="Sistólica" type="number" placeholder="mmHg" value={form.presion_sistolica} onChange={(e) => setForm({ ...form, presion_sistolica: e.target.value })} />
             <Input label="Diastólica" type="number" placeholder="mmHg" value={form.presion_diastolica} onChange={(e) => setForm({ ...form, presion_diastolica: e.target.value })} />
@@ -524,7 +524,7 @@ function SeccionSignosVitales({ pacienteId }) {
               </div>
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-slate-700">
                 {r.presion_arterial && <span>PA: {r.presion_arterial}</span>}
-                {(r.presion_sistolica || r.presion_diastolica) && <span>PA (SIS): {r.presion_sistolica ?? '—'}/{r.presion_diastolica ?? '—'}</span>}
+                {(r.presion_sistolica || r.presion_diastolica) && <span>Presión arterial: {r.presion_sistolica ?? '—'}/{r.presion_diastolica ?? '—'}</span>}
                 {r.frecuencia_cardiaca && <span>FC: {r.frecuencia_cardiaca} lpm</span>}
                 {r.frecuencia_respiratoria && <span>FR: {r.frecuencia_respiratoria} rpm</span>}
                 {r.saturacion_oxigeno && <span>SpO₂: {r.saturacion_oxigeno}%</span>}

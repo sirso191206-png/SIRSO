@@ -1,12 +1,12 @@
 import { defineConfig } from 'vitest/config'
 
 // Configuración de pruebas independiente del build de Vite.
-// Cubre el módulo de interoperabilidad SIS (lógica pura, sin DOM) y las
-// pruebas de estructura/lógica anatómica del odontograma 3D (tampoco
-// necesitan DOM/WebGL — verifican datos, no renderizado).
+// Pruebas de estructura/lógica del odontograma 3D y de auditoría RLS
+// (inspección estructural del SQL) — no necesitan DOM/WebGL, verifican
+// datos y texto, no renderizado.
 export default defineConfig({
   test: {
     environment: 'node',
-    include: ['src/features/**/*.test.ts', 'src/components/**/*.test.js'],
+    include: ['src/components/**/*.test.js'],
   },
 })

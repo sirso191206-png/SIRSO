@@ -6,6 +6,8 @@ import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { ConfirmModal } from '../components/ui/ConfirmModal'
+import { listarDentistas } from '../services/usuarios'
+import { listarAsignaciones, asignarAsistenteADentista, quitarAsignacion } from '../services/asignacionesAsistente'
 
 const ROLES = [
   { value: 'owner', label: 'Owner' },
@@ -237,6 +239,92 @@ function ModalNuevoUsuario({ abierto, onCerrar, onCrear }) {
   )
 }
 
+function AsignacionDentistasDeAsistente({ asistente }) {
+  const [dentistas, setDentistas] = useState([])
+  const [asignaciones, setAsignaciones] = useState([])
+  const [cargando, setCargando] = useState(true)
+  const [dentistaSeleccionado, setDentistaSeleccionado] = useState('')
+  const perfil = useAuthStore((s) => s.perfil)
+
+  const recargar = async () => {
+    setCargando(true)
+    const [listaDentistas, todasAsignaciones] = await Promise.all([listarDentistas(), listarAsignaciones()])
+    setDentistas(listaDentistas)
+    setAsignaciones(todasAsignaciones.filter((a) => a.asistente?.id === asistente.id))
+    setCargando(false)
+  }
+
+  useEffect(() => { recargar() }, [asistente.id])
+
+  const dentistasSinAsignar = dentistas.filter((d) => !asignaciones.some((a) => a.dentista?.id === d.id))
+
+  const handleAsignar = async () => {
+    if (!dentistaSeleccionado) return
+    try {
+      await asignarAsistenteADentista(asistente.id, dentistaSeleccionado, perfil.clinica_id)
+      setDentistaSeleccionado('')
+      await recargar()
+    } catch (err) {
+      toastError('No se pudo asignar: ' + err.message)
+    }
+  }
+
+  const handleQuitar = async (id) => {
+    try {
+      await quitarAsignacion(id)
+      await recargar()
+    } catch (err) {
+      toastError('No se pudo quitar: ' + err.message)
+    }
+  }
+
+  return (
+    <div className="border-t border-slate-100 pt-3">
+      <p className="mb-2 text-sm font-medium text-slate-700">Odontólogo(s) a los que apoya</p>
+      <p className="mb-2 text-xs text-slate-400">
+        Este asistente solo verá los pacientes de los odontólogos que asignes aquí.
+      </p>
+      {cargando ? (
+        <p className="text-xs text-slate-400">Cargando…</p>
+      ) : (
+        <>
+          {asignaciones.length === 0 && <p className="mb-2 text-xs text-slate-400">Sin ningún odontólogo asignado todavía.</p>}
+          <div className="mb-2 flex flex-wrap gap-2">
+            {asignaciones.map((a) => (
+              <span key={a.id} className="flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-700">
+                {a.dentista?.nombre}
+                <button type="button" onClick={() => handleQuitar(a.id)} className="text-slate-400 hover:text-clinico-rojo">×</button>
+              </span>
+            ))}
+          </div>
+          {dentistasSinAsignar.length > 0 && (
+            <div className="flex gap-2">
+              <select
+                value={dentistaSeleccionado}
+                onChange={(e) => setDentistaSeleccionado(e.target.value)}
+                className="flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
+              >
+                <option value="">Elegir odontólogo…</option>
+                {dentistasSinAsignar.map((d) => (
+                  <option key={d.id} value={d.id}>{d.nombre}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={handleAsignar}
+                disabled={!dentistaSeleccionado}
+                className="rounded-lg border border-clinico-azul px-3 py-1.5 text-xs font-medium text-clinico-azul disabled:opacity-40"
+              >
+                Agregar
+              </button>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
 function ModalEditarUsuario({ usuario, esUnoMismo, onCerrar, onGuardar }) {
   const [nombre, setNombre] = useState('')
   const [rol, setRol] = useState('recepcion')
@@ -321,6 +409,8 @@ function ModalEditarUsuario({ usuario, esUnoMismo, onCerrar, onGuardar }) {
           Cédula, RFC y universidad aparecen automáticamente en las recetas que emita este usuario —
           también puede capturarlos él mismo desde "Datos profesionales" en su propia sesión.
         </p>
+
+        {rol === 'asistente' && <AsignacionDentistasDeAsistente asistente={usuario} />}
 
         <Button type="submit" disabled={guardando} className="w-full">
           {guardando ? 'Guardando…' : 'Guardar cambios'}

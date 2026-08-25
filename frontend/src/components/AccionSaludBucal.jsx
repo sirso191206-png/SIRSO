@@ -63,7 +63,7 @@ export function AccionSaludBucal({ valor, onCambiar }) {
 
           {!registrada && (
             <p className="text-xs text-clinico-ambar">
-              Para el reporte SIS se necesita al menos una acción marcada o un conteo mayor a 0.
+              Marca al menos una acción realizada o registra un conteo mayor a 0.
             </p>
           )}
         </div>

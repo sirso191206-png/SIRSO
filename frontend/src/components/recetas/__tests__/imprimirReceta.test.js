@@ -34,17 +34,30 @@ describe('datosProfesionalParaImprimir — snapshot histórico con respaldo a da
     expect(resultado.cedula).not.toBe('22222222')
   })
 
+  it('lo mismo aplica a RFC y escuela — si tienen snapshot, el dato en vivo se ignora aunque exista', () => {
+    const receta = {
+      rfc_snapshot: 'VIEJO800101AAA',
+      escuela_snapshot: 'Universidad Vieja',
+      dentista: { rfc: 'NUEVO900101BBB', escuela_procedencia: 'Universidad Nueva' },
+    }
+    const resultado = datosProfesionalParaImprimir(receta)
+    expect(resultado.rfc).toBe('VIEJO800101AAA')
+    expect(resultado.escuela).toBe('Universidad Vieja')
+  })
+
   it('receta VIEJA sin snapshot (creada antes de esta funcionalidad): cae al dato en vivo, no queda vacía', () => {
     const receta = {
       nombre_medico_snapshot: null,
       rfc_snapshot: null,
       cedula_profesional_snapshot: null,
       escuela_snapshot: null,
-      dentista: { nombre: 'Dr. Histórico', cedula_profesional: '55555555' },
+      dentista: { nombre: 'Dr. Histórico', cedula_profesional: '55555555', rfc: 'HIST800101ABC', escuela_procedencia: 'UAEM' },
     }
     const resultado = datosProfesionalParaImprimir(receta)
     expect(resultado.nombre).toBe('Dr. Histórico')
     expect(resultado.cedula).toBe('55555555')
+    expect(resultado.rfc).toBe('HIST800101ABC')
+    expect(resultado.escuela).toBe('UAEM')
   })
 
   it('sin snapshot Y sin relación dentista: no truena, devuelve nombre vacío y el resto null', () => {

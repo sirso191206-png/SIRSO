@@ -4,6 +4,7 @@ import { calcularEdad } from '../../lib/fechas'
 import { toastExito, toastError } from '../../store/useToastStore'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
+import { SelectorDentistaResponsable } from './SelectorDentistaResponsable'
 
 const ESTADO_CIVIL = [
   { value: '', label: 'Sin especificar' },
@@ -276,6 +277,8 @@ export function TabDatosGenerales({ paciente, alGuardar }) {
 
   return (
     <div>
+      <SelectorDentistaResponsable paciente={paciente} onReasignado={alGuardar} />
+
       <div className="mb-4 flex justify-end gap-2">
         <Button variante="secundario" onClick={cancelar} disabled={guardando}>Cancelar</Button>
         <Button onClick={guardar} disabled={guardando}>{guardando ? 'Guardando…' : 'Guardar cambios'}</Button>

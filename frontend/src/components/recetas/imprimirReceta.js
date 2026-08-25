@@ -16,9 +16,9 @@ const NOMBRE_SEXO = { M: 'Masculino', F: 'Femenino', X: 'Otro' }
 export function datosProfesionalParaImprimir(receta) {
   return {
     nombre: receta.nombre_medico_snapshot ?? receta.dentista?.nombre ?? '',
-    rfc: receta.rfc_snapshot ?? null,
+    rfc: receta.rfc_snapshot ?? receta.dentista?.rfc ?? null,
     cedula: receta.cedula_profesional_snapshot ?? receta.dentista?.cedula_profesional ?? null,
-    escuela: receta.escuela_snapshot ?? null,
+    escuela: receta.escuela_snapshot ?? receta.dentista?.escuela_procedencia ?? null,
   }
 }
 
@@ -63,7 +63,7 @@ export function renderEncabezadoMedico(profesional) {
 
 export async function imprimirReceta({ receta, paciente, clinicaId, incluirSignosVitales = true }) {
   const [{ data: clinica }, signosVitalesLista] = await Promise.all([
-    supabase.from('clinicas').select('nombre, direccion, telefono').eq('id', clinicaId).single(),
+    supabase.from('clinicas').select('nombre, direccion, telefono, logo_url').eq('id', clinicaId).single(),
     incluirSignosVitales ? obtenerSignosVitales(paciente.id) : Promise.resolve([]),
   ])
 
@@ -95,11 +95,13 @@ export async function imprimirReceta({ receta, paciente, clinicaId, incluirSigno
       <title>Receta — ${paciente.nombre_completo}</title>
       <style>
         body { font-family: system-ui, sans-serif; color: #1E293B; padding: 40px; max-width: 600px; margin: 0 auto; }
+        .logo-clinica { text-align: center; margin-bottom: 8px; }
+        .logo-clinica img { max-height: 56px; max-width: 220px; object-fit: contain; }
+        .clinica-datos { font-size: 12px; font-weight: 600; color: #1E293B; text-align: center; margin-bottom: 2px; }
         .encabezado-medico { text-align: center; margin-bottom: 4px; }
         .encabezado-medico-nombre { font-size: 15px; font-weight: 700; color: #1E293B; }
         .encabezado-medico-dato { font-size: 10.5px; line-height: 1.5; color: #64748B; }
-        h1 { color: #1E5F8C; font-size: 13px; font-weight: 600; text-align: center; margin: 14px 0 2px; text-transform: uppercase; letter-spacing: 0.03em; }
-        .clinica-datos { font-size: 11px; color: #64748B; margin-bottom: 20px; text-align: center; }
+        h1 { color: #1E5F8C; font-size: 13px; font-weight: 600; text-align: center; margin: 14px 0 20px; text-transform: uppercase; letter-spacing: 0.03em; }
         .datos-paciente { border-top: 2px solid #E2E8F0; border-bottom: 2px solid #E2E8F0; padding: 12px 0; margin-bottom: 20px; font-size: 13px; }
         .datos-paciente div { margin-bottom: 3px; }
         .rp { font-size: 22px; font-weight: 800; color: #1E5F8C; margin-bottom: 12px; }
@@ -118,13 +120,17 @@ export async function imprimirReceta({ receta, paciente, clinicaId, incluirSigno
       </style>
     </head>
     <body>
+      ${clinica?.logo_url ? `<div class="logo-clinica"><img src="${clinica.logo_url}" alt="" /></div>` : ''}
+
+      <div class="clinica-datos">${clinica?.nombre ?? ''}${clinica?.direccion ? ` — ${clinica.direccion}` : ''}${clinica?.telefono ? ` · ${clinica.telefono}` : ''}</div>
+
       ${renderEncabezadoMedico(profesional)}
 
       <h1>Receta médica / odontológica</h1>
-      <div class="clinica-datos">${clinica?.nombre ?? ''}${clinica?.direccion ? ` — ${clinica.direccion}` : ''}${clinica?.telefono ? ` · ${clinica.telefono}` : ''}</div>
 
       <div class="datos-paciente">
-        <div><strong>Paciente:</strong> ${paciente.nombre_completo}${paciente.numero_expediente ? ` (${paciente.numero_expediente})` : ''}</div>
+        <div><strong>Paciente:</strong> ${paciente.nombre_completo}</div>
+        ${paciente.numero_expediente ? `<div><strong>Expediente:</strong> ${paciente.numero_expediente}</div>` : ''}
         <div>${edad !== null ? `<strong>Edad:</strong> ${edad} años` : ''}${paciente.sexo ? ` · <strong>Sexo:</strong> ${NOMBRE_SEXO[paciente.sexo] ?? paciente.sexo}` : ''}</div>
         <div><strong>Fecha:</strong> ${new Date(receta.creado_en).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
       </div>

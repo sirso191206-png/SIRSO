@@ -7,6 +7,15 @@ import { Modal } from '../ui/Modal'
 import { Input } from '../ui/Input'
 import { Button } from '../ui/Button'
 
+export function etiquetaPacientesPorRol(rol) {
+  return {
+    owner: 'Pacientes',
+    dentista: 'Mis pacientes',
+    asistente: 'Pacientes asignados',
+    recepcion: 'Buscar pacientes'
+  }[rol] ?? 'Pacientes'
+}
+
 // Estructura por secciones, siguiendo el flujo real de trabajo de la
 // clínica en vez de una lista plana. Expedientes, odontograma, fotos,
 // notas, etc. NO son módulos aquí — viven dentro de la ficha del
@@ -25,7 +34,15 @@ const SECCIONES = [
     titulo: 'Atención',
     enlaces: [
       { to: '/agenda', label: 'Agenda', roles: ['owner', 'dentista', 'recepcion', 'asistente'] },
-      { to: '/pacientes', label: 'Pacientes', roles: ['owner', 'dentista', 'recepcion', 'asistente'] }
+      // Pacientes: la etiqueta cambia según el rol para que la
+      // navegación refleje lo que RLS ya filtra en la base — no es
+      // decorativo, "Mis pacientes" para un dentista son literalmente
+      // los únicos que la base le va a devolver.
+      {
+        to: '/pacientes',
+        label: (rol) => etiquetaPacientesPorRol(rol),
+        roles: ['owner', 'dentista', 'recepcion', 'asistente']
+      }
     ]
   },
   {
@@ -41,11 +58,6 @@ const SECCIONES = [
     enlaces: [
       { to: '/usuarios', label: 'Usuarios', roles: ['owner'] },
       { to: '/configuracion', label: 'Configuración', roles: ['owner'] }
-      // Reporte SIS: oculto del menú — enfoque del producto es clínicas privadas,
-      // el reporte SIS/DGIS aplica a unidades médicas de la Secretaría de Salud.
-      // La ruta /reporte-sis y todo el módulo siguen intactos, solo no se navega
-      // a él desde aquí. Reactivar es agregar de vuelta esta línea:
-      // { to: '/reporte-sis', label: 'Reporte SIS', roles: ['owner'] }
     ]
   }
 ]
@@ -89,7 +101,7 @@ export function Sidebar() {
                         }`
                       }
                     >
-                      {e.label}
+                      {typeof e.label === 'function' ? e.label(perfil?.rol) : e.label}
                     </NavLink>
                   ))}
                 </div>

@@ -1,6 +1,7 @@
-// Catálogo de acciones de la sección "SALUD BUCAL" de la guía SIS
-// (GIIS-B016-04-08, variables 44-68). Se captura como un objeto jsonb
-// en notas_clinicas.accion_salud_bucal, con esta forma:
+// Catálogo de acciones de la sección "SALUD BUCAL" que se registran
+// en cada consulta — procedimientos y hallazgos preventivos/curativos
+// realizados durante la atención odontológica. Se captura como un
+// objeto jsonb en notas_clinicas.accion_salud_bucal, con esta forma:
 //
 //   {
 //     placaBacteriana: boolean, cepillado: boolean, hiloDental: boolean,
@@ -14,8 +15,8 @@
 //     otrasAtenciones: number, radiografias: number
 //   }
 //
-// La guía exige que AL MENOS una acción tenga valor distinto de "0"
-// para que la consulta sea válida en el reporte SIS.
+// Se espera que AL MENOS una acción tenga valor distinto de "vacío/0/
+// false" para considerar la consulta como clínicamente documentada.
 
 // Acciones de sí/no (checkbox).
 export const ACCIONES_BOOLEANAS = [
@@ -35,8 +36,8 @@ export const ACCIONES_BOOLEANAS = [
   { clave: 'tratamientoIntegral', etiqueta: 'Tratamiento concluido de forma integral' },
 ]
 
-// Acciones con conteo (número de piezas/eventos). Rango real 1-32 según
-// la guía; 0 = no aplica/no se hizo.
+// Acciones con conteo (número de piezas/eventos). Rango real 1-32
+// (número de piezas dentales); 0 = no aplica/no se hizo.
 export const ACCIONES_NUMERICAS = [
   { clave: 'fosetasFisuras', etiqueta: 'Fosetas y fisuras selladas' },
   { clave: 'amalgamas', etiqueta: 'Obturaciones con amalgama' },
@@ -51,7 +52,7 @@ export const ACCIONES_NUMERICAS = [
   { clave: 'radiografias', etiqueta: 'Radiografías dentales tomadas' },
 ]
 
-/** true si al menos una acción tiene valor distinto de "vacío/0/false" (regla de la guía). */
+/** true si al menos una acción tiene valor distinto de "vacío/0/false". */
 export function tieneAlMenosUnaAccion(valor) {
   if (!valor) return false
   const algunaBooleana = ACCIONES_BOOLEANAS.some((a) => valor[a.clave])
