@@ -122,7 +122,7 @@ export async function imprimirReceta({ receta, paciente, clinicaId, incluirSigno
         .hoja-media-carta {
           width: 8.5in;
           height: 5.5in;
-          padding: 9mm 16mm 7mm;
+          padding: 1mm 16mm 7mm;
           border-bottom: 1.5px dashed #9CA3AF;
           position: relative;
           font-size: 16px;
@@ -169,7 +169,7 @@ export async function imprimirReceta({ receta, paciente, clinicaId, incluirSigno
         .signos-vitales { margin-top: 10px; padding: 8px 12px; border: 1.5px solid #D1D5DB; border-radius: 6px; }
         .signos-vitales-titulo { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
         .signos-vitales-fila { font-size: 12.5px; color: #374151; }
-        .firma { margin-top: 14px; text-align: center; }
+        .firma { margin-top: 24mm; text-align: center; }
         .firma-linea { border-top: 1.5px solid #111827; width: 220px; margin: 0 auto 5px; }
         .firma-texto { font-size: 12.5px; color: #374151; }
       </style>
