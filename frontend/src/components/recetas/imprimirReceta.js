@@ -101,6 +101,9 @@ export async function imprimirReceta({ receta, paciente, clinicaId, incluirSigno
     </div>
   `).join('')
 
+  const numMedicamentos = (receta.medicamentos ?? []).length
+  const compacto = numMedicamentos >= 2
+
   const edad = calcularEdad(paciente.fecha_nacimiento)
 
   const html = `
@@ -173,12 +176,26 @@ export async function imprimirReceta({ receta, paciente, clinicaId, incluirSigno
         .signos-vitales-titulo { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
         .signos-vitales-fila { font-size: 12.5px; color: #374151; }
         .firma { margin-top: auto; padding-top: 10mm; text-align: center; }
+
+        /* Cuando hay 2+ medicamentos, el contenido crece y empieza a
+           empujar la firma hacia abajo — comprimimos el espaciado
+           automáticamente para que la firma se mantenga siempre
+           anclada en la misma posición, sin importar cuántos
+           medicamentos tenga la receta. */
+        .hoja-media-carta.compacto .rp { margin: 6px 0 8px; }
+        .hoja-media-carta.compacto .medicamento { margin-bottom: 8px; }
+        .hoja-media-carta.compacto .medicamento-nombre { font-size: 14px; }
+        .hoja-media-carta.compacto .medicamento-detalle { font-size: 11.5px; }
+        .hoja-media-carta.compacto .medicamento-indicaciones { font-size: 11.5px; }
+        .hoja-media-carta.compacto .indicaciones-generales { margin-top: 8px; font-size: 11.5px; }
+        .hoja-media-carta.compacto .signos-vitales { margin-top: 8px; padding: 6px 10px; }
+        .hoja-media-carta.compacto .firma { padding-top: 6mm; }
         .firma-linea { border-top: 1.5px solid #111827; width: 220px; margin: 0 auto 5px; }
         .firma-texto { font-size: 12.5px; color: #374151; }
       </style>
     </head>
     <body>
-      <div class="hoja-media-carta">
+      <div class="hoja-media-carta${compacto ? ' compacto' : ''}">
       <div class="encabezado">
         ${clinica?.logo_url ? `<div class="logo-clinica"><img src="${clinica.logo_url}" alt="" /></div>` : ''}
         ${receta.folio ? `<div class="folio">Folio ${receta.folio}</div>` : ''}
