@@ -160,17 +160,17 @@ describe('renderEncabezadoMedico — formato exacto pedido: nombre + cada dato e
     expect(html).not.toContain('No disponible')
   })
 
-  it('acepta un bloque opcional de datos de la clínica y lo coloca entre el nombre y la cédula (como en el formato de recetario impreso)', () => {
+  it('acepta un bloque opcional de datos de la clínica y lo coloca ANTES del nombre del médico (clínica → médico → cédula, como en el recetario impreso)', () => {
     const html = renderEncabezadoMedico(
       { nombre: 'Dr. Jose Gabino Gerardo Avilés', cedula: '8068097', rfc: null, escuela: null },
       '<div class="clinica-datos">Domicilio: calle Sinaloa — La Paz BCS</div>'
     )
     expect(html).toContain('Domicilio: calle Sinaloa — La Paz BCS')
-    const posNombre = html.indexOf('Dr. Jose Gabino Gerardo Avilés')
     const posClinica = html.indexOf('Domicilio: calle Sinaloa')
+    const posNombre = html.indexOf('Dr. Jose Gabino Gerardo Avilés')
     const posCedula = html.indexOf('Cédula profesional')
-    expect(posNombre).toBeLessThan(posClinica)
-    expect(posClinica).toBeLessThan(posCedula)
+    expect(posClinica).toBeLessThan(posNombre)
+    expect(posNombre).toBeLessThan(posCedula)
   })
 
   it('sin bloque de datos de la clínica (parámetro omitido): no rompe y no agrega nada extra', () => {
