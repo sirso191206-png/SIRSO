@@ -1,20 +1,4 @@
-import { supabase } from '../lib/supabase'
-
-// Cuando una Edge Function responde con un status distinto de 2xx,
-// supabase-js solo da un error genérico ("non-2xx status code") — el
-// mensaje real que mandó la función viene en el cuerpo de la respuesta,
-// hay que leerlo aparte de `error.context`.
-async function extraerMensajeError(error) {
-  try {
-    if (error?.context && typeof error.context.json === 'function') {
-      const cuerpo = await error.context.json()
-      if (cuerpo?.error) return cuerpo.error
-    }
-  } catch {
-    // si no se pudo leer el cuerpo, cae al mensaje genérico de abajo
-  }
-  return error?.message ?? 'Ocurrió un error inesperado.'
-}
+import { supabase, invocarFuncionAutenticada } from '../lib/supabase'
 
 export async function listarUsuarios() {
   const { data, error } = await supabase
@@ -36,15 +20,13 @@ export async function listarDentistas() {
   return data
 }
 
-// Llama a la Edge Function `crear-usuario` — el cliente de supabase-js
-// adjunta automáticamente el JWT de la sesión activa como Authorization.
+// Llama a la Edge Function `crear-usuario` con el access_token vigente
+// de la sesión adjunto explícitamente — ver invocarFuncionAutenticada
+// en lib/supabase.js.
 export async function crearUsuario({ correo, nombre, rol, nombreClinica }) {
-  const { data, error } = await supabase.functions.invoke('crear-usuario', {
+  return invocarFuncionAutenticada('crear-usuario', {
     body: { correo, nombre, rol, nombreClinica }
-  })
-  if (error) throw new Error(await extraerMensajeError(error))
-  if (data?.error) throw new Error(data.error)
-  return data // { correo, passwordTemporal }
+  }) // { correo, passwordTemporal }
 }
 
 export async function cambiarActivoUsuario(id, activo) {
@@ -102,10 +84,7 @@ export async function actualizarMiPerfilProfesional(id, { nombre, rfc, cedulaPro
 }
 
 export async function eliminarUsuario(usuarioId) {
-  const { data, error } = await supabase.functions.invoke('eliminar-usuario', {
+  return invocarFuncionAutenticada('eliminar-usuario', {
     body: { usuarioId }
   })
-  if (error) throw new Error(await extraerMensajeError(error))
-  if (data?.error) throw new Error(data.error)
-  return data
 }

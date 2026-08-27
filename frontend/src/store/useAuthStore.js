@@ -1,17 +1,5 @@
 import { create } from 'zustand'
-import { supabase } from '../lib/supabase'
-
-async function extraerMensajeError(error) {
-  try {
-    if (error?.context && typeof error.context.json === 'function') {
-      const cuerpo = await error.context.json()
-      if (cuerpo?.error) return cuerpo.error
-    }
-  } catch {
-    // si no se pudo leer el cuerpo, cae al mensaje genérico de abajo
-  }
-  return error?.message ?? 'Ocurrió un error inesperado.'
-}
+import { supabase, invocarFuncionAutenticada } from '../lib/supabase'
 
 export const useAuthStore = create((set, get) => ({
   session: null,
@@ -80,11 +68,9 @@ export const useAuthStore = create((set, get) => ({
     // Se pasa por una Edge Function (en vez de supabase.auth.updateUser
     // directo) para que una clínica suspendida no pueda cambiar su
     // contraseña saltándose el estado — ver cambiar-password/index.ts.
-    const { data, error } = await supabase.functions.invoke('cambiar-password', {
+    await invocarFuncionAutenticada('cambiar-password', {
       body: { password: nuevaPassword }
     })
-    if (error) throw new Error(await extraerMensajeError(error))
-    if (data?.error) throw new Error(data.error)
   },
 
   // Vuelve a traer la fila de `usuarios` del usuario actual — para que

@@ -24,10 +24,16 @@ describe('Auditoría de la duplicación 038 — solo queda UNA arquitectura acti
     expect(sqlCorrecta).toMatch(/create table if not exists asistente_dentista_asignaciones/)
   })
 
-  it('039 limpia defensivamente los objetos de la arquitectura descartada (con IF EXISTS, seguro de correr aunque nunca se hayan creado)', () => {
-    expect(sqlCorreccion).toMatch(/drop table if exists asistentes_dentistas/)
-    expect(sqlCorreccion).toMatch(/drop function if exists auth_puede_acceder_clinicamente/)
-    expect(sqlCorreccion).toMatch(/drop trigger if exists trg_solo_owner_reasigna_paciente/)
+  it('039 ya NO intenta limpiar defensivamente "asistentes_dentistas" — esa arquitectura nunca se creó en Supabase real, y el intento de DROP causaba ERROR 42P01 (Postgres necesita que la relación exista para resolver "ON asistentes_dentistas", el IF EXISTS de la policy/trigger no evita eso)', () => {
+    expect(sqlCorreccion).not.toMatch(/asistentes_dentistas/)
+    expect(sqlCorreccion).not.toMatch(/auth_puede_acceder_clinicamente/)
+    expect(sqlCorreccion).not.toMatch(/trg_solo_owner_reasigna_paciente/)
+  })
+
+  it('039 sí contiene exactamente lo que corrige de verdad: pacientes_update, expedientes_insert, reutilizando auth_paciente_asignado', () => {
+    expect(sqlCorreccion).toMatch(/create policy pacientes_update on pacientes/)
+    expect(sqlCorreccion).toMatch(/create policy expedientes_insert on expedientes/)
+    expect(sqlCorreccion).toMatch(/auth_paciente_asignado/)
   })
 })
 
@@ -124,7 +130,7 @@ describe('039 — corrige la vulnerabilidad real encontrada en pacientes_update/
   })
 
   it('expedientes_insert ahora exige asignación u owner/recepción (antes: cualquier rol, cualquier paciente)', () => {
-    const politica = sqlCorreccion.match(/create policy expedientes_insert[\s\S]*?;\n/)[0]
+    const politica = sqlCorreccion.match(/create policy expedientes_insert[\s\S]*?;/)[0]
     expect(politica).toMatch(/auth_paciente_asignado\(paciente_id\)/)
   })
 })

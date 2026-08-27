@@ -4,7 +4,7 @@
 // entorno de la función) — esa llave NUNCA debe existir en el frontend.
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 
 import { buildCorsHeaders } from '../_shared/cors.ts'
 
@@ -19,17 +19,28 @@ serve(async (req) => {
 
   try {
     const authHeader = req.headers.get('Authorization')
+    console.log('crear-usuario: Authorization presente:', !!authHeader, '— empieza con Bearer:', !!authHeader?.startsWith('Bearer '))
     if (!authHeader) throw new Error('Falta autenticación')
+
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim()
+    console.log('crear-usuario: token presente:', !!token, '— longitud:', token.length)
+    if (!token) throw new Error('Falta token de acceso')
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY')
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 
-    // Cliente "normal": sirve solo para saber quién está llamando
+    // Cliente efímero: sin persistir/refrescar sesión propia — esta
+    // función corre una sola vez por petición; el único propósito de
+    // este cliente es validar el token recibido en la petición.
     const supabaseCaller = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } }
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
     })
-    const { data: { user }, error: userError } = await supabaseCaller.auth.getUser()
+    const { data: { user }, error: userError } = await supabaseCaller.auth.getUser(token)
+    if (userError) {
+      console.error('crear-usuario: error validando JWT:', userError.message, '— status:', userError.status)
+    }
+    console.log('crear-usuario: usuario autenticado:', !!user)
     if (userError || !user) throw new Error('Token inválido')
 
     // Cliente admin: el único que puede crear usuarios de Auth
