@@ -124,7 +124,7 @@ describe('038 (correcta) — ítems 9, 10, 11 del pedido', () => {
 
 describe('039 — corrige la vulnerabilidad real encontrada en pacientes_update/expedientes_insert', () => {
   it('pacientes_update ahora exige auth_paciente_asignado para dentista/asistente (antes: cualquier rol, cualquier paciente de la clínica)', () => {
-    const politica = sqlCorreccion.match(/create policy pacientes_update[\s\S]*?;\n/)[0]
+    const politica = sqlCorreccion.match(/create policy pacientes_update[\s\S]*?;/)[0]
     expect(politica).toMatch(/auth_paciente_asignado\(id\)/)
     expect(politica).toMatch(/auth_rol\(\) in \('owner', 'recepcion'\)/)
   })

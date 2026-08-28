@@ -57,6 +57,55 @@ function listaOTexto(valor) {
   return String(valor).trim() || null
 }
 
+// Alergias es información crítica de seguridad — a diferencia del
+// resto de "Antecedentes" (que se ocultan por completo si están
+// vacíos, vía listaOTexto/bloqueAntecedente), esta línea SIEMPRE se
+// imprime, incluso sin ninguna registrada, para que nunca quede
+// ambiguo "no se preguntó" vs "se preguntó y no tiene". Por eso vive
+// en su propia función — listaOTexto/bloqueAntecedente son
+// compartidas con Enfermedades, Medicamentos, Cirugías y
+// Hospitalizaciones y no deben tocarse.
+//
+// expediente.alergias es jsonb (default '[]') — supabase-js normalmente
+// ya lo entrega parseado, pero se tolera también que llegue como texto
+// JSON crudo, un solo objeto (no en arreglo), un arreglo vacío, un
+// objeto vacío, o null/undefined.
+export function formatearAlergias(valorCrudo) {
+  const SIN_ALERGIAS = 'No referidas'
+
+  let valor = valorCrudo
+  if (typeof valor === 'string') {
+    const texto = valor.trim()
+    if (!texto) return SIN_ALERGIAS
+    try {
+      valor = JSON.parse(texto)
+    } catch {
+      // No era JSON válido — se imprime tal cual como texto libre, en
+      // vez de descartar silenciosamente lo que sí se capturó.
+      return texto
+    }
+  }
+
+  if (valor == null) return SIN_ALERGIAS
+
+  const lista = Array.isArray(valor) ? valor : [valor]
+
+  const items = lista
+    .map((a) => {
+      if (typeof a === 'string') return a.trim() || null
+      if (a && typeof a === 'object') {
+        if (Object.keys(a).length === 0) return null // objeto vacío {}
+        const nombre = a.sustancia || a.nombre || a.alergia
+        const partes = [nombre, a.severidad].filter(Boolean)
+        return partes.length > 0 ? partes.join(' — ') : null
+      }
+      return null
+    })
+    .filter(Boolean)
+
+  return items.length > 0 ? items.join(' · ') : SIN_ALERGIAS
+}
+
 // -------- Odontograma: una pieza como SVG (diamante de 5 caras, o
 // sello completo si el estado aplica a todo el diente) --------
 function svgPieza(pieza) {
@@ -244,7 +293,7 @@ export async function imprimirExpedienteCompleto({ paciente, clinicaId }) {
       </div>
 
       <h2>Antecedentes</h2>
-      ${bloqueAntecedente('Alergias', expediente.alergias)}
+      <div class="antecedente"><strong>Alergias:</strong> ${formatearAlergias(expediente.alergias)}</div>
       ${bloqueAntecedente('Enfermedades', expediente.enfermedades)}
       ${bloqueAntecedente('Medicamentos actuales', expediente.medicamentos_actuales)}
       ${bloqueAntecedente('Cirugías anteriores', expediente.cirugias_anteriores)}
