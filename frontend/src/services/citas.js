@@ -10,7 +10,7 @@ export async function obtenerCitaPorId(id) {
   return data
 }
 
-export async function obtenerCitasRango({ dentistaId, estado, desde, hasta }) {
+export async function obtenerCitasRango({ dentistaId, estado, desde, hasta, sucursalId }) {
   let query = supabase
     .from('citas')
     .select('*, paciente:pacientes(nombre_completo, telefono), dentista:usuarios(nombre)')
@@ -23,6 +23,12 @@ export async function obtenerCitasRango({ dentistaId, estado, desde, hasta }) {
   }
   if (estado) {
     query = query.eq('estado', estado)
+  }
+  // sucursalId es opcional a propósito — si es null/undefined (clínica
+  // sin multi-sucursal, o "Todas las sucursales" seleccionado), no se
+  // agrega ningún filtro y el comportamiento es exactamente el de antes.
+  if (sucursalId) {
+    query = query.eq('sucursal_id', sucursalId)
   }
 
   const { data, error } = await query

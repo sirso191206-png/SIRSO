@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 import { usePacientes } from '../../hooks/usePacientes'
+import { useSucursales } from '../../hooks/useSucursales'
+import { listarConsultorios, listarSillones } from '../../services/sucursales'
 import { useAuthStore } from '../../store/useAuthStore'
+import { useSucursalStore } from '../../store/useSucursalStore'
 import { toastExito, toastError } from '../../store/useToastStore'
 import { ESTADOS_CITA, TIPOS_CONSULTA, DURACIONES_RAPIDAS } from './constantes'
 import { Modal } from '../ui/Modal'
@@ -9,6 +12,10 @@ import { Button } from '../ui/Button'
 
 export function ModalNuevaCita({ abierto, onCerrar, onAgendar, dentistas, fechaInicial }) {
   const perfil = useAuthStore((s) => s.perfil)
+  const sucursalActualId = useSucursalStore((s) => s.sucursalActualId)
+  const { sucursales } = useSucursales()
+  const sucursalesActivas = sucursales.filter((s) => s.activa)
+
   const [termino, setTermino] = useState('')
   const { pacientes } = usePacientes(termino)
 
@@ -25,6 +32,32 @@ export function ModalNuevaCita({ abierto, onCerrar, onAgendar, dentistas, fechaI
   const [recordatorio, setRecordatorio] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [errorLocal, setErrorLocal] = useState(null)
+
+  // Selección estructurada de sucursal/consultorio/sillón — solo tiene
+  // sentido si la clínica ya creó sucursales. Se precarga con la
+  // sucursal actualmente elegida en el selector del menú, si hay una.
+  const [sucursalId, setSucursalId] = useState(sucursalActualId ?? '')
+  const [consultorioId, setConsultorioId] = useState('')
+  const [sillonId, setSillonId] = useState('')
+  const [consultoriosDeLaSucursal, setConsultoriosDeLaSucursal] = useState([])
+  const [sillonesDelConsultorio, setSillonesDelConsultorio] = useState([])
+
+  useEffect(() => {
+    if (abierto) setSucursalId(sucursalActualId ?? '')
+  }, [abierto, sucursalActualId])
+
+  useEffect(() => {
+    setConsultorioId('')
+    setSillonesDelConsultorio([])
+    if (!sucursalId) return setConsultoriosDeLaSucursal([])
+    listarConsultorios(sucursalId).then((c) => setConsultoriosDeLaSucursal(c.filter((x) => x.activo)))
+  }, [sucursalId])
+
+  useEffect(() => {
+    setSillonId('')
+    if (!consultorioId) return setSillonesDelConsultorio([])
+    listarSillones(consultorioId).then((s) => setSillonesDelConsultorio(s.filter((x) => x.activo)))
+  }, [consultorioId])
 
   useEffect(() => {
     if (abierto && fechaInicial) {
@@ -46,6 +79,9 @@ export function ModalNuevaCita({ abierto, onCerrar, onAgendar, dentistas, fechaI
     setNotas('')
     setConsultorio('')
     setRecordatorio(false)
+    setSucursalId('')
+    setConsultorioId('')
+    setSillonId('')
     setErrorLocal(null)
   }
 
@@ -79,7 +115,10 @@ export function ModalNuevaCita({ abierto, onCerrar, onAgendar, dentistas, fechaI
         estado: estadoInicial,
         notas: notas || null,
         consultorio: consultorio || null,
-        recordatorio
+        recordatorio,
+        sucursal_id: sucursalId || null,
+        consultorio_id: consultorioId || null,
+        sillon_id: sillonId || null
       })
       toastExito('Cita creada correctamente.')
       cerrarYLimpiar()
@@ -123,6 +162,52 @@ export function ModalNuevaCita({ abierto, onCerrar, onAgendar, dentistas, fechaI
             ))}
           </select>
         </label>
+
+        {sucursalesActivas.length > 0 && (
+          <div className="grid grid-cols-3 gap-2">
+            <label className="block text-sm">
+              <span className="mb-1 block font-medium text-slate-700">Sucursal</span>
+              <select
+                value={sucursalId}
+                onChange={(e) => setSucursalId(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 px-2 py-2 text-sm"
+              >
+                <option value="">Sin especificar</option>
+                {sucursalesActivas.map((s) => (
+                  <option key={s.id} value={s.id}>{s.nombre}</option>
+                ))}
+              </select>
+            </label>
+            <label className="block text-sm">
+              <span className="mb-1 block font-medium text-slate-700">Consultorio</span>
+              <select
+                value={consultorioId}
+                onChange={(e) => setConsultorioId(e.target.value)}
+                disabled={!sucursalId}
+                className="w-full rounded-lg border border-slate-300 px-2 py-2 text-sm disabled:opacity-50"
+              >
+                <option value="">—</option>
+                {consultoriosDeLaSucursal.map((c) => (
+                  <option key={c.id} value={c.id}>{c.nombre}</option>
+                ))}
+              </select>
+            </label>
+            <label className="block text-sm">
+              <span className="mb-1 block font-medium text-slate-700">Sillón</span>
+              <select
+                value={sillonId}
+                onChange={(e) => setSillonId(e.target.value)}
+                disabled={!consultorioId}
+                className="w-full rounded-lg border border-slate-300 px-2 py-2 text-sm disabled:opacity-50"
+              >
+                <option value="">—</option>
+                {sillonesDelConsultorio.map((s) => (
+                  <option key={s.id} value={s.id}>{s.nombre}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-3">
           <Input label="Fecha" type="date" required value={fecha} onChange={(e) => setFecha(e.target.value)} />

@@ -3,7 +3,7 @@ import { abrirVentanaImpresion } from '../../lib/imprimir'
 
 const NOMBRE_METODO = { efectivo: 'Efectivo', tarjeta: 'Tarjeta', transferencia: 'Transferencia', otro: 'Otro' }
 
-export async function imprimirCorteDeCaja({ pagos, desde, hasta, clinicaId, totalesPorMetodo, totalGeneral }) {
+export async function imprimirCorteDeCaja({ pagos, desde, hasta, clinicaId, totalesPorMetodo, totalGeneral, nombreSucursal }) {
   const { data: clinica } = await supabase.from('clinicas').select('nombre').eq('id', clinicaId).single()
 
   const filasMetodo = Object.entries(totalesPorMetodo)
@@ -46,7 +46,7 @@ export async function imprimirCorteDeCaja({ pagos, desde, hasta, clinicaId, tota
     <body>
       <h1>${clinica?.nombre ?? 'Consultorio'}</h1>
       <div class="subtitulo">
-        Corte de caja · ${new Date(desde).toLocaleDateString('es-MX')} a ${new Date(hasta).toLocaleDateString('es-MX')}<br/>
+        Corte de caja${nombreSucursal ? ` · ${nombreSucursal}` : ''} · ${new Date(desde).toLocaleDateString('es-MX')} a ${new Date(hasta).toLocaleDateString('es-MX')}<br/>
         Generado el ${new Date().toLocaleString('es-MX')}
       </div>
 

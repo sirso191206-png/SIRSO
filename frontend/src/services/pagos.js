@@ -3,13 +3,22 @@ import { supabase } from '../lib/supabase'
 // Todos los pagos de la clínica en un rango de fechas — no de un solo
 // paciente. Usado por el Corte de caja. RLS ya limita esto a la propia
 // clínica (mismo criterio que el resto del sistema).
-export async function obtenerPagosPorRango({ desde, hasta }) {
-  const { data, error } = await supabase
+export async function obtenerPagosPorRango({ desde, hasta, sucursalId }) {
+  let query = supabase
     .from('pagos')
-    .select('*, paciente:pacientes(nombre_completo), registrado_por:usuarios(nombre)')
+    .select('*, paciente:pacientes(nombre_completo), registrado_por:usuarios(nombre), sucursal:sucursales(nombre)')
     .gte('creado_en', desde)
     .lt('creado_en', hasta)
     .order('creado_en', { ascending: false })
+
+  // sucursalId es opcional a propósito — si es null/undefined (clínica
+  // sin multi-sucursal, o "Todas las sucursales" elegido), no se agrega
+  // ningún filtro y el comportamiento es exactamente el de antes.
+  if (sucursalId) {
+    query = query.eq('sucursal_id', sucursalId)
+  }
+
+  const { data, error } = await query
   if (error) throw error
   return data
 }

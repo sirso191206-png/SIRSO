@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 import { obtenerPagosPorRango } from '../services/pagos'
+import { useSucursales } from '../hooks/useSucursales'
+import { calcularTotalesPorSucursal } from '../lib/cajaConsolidada'
 import { useAuthStore } from '../store/useAuthStore'
+import { useSucursalStore } from '../store/useSucursalStore'
 import { toastError } from '../store/useToastStore'
 import { imprimirCorteDeCaja } from '../components/pagos/imprimirCorteDeCaja'
 import { Button } from '../components/ui/Button'
@@ -21,6 +24,8 @@ function formatoInput(fecha) {
 
 export function CorteDeCaja() {
   const perfil = useAuthStore((s) => s.perfil)
+  const sucursalActualId = useSucursalStore((s) => s.sucursalActualId)
+  const { sucursales } = useSucursales()
   const hoy = new Date()
   const [desde, setDesde] = useState(formatoInput(hoy))
   const [hasta, setHasta] = useState(formatoInput(hoy))
@@ -33,7 +38,8 @@ export function CorteDeCaja() {
     try {
       const data = await obtenerPagosPorRango({
         desde: inicioDelDia(desde).toISOString(),
-        hasta: finDelDia(hasta).toISOString()
+        hasta: finDelDia(hasta).toISOString(),
+        sucursalId: sucursalActualId || undefined
       })
       setPagos(data)
     } catch (err) {
@@ -46,7 +52,7 @@ export function CorteDeCaja() {
   useEffect(() => {
     cargar()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [sucursalActualId])
 
   if (!['owner', 'recepcion'].includes(perfil?.rol)) {
     return <p className="text-slate-400">Esta sección solo está disponible para owner y recepción.</p>
@@ -59,17 +65,28 @@ export function CorteDeCaja() {
   }, {})
   const totalGeneral = Object.values(totalesPorMetodo).reduce((a, b) => a + b, 0)
 
+  // Desglose por sucursal — solo tiene sentido mostrarlo cuando se está
+  // viendo "Todas las sucursales" (sucursalActualId null) Y la clínica
+  // realmente tiene más de una. Si ya se filtró a una sucursal
+  // específica, o la clínica nunca adoptó multi-sucursal, este bloque
+  // no se muestra — es exactamente el corte de siempre.
+  const sucursalesActivas = sucursales.filter((s) => s.activa)
+  const mostrarConsolidado = !sucursalActualId && sucursalesActivas.length >= 2
+  const totalesPorSucursal = mostrarConsolidado ? calcularTotalesPorSucursal(pagos) : []
+
   const handleImprimir = async () => {
     if (pagos.length === 0) return toastError('No hay movimientos en este periodo.')
     setImprimiendo(true)
     try {
+      const sucursalElegida = sucursales.find((s) => s.id === sucursalActualId)
       await imprimirCorteDeCaja({
         pagos,
         desde: inicioDelDia(desde),
         hasta: finDelDia(hasta),
         clinicaId: perfil.clinica_id,
         totalesPorMetodo,
-        totalGeneral
+        totalGeneral,
+        nombreSucursal: sucursalElegida?.nombre ?? null
       })
     } catch (err) {
       toastError(err.message)
@@ -106,6 +123,24 @@ export function CorteDeCaja() {
         <p className="text-slate-400">Cargando…</p>
       ) : (
         <>
+          {mostrarConsolidado && (
+            <div className="mb-6 rounded-xl border border-slate-200 bg-white p-4">
+              <h2 className="mb-3 text-sm font-semibold text-slate-700">Consolidado por sucursal</h2>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {totalesPorSucursal.map((s) => (
+                  <div key={s.sucursalId ?? 'sin-sucursal'} className="rounded-lg bg-slate-50 p-3">
+                    <div className="text-xs text-slate-400">{s.nombre}</div>
+                    <div className="text-lg font-bold text-slate-800">${s.total.toFixed(2)}</div>
+                  </div>
+                ))}
+                <div className="rounded-lg border-2 border-clinico-azul bg-clinico-azulClaro p-3">
+                  <div className="text-xs text-clinico-azul">Consolidado</div>
+                  <div className="text-lg font-bold text-clinico-azul">${totalGeneral.toFixed(2)}</div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {Object.entries(totalesPorMetodo).map(([metodo, monto]) => (
               <div key={metodo} className="rounded-xl border border-slate-200 bg-white p-4">
@@ -125,6 +160,7 @@ export function CorteDeCaja() {
                 <tr>
                   <th className="px-4 py-2">Recibo</th>
                   <th className="px-4 py-2">Paciente</th>
+                  {mostrarConsolidado && <th className="px-4 py-2">Sucursal</th>}
                   <th className="px-4 py-2">Método</th>
                   <th className="px-4 py-2">Tipo</th>
                   <th className="px-4 py-2">Registrado por</th>
@@ -136,6 +172,7 @@ export function CorteDeCaja() {
                   <tr key={p.id} className="border-t border-slate-100">
                     <td className="px-4 py-2 font-mono text-xs text-slate-500">{p.numero_recibo}</td>
                     <td className="px-4 py-2">{p.paciente?.nombre_completo}</td>
+                    {mostrarConsolidado && <td className="px-4 py-2 text-slate-500">{p.sucursal?.nombre ?? '—'}</td>}
                     <td className="px-4 py-2 capitalize">{p.metodo}</td>
                     <td className="px-4 py-2 capitalize">{p.tipo}</td>
                     <td className="px-4 py-2 text-slate-500">{p.registrado_por?.nombre}</td>
@@ -145,7 +182,7 @@ export function CorteDeCaja() {
                   </tr>
                 ))}
                 {pagos.length === 0 && (
-                  <tr><td colSpan={6} className="px-4 py-6 text-center text-slate-400">Sin movimientos en este periodo.</td></tr>
+                  <tr><td colSpan={mostrarConsolidado ? 7 : 6} className="px-4 py-6 text-center text-slate-400">Sin movimientos en este periodo.</td></tr>
                 )}
               </tbody>
             </table>

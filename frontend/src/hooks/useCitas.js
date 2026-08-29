@@ -1,17 +1,17 @@
 import { useCallback, useEffect, useState } from 'react'
 import { obtenerCitasRango, crearCita, actualizarCita, eliminarCita } from '../services/citas'
 
-export function useCitas({ dentistaId, estado, desde, hasta }) {
+export function useCitas({ dentistaId, estado, desde, hasta, sucursalId }) {
   const [citas, setCitas] = useState([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState(null)
 
   const recargar = useCallback(async () => {
     setCargando(true)
-    const data = await obtenerCitasRango({ dentistaId, estado, desde, hasta })
+    const data = await obtenerCitasRango({ dentistaId, estado, desde, hasta, sucursalId })
     setCitas(data)
     setCargando(false)
-  }, [dentistaId, estado, desde, hasta])
+  }, [dentistaId, estado, desde, hasta, sucursalId])
 
   useEffect(() => {
     recargar()

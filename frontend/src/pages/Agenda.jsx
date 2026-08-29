@@ -5,6 +5,7 @@ import { useListaEspera } from '../hooks/useListaEspera'
 import { usePacientes } from '../hooks/usePacientes'
 import { listarDentistas } from '../services/usuarios'
 import { useAuthStore } from '../store/useAuthStore'
+import { useSucursalStore } from '../store/useSucursalStore'
 import { toastExito, toastError } from '../store/useToastStore'
 import { capitalizarPrimeraLetra } from '../lib/texto'
 import { ESTADOS_CITA, TIPOS_BLOQUEO } from '../components/agenda/constantes'
@@ -34,6 +35,7 @@ const PUEDE_GESTIONAR = ['owner', 'recepcion']
 
 export function Agenda() {
   const perfil = useAuthStore((s) => s.perfil)
+  const sucursalActualId = useSucursalStore((s) => s.sucursalActualId)
   const puedeGestionar = PUEDE_GESTIONAR.includes(perfil?.rol)
 
   const [vista, setVista] = useState('semana') // dia | semana | mes
@@ -99,7 +101,8 @@ export function Agenda() {
     dentistaId: filtroDentista || undefined,
     estado: filtroEstado || undefined,
     desde,
-    hasta
+    hasta,
+    sucursalId: sucursalActualId || undefined
   })
   const { bloqueos, agregar: agregarBloqueo } = useHorariosBloqueados({ desde, hasta })
   const { lista: listaEspera, agregar: agregarListaEspera, marcarAtendido } = useListaEspera()

@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom'
 import { useAuthStore } from '../../store/useAuthStore'
 import { toastExito, toastError } from '../../store/useToastStore'
 import { actualizarMiPerfilProfesional } from '../../services/usuarios'
+import { SelectorSucursal } from '../sucursales/SelectorSucursal'
 import { Modal } from '../ui/Modal'
 import { Input } from '../ui/Input'
 import { Button } from '../ui/Button'
@@ -57,6 +58,7 @@ const SECCIONES = [
     titulo: 'Administración',
     enlaces: [
       { to: '/usuarios', label: 'Usuarios', roles: ['owner'] },
+      { to: '/sucursales', label: 'Sucursales', roles: ['owner'] },
       { to: '/configuracion', label: 'Configuración', roles: ['owner'] }
     ]
   }
@@ -130,6 +132,7 @@ export function Sidebar() {
       </div>
 
       <div className="border-t border-slate-100 px-2 pt-3">
+        <SelectorSucursal />
         <div className="mb-2">
           <div className="text-sm font-medium text-slate-700">{perfil?.nombre}</div>
           <div className="text-xs text-slate-400">
