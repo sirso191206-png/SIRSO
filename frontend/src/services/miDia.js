@@ -5,6 +5,7 @@ import {
   contarPacientesEnEspera,
   contarCitasPendientesConfirmar
 } from './dashboard'
+import { obtenerSaldo } from './pacientes'
 
 const ESTADOS_FINALES = ['completada', 'cancelada', 'no_asistio']
 const ESTADOS_EN_COLA = ['pendiente_confirmar', 'agendada', 'confirmada', 'en_espera']
@@ -26,6 +27,27 @@ export async function obtenerMiDia(perfil) {
 
   let alertasPacienteActual = null
   let ultimaConsultaPacienteActual = null
+  let tratamientoActivoPacienteActual = null
+  let saldoPacienteActual = null
+
+  if (pacienteActual) {
+    // Tratamiento y saldo se muestran a todos los roles que llegan a
+    // esta pantalla (owner/dentista/asistente) — no son tan sensibles
+    // como alergias/enfermedades, que sí quedan más restringidas abajo.
+    const [{ data: tratamientoActivo }, saldo] = await Promise.all([
+      supabase
+        .from('tratamientos')
+        .select('descripcion, costo, estado, sesiones_completadas, numero_sesiones')
+        .eq('paciente_id', pacienteActual.paciente_id)
+        .in('estado', ['planeado', 'aceptado', 'en_progreso', 'pausado'])
+        .order('creado_en', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      obtenerSaldo(pacienteActual.paciente_id)
+    ])
+    tratamientoActivoPacienteActual = tratamientoActivo
+    saldoPacienteActual = saldo
+  }
 
   if (pacienteActual && puedeVerAlertas) {
     const { data: expediente } = await supabase
@@ -60,6 +82,8 @@ export async function obtenerMiDia(perfil) {
     pacienteActual,
     alertasPacienteActual,
     ultimaConsultaPacienteActual,
+    tratamientoActivoPacienteActual,
+    saldoPacienteActual,
     siguientes,
     resumen: {
       total: citasHoy.length,

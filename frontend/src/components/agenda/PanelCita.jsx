@@ -65,7 +65,7 @@ export function PanelCita({ cita, onCerrar, onCambiarEstado, onReagendar, onDesa
       <div className="h-full w-full max-w-md overflow-y-auto bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-start justify-between">
           <span className="rounded-full px-3 py-1 text-xs font-semibold" style={{ backgroundColor: info.fondo, color: info.texto }}>
-            {info.label}
+            {info.icono} {info.label}
           </span>
           <button onClick={onCerrar} className="text-slate-400 hover:text-slate-600">✕</button>
         </div>
@@ -73,7 +73,16 @@ export function PanelCita({ cita, onCerrar, onCambiarEstado, onReagendar, onDesa
         <h2 className="mb-4 text-lg font-semibold text-slate-800">{cita.paciente?.nombre_completo}</h2>
 
         <dl className="mb-6 space-y-2 text-sm">
-          <Fila etiqueta="Teléfono" valor={cita.paciente?.telefono} />
+          {cita.paciente?.telefono && (
+            <div className="flex justify-between gap-3 border-b border-slate-50 pb-2">
+              <dt className="shrink-0 text-slate-400">Teléfono</dt>
+              <dd className="text-right">
+                <a href={`tel:${cita.paciente.telefono}`} className="text-clinico-azul hover:underline">
+                  📞 {cita.paciente.telefono}
+                </a>
+              </dd>
+            </div>
+          )}
           <Fila etiqueta="Fecha" valor={new Date(cita.inicio).toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' })} />
           <Fila
             etiqueta="Horario"
@@ -89,33 +98,33 @@ export function PanelCita({ cita, onCerrar, onCambiarEstado, onReagendar, onDesa
           <div className="mb-6 grid grid-cols-2 gap-2">
             {cita.estado === 'pendiente_confirmar' && (
               <Button onClick={() => ejecutar(() => onCambiarEstado(cita.id, 'confirmada'), 'Cita confirmada.')} disabled={procesando}>
-                Confirmar
+                ✓ Confirmar
               </Button>
             )}
             {['agendada', 'confirmada'].includes(cita.estado) && (
               <Button variante="secundario" onClick={() => ejecutar(() => onCambiarEstado(cita.id, 'en_espera'), 'Paciente marcado en espera.')} disabled={procesando}>
-                Marcar en espera
+                ⏳ Marcar en espera
               </Button>
             )}
             {['agendada', 'confirmada', 'en_espera'].includes(cita.estado) && (
               <Button variante="secundario" onClick={() => ejecutar(() => onCambiarEstado(cita.id, 'en_consulta'), 'Consulta iniciada.')} disabled={procesando}>
-                Iniciar consulta
+                ▶ Iniciar consulta
               </Button>
             )}
             {cita.estado === 'en_consulta' && (
               <Button onClick={() => ejecutar(() => onCambiarEstado(cita.id, 'completada'), 'Cita completada.')} disabled={procesando}>
-                Completar
+                ✔ Completar
               </Button>
             )}
             <Button variante="secundario" onClick={() => setReprogramando(true)} disabled={procesando}>
-              Reprogramar
+              🔄 Reprogramar
             </Button>
             <Button
               variante="peligro"
               onClick={() => ejecutar(() => onCambiarEstado(cita.id, 'cancelada'), 'Cita cancelada.')}
               disabled={procesando}
             >
-              Cancelar
+              ✕ Cancelar
             </Button>
           </div>
         )}
@@ -144,7 +153,7 @@ export function PanelCita({ cita, onCerrar, onCambiarEstado, onReagendar, onDesa
         )}
 
         <Button variante="secundario" onClick={() => navigate(`/pacientes/${cita.paciente_id}`)} className="w-full">
-          Ver expediente
+          📋 Ver expediente
         </Button>
 
         {perfil?.rol === 'owner' && (

@@ -60,9 +60,9 @@ export function MiDia() {
           <p className="text-sm text-slate-500">{fechaHoy}</p>
         </div>
         <div className="flex gap-2">
-          <Button variante="secundario" onClick={() => navigate('/pacientes')}>+ Nuevo paciente</Button>
-          <Button variante="secundario" onClick={() => navigate('/agenda')}>+ Nueva cita</Button>
-          <Button onClick={() => setModalUrgenciaAbierto(true)}>+ Nueva urgencia</Button>
+          <Button variante="secundario" onClick={() => navigate('/pacientes')}>👤 + Nuevo paciente</Button>
+          <Button variante="secundario" onClick={() => navigate('/agenda')}>📅 + Nueva cita</Button>
+          <Button onClick={() => setModalUrgenciaAbierto(true)}>🚨 Nueva urgencia</Button>
         </div>
       </div>
 
@@ -70,6 +70,8 @@ export function MiDia() {
         cita={datos.pacienteActual}
         alertas={datos.alertasPacienteActual}
         ultimaConsulta={datos.ultimaConsultaPacienteActual}
+        tratamientoActivo={datos.tratamientoActivoPacienteActual}
+        saldo={datos.saldoPacienteActual}
         onFinalizar={finalizarConsulta}
       />
 
@@ -89,7 +91,7 @@ export function MiDia() {
   )
 }
 
-function PacienteActualCard({ cita, alertas, ultimaConsulta, onFinalizar }) {
+function PacienteActualCard({ cita, alertas, ultimaConsulta, tratamientoActivo, saldo, onFinalizar }) {
   const navigate = useNavigate()
   const [procesando, setProcesando] = useState(false)
 
@@ -123,9 +125,9 @@ function PacienteActualCard({ cita, alertas, ultimaConsulta, onFinalizar }) {
 
       <div className="mt-2 grid grid-cols-1 gap-x-6 gap-y-1 text-sm text-slate-600 sm:grid-cols-2">
         <span>
-          Horario: {new Date(cita.inicio).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })} – {new Date(cita.fin).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
+          🕐 {new Date(cita.inicio).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })} – {new Date(cita.fin).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
         </span>
-        {cita.motivo_consulta && <span>Motivo: {cita.motivo_consulta}</span>}
+        {cita.motivo_consulta && <span>{cita.motivo_consulta}</span>}
         {ultimaConsulta && <span>Última consulta: {new Date(ultimaConsulta).toLocaleDateString('es-MX')}</span>}
       </div>
 
@@ -140,10 +142,32 @@ function PacienteActualCard({ cita, alertas, ultimaConsulta, onFinalizar }) {
         </div>
       )}
 
+      {(tratamientoActivo || saldo) && (
+        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {tratamientoActivo && (
+            <div className="rounded-lg bg-white p-3 text-sm">
+              <div className="text-xs text-slate-400">🦷 Tratamiento</div>
+              <div className="font-medium text-slate-700">{tratamientoActivo.descripcion}</div>
+              <div className="text-xs text-slate-400">
+                Sesión {tratamientoActivo.sesiones_completadas} de {tratamientoActivo.numero_sesiones}
+              </div>
+            </div>
+          )}
+          {saldo && Number(saldo.total_tratamientos) > 0 && (
+            <div className="rounded-lg bg-white p-3 text-sm">
+              <div className="text-xs text-slate-400">💵 Saldo</div>
+              <div className={`font-semibold ${saldo.saldo > 0 ? 'text-clinico-ambar' : 'text-clinico-verde'}`}>
+                {saldo.saldo > 0 ? `$${Number(saldo.saldo).toFixed(2)} pendiente` : 'Al corriente'}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="mt-4 flex flex-wrap gap-2">
-        <Button variante="secundario" onClick={() => navigate(`/pacientes/${cita.paciente_id}`)}>Ver expediente</Button>
-        <Button variante="secundario" onClick={() => navigate(`/consulta/${cita.id}`)}>Continuar consulta</Button>
-        <Button onClick={handleFinalizar} disabled={procesando}>{procesando ? 'Guardando…' : 'Finalizar consulta'}</Button>
+        <Button variante="secundario" onClick={() => navigate(`/pacientes/${cita.paciente_id}`)}>📋 Ver expediente</Button>
+        <Button variante="secundario" onClick={() => navigate(`/consulta/${cita.id}`)}>▶ Continuar consulta</Button>
+        <Button onClick={handleFinalizar} disabled={procesando}>{procesando ? 'Guardando…' : '✔ Finalizar consulta'}</Button>
       </div>
     </div>
   )
@@ -151,11 +175,11 @@ function PacienteActualCard({ cita, alertas, ultimaConsulta, onFinalizar }) {
 
 function ResumenDelDia({ resumen }) {
   const items = [
-    { etiqueta: 'Citas totales', valor: resumen.total },
-    { etiqueta: 'Pacientes atendidos', valor: resumen.atendidos },
-    { etiqueta: 'Pacientes en espera', valor: resumen.enEspera },
-    { etiqueta: 'Citas por confirmar', valor: resumen.porConfirmar },
-    { etiqueta: 'Citas restantes', valor: resumen.restantes }
+    { etiqueta: 'Citas totales', valor: resumen.total, accionable: false },
+    { etiqueta: 'Pacientes atendidos', valor: resumen.atendidos, accionable: false },
+    { etiqueta: '⏳ Pacientes en espera', valor: resumen.enEspera, accionable: true },
+    { etiqueta: '❓ Citas por confirmar', valor: resumen.porConfirmar, accionable: true },
+    { etiqueta: 'Citas restantes', valor: resumen.restantes, accionable: false }
   ]
 
   return (
@@ -163,9 +187,17 @@ function ResumenDelDia({ resumen }) {
       <h2 className="mb-3 text-sm font-semibold text-slate-700">Resumen del día</h2>
       <div className="space-y-2">
         {items.map((it) => (
-          <div key={it.etiqueta} className="flex justify-between text-sm">
+          <div key={it.etiqueta} className="flex items-center justify-between text-sm">
             <span className="text-slate-500">{it.etiqueta}</span>
-            <span className="font-semibold text-slate-800">{it.valor}</span>
+            <span
+              className={
+                it.accionable && it.valor > 0
+                  ? 'rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800'
+                  : 'font-semibold text-slate-800'
+              }
+            >
+              {it.valor}
+            </span>
           </div>
         ))}
       </div>

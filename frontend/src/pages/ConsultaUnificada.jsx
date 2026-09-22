@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useConsultaForm } from '../hooks/useConsultaForm'
 import { useAuthStore } from '../store/useAuthStore'
@@ -8,6 +9,7 @@ import { ExploracionFisica } from '../components/ExploracionFisica'
 import { AccionSaludBucal } from '../components/AccionSaludBucal'
 import { TabExpediente } from '../components/expediente/TabExpediente'
 import { ModalTratamiento } from '../components/tratamientos/ModalTratamiento'
+import { ModalNuevaReceta } from '../components/recetas/TabRecetas'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
@@ -67,8 +69,30 @@ export function ConsultaUnificada() {
         <Input label="Motivo" value={f.motivo} onChange={(e) => f.setMotivo(e.target.value)} placeholder="Escribe o elige una opción rápida" />
       </Seccion>
 
-      {/* Sección 2: Hallazgos */}
-      <Seccion titulo="2. Hallazgos clínicos">
+      {/* Sección 2: Signos vitales */}
+      <Seccion titulo="2. Signos vitales">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <CampoSignoVital label="Sistólica" unidad="mmHg" valor={f.signosVitalesForm.presion_sistolica} onChange={(v) => f.setSignosVitalesForm((s) => ({ ...s, presion_sistolica: v }))} />
+          <CampoSignoVital label="Diastólica" unidad="mmHg" valor={f.signosVitalesForm.presion_diastolica} onChange={(v) => f.setSignosVitalesForm((s) => ({ ...s, presion_diastolica: v }))} />
+          <CampoSignoVital label="Frec. cardiaca" unidad="lpm" valor={f.signosVitalesForm.frecuencia_cardiaca} onChange={(v) => f.setSignosVitalesForm((s) => ({ ...s, frecuencia_cardiaca: v }))} />
+          <CampoSignoVital label="Frec. respiratoria" unidad="rpm" valor={f.signosVitalesForm.frecuencia_respiratoria} onChange={(v) => f.setSignosVitalesForm((s) => ({ ...s, frecuencia_respiratoria: v }))} />
+          <CampoSignoVital label="Temperatura" unidad="°C" valor={f.signosVitalesForm.temperatura} onChange={(v) => f.setSignosVitalesForm((s) => ({ ...s, temperatura: v }))} paso="0.1" />
+          <CampoSignoVital label="SpO₂" unidad="%" valor={f.signosVitalesForm.saturacion_oxigeno} onChange={(v) => f.setSignosVitalesForm((s) => ({ ...s, saturacion_oxigeno: v }))} />
+          <CampoSignoVital label="Peso" unidad="kg" valor={f.signosVitalesForm.peso} onChange={(v) => f.setSignosVitalesForm((s) => ({ ...s, peso: v }))} paso="0.1" />
+          <CampoSignoVital label="Estatura" unidad="m" valor={f.signosVitalesForm.estatura} onChange={(v) => f.setSignosVitalesForm((s) => ({ ...s, estatura: v }))} paso="0.01" />
+        </div>
+        <Button variante="secundario" className="mt-3" onClick={f.guardarSignosVitalesForm} disabled={f.guardandoSignosVitales}>
+          {f.guardandoSignosVitales ? 'Guardando…' : '💓 Guardar signos vitales'}
+        </Button>
+        {f.signosVitales.length > 0 && (
+          <p className="mt-2 text-xs text-slate-400">
+            Último registro: {new Date(f.signosVitales[0].creado_en).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+          </p>
+        )}
+      </Seccion>
+
+      {/* Sección 3: Hallazgos */}
+      <Seccion titulo="3. Hallazgos clínicos">
         <BotonesRapidos opciones={HALLAZGOS_RAPIDOS} onClick={(op) => f.setHallazgos((actual) => actual.includes(op) ? actual : (actual ? `${actual}, ${op}` : op))} />
         <label className="block text-sm">
           <span className="mb-1 block font-medium text-slate-700">Exploración</span>
@@ -76,20 +100,20 @@ export function ConsultaUnificada() {
         </label>
       </Seccion>
 
-      <Seccion titulo="Interrogatorio por aparatos y sistemas">
+      <SeccionColgable titulo="Interrogatorio por aparatos y sistemas (opcional)">
         <InterrogatorioSistemas valor={f.interrogatorioSistemas} onCambiar={f.setInterrogatorioSistemas} />
-      </Seccion>
+      </SeccionColgable>
 
-      <Seccion titulo="Exploración física">
+      <SeccionColgable titulo="Exploración física (opcional)">
         <ExploracionFisica valor={f.exploracionFisica} onCambiar={f.setExploracionFisica} />
-      </Seccion>
+      </SeccionColgable>
 
-      <Seccion titulo="Acciones de salud bucal">
+      <SeccionColgable titulo="Acciones de salud bucal (opcional)">
         <AccionSaludBucal valor={f.accionSaludBucal} onCambiar={f.setAccionSaludBucal} />
-      </Seccion>
+      </SeccionColgable>
 
-      {/* Sección 3: Diagnóstico */}
-      <Seccion titulo="3. Diagnóstico">
+      {/* Sección 4: Diagnóstico */}
+      <Seccion titulo="4. Diagnóstico">
         <label className="mb-1 block text-xs font-medium text-slate-500">Código CIE-10 (opcional)</label>
         <SelectorCie10
           codigo={f.diagnosticoCie10Codigo}
@@ -111,13 +135,13 @@ export function ConsultaUnificada() {
         </datalist>
       </Seccion>
 
-      {/* Sección 4: Odontograma rápido */}
-      <Seccion titulo="4. Odontograma">
+      {/* Sección 5: Odontograma rápido */}
+      <Seccion titulo="5. Odontograma">
         <Odontograma pacienteId={f.cita.paciente_id} />
       </Seccion>
 
-      {/* Sección 5: Tratamiento */}
-      <Seccion titulo="5. Tratamiento">
+      {/* Sección 6: Tratamiento */}
+      <Seccion titulo="6. Tratamiento">
         <Button variante="secundario" onClick={() => f.setModalTratamiento(true)}>+ Agregar tratamiento</Button>
         <div className="mt-3 space-y-2">
           {f.tratamientos.length === 0 && <p className="text-sm text-slate-400">Sin tratamientos agregados en esta consulta.</p>}
@@ -133,8 +157,8 @@ export function ConsultaUnificada() {
         </div>
       </Seccion>
 
-      {/* Sección 6: Nota clínica */}
-      <Seccion titulo="6. Nota clínica">
+      {/* Sección 7: Nota clínica */}
+      <Seccion titulo="7. Nota clínica">
         <div className="mb-2 flex flex-wrap gap-2">
           {Object.keys(f.PLANTILLAS_NOTA).map((p) => (
             <button key={p} onClick={() => f.aplicarPlantillaNota(p)} className="rounded-full border border-slate-300 px-3 py-1 text-xs text-slate-600 hover:bg-slate-50">
@@ -158,8 +182,8 @@ export function ConsultaUnificada() {
         </div>
       </Seccion>
 
-      {/* Sección 7: Próxima cita */}
-      <Seccion titulo="7. Próxima cita">
+      {/* Sección 8: Próxima cita */}
+      <Seccion titulo="8. Próxima cita">
         <p className="mb-2 text-sm text-slate-600">¿Programar seguimiento?</p>
         <div className="mb-3 flex gap-2">
           <button
@@ -185,7 +209,20 @@ export function ConsultaUnificada() {
         )}
       </Seccion>
 
-      {/* Sección 8: Acciones */}
+      {/* Sección 9: Receta */}
+      <Seccion titulo="9. Receta">
+        <Button variante="secundario" onClick={() => f.setModalReceta(true)}>🖋 + Nueva receta</Button>
+        <div className="mt-3 space-y-2">
+          {f.recetas.length === 0 && <p className="text-sm text-slate-400">Sin recetas generadas en este expediente.</p>}
+          {f.recetas.slice(0, 3).map((r) => (
+            <div key={r.id} className="rounded-lg border border-slate-200 p-2 text-sm text-slate-600">
+              {new Date(r.creado_en).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })} · {r.medicamentos?.length ?? 0} medicamento(s)
+            </div>
+          ))}
+        </div>
+      </Seccion>
+
+      {/* Sección 10: Acciones */}
       <div className="sticky bottom-0 flex justify-end gap-3 border-t border-slate-200 bg-white/95 p-4 backdrop-blur">
         <Button variante="secundario" onClick={f.handleGuardarBorrador} disabled={f.guardandoBorrador || f.guardando}>
           {f.guardandoBorrador ? 'Guardando…' : 'Guardar borrador'}
@@ -209,6 +246,13 @@ export function ConsultaUnificada() {
           titulo="Agregar tratamiento a esta consulta"
         />
       )}
+
+      <ModalNuevaReceta
+        abierto={f.modalReceta}
+        onCerrar={() => f.setModalReceta(false)}
+        onGuardar={f.agregarReceta}
+        perfil={f.perfil}
+      />
     </div>
   )
 }
@@ -218,6 +262,25 @@ function Seccion({ titulo, children }) {
     <div className="rounded-xl border border-slate-200 bg-white p-4">
       <h2 className="mb-3 text-sm font-semibold text-slate-700">{titulo}</h2>
       {children}
+    </div>
+  )
+}
+
+// Igual que Seccion, pero cerrada por defecto — para lo que es útil
+// documentar cuando aplica, pero no es parte del flujo mínimo de cada
+// consulta (interrogatorio por sistemas, exploración física, acciones
+// de salud bucal). No se elimina nada, solo se oculta hasta que se
+// necesita, para que el scroll de la consulta no dependa de
+// secciones que la mayoría de las veces se dejan vacías.
+function SeccionColgable({ titulo, children }) {
+  const [abierta, setAbierta] = useState(false)
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4">
+      <button onClick={() => setAbierta((a) => !a)} className="flex w-full items-center justify-between text-left">
+        <h2 className="text-sm font-semibold text-slate-600">{titulo}</h2>
+        <span className="text-slate-400">{abierta ? '▾' : '▸'}</span>
+      </button>
+      {abierta && <div className="mt-3">{children}</div>}
     </div>
   )
 }
@@ -234,5 +297,20 @@ function BotonesRapidos({ opciones, onClick }) {
         Otro
       </button>
     </div>
+  )
+}
+
+function CampoSignoVital({ label, unidad, valor, onChange, paso = '1' }) {
+  return (
+    <label className="block text-sm">
+      <span className="mb-1 block text-xs font-medium text-slate-500">{label} ({unidad})</span>
+      <input
+        type="number"
+        step={paso}
+        value={valor}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+      />
+    </label>
   )
 }

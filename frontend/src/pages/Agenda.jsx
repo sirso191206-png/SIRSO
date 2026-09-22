@@ -168,17 +168,29 @@ export function Agenda() {
             className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
           >
             <option value="">Todos</option>
-            {ESTADOS_CITA.map((e) => <option key={e.value} value={e.value}>{e.label}</option>)}
+            {ESTADOS_CITA.map((e) => <option key={e.value} value={e.value}>{e.icono} {e.label}</option>)}
           </select>
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-white p-3">
+          <div className="mb-1.5 text-xs font-medium text-slate-500">Colores de la agenda</div>
+          <div className="grid grid-cols-2 gap-x-2 gap-y-1">
+            {ESTADOS_CITA.map((e) => (
+              <div key={e.value} className="flex items-center gap-1 text-[11px] text-slate-500">
+                <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: e.color }} />
+                <span className="truncate">{e.label}</span>
+              </div>
+            ))}
+          </div>
         </div>
 
         {puedeGestionar && (
           <div className="space-y-2">
             <button onClick={() => setModalBloqueo(true)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs text-slate-600 hover:bg-slate-50">
-              + Bloquear horario
+              🔒 + Bloquear horario
             </button>
             <button onClick={() => setModalListaEspera(true)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs text-slate-600 hover:bg-slate-50">
-              Lista de espera {listaEspera.length > 0 && `(${listaEspera.length})`}
+              🪑 Lista de espera {listaEspera.length > 0 && `(${listaEspera.length})`}
             </button>
           </div>
         )}
@@ -205,10 +217,10 @@ export function Agenda() {
             <Button variante="secundario" onClick={() => setFechaBase(new Date())}>Hoy</Button>
             <Button variante="secundario" onClick={() => cambiarPeriodo(1)}>→</Button>
             {puedeGestionar && (
-              <Button onClick={() => { setFechaParaNuevaCita(null); setModalNuevaCita(true) }}>+ Nueva cita</Button>
+              <Button onClick={() => { setFechaParaNuevaCita(null); setModalNuevaCita(true) }}>📅 + Nueva cita</Button>
             )}
             {puedeGestionar && (
-              <Button variante="secundario" onClick={() => setModalUrgenciaAbierto(true)}>+ Urgencia</Button>
+              <Button variante="secundario" onClick={() => setModalUrgenciaAbierto(true)}>🚨 + Urgencia</Button>
             )}
           </div>
         </div>

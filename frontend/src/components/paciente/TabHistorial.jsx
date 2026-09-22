@@ -16,9 +16,9 @@ const ICONO_TIPO = {
 
 const TAMANO_PAGINA = 15
 
-export function TabHistorial({ pacienteId }) {
+export function TabHistorial({ pacienteId, filtroInicial = 'todos' }) {
   const { eventos, cargando, error } = useLineaTiempo(pacienteId)
-  const [filtro, setFiltro] = useState('todos')
+  const [filtro, setFiltro] = useState(filtroInicial)
   const [visibles, setVisibles] = useState(TAMANO_PAGINA)
 
   if (cargando) return <p className="text-slate-400">Cargando historial…</p>

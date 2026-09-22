@@ -5,6 +5,8 @@ import { obtenerDiagnosticosFrecuentes, crearNotaClinica } from '../services/exp
 import { useExpediente } from './useExpediente'
 import { useTratamientos } from './useTratamientos'
 import { useCatalogoTratamientos } from './useCatalogoTratamientos'
+import { useSignosVitales } from './useSignosVitales'
+import { useRecetas } from './useRecetas'
 import { useAuthStore } from '../store/useAuthStore'
 import { toastExito, toastError } from '../store/useToastStore'
 
@@ -29,6 +31,7 @@ export function useConsultaForm(citaId) {
   const [diagnosticosFrecuentes, setDiagnosticosFrecuentes] = useState([])
   const [modalExpediente, setModalExpediente] = useState(false)
   const [modalTratamiento, setModalTratamiento] = useState(false)
+  const [modalReceta, setModalReceta] = useState(false)
 
   const [motivo, setMotivo] = useState('')
   const [hallazgos, setHallazgos] = useState('')
@@ -41,6 +44,11 @@ export function useConsultaForm(citaId) {
   const [accionSaludBucal, setAccionSaludBucal] = useState({})
   const [programarSeguimiento, setProgramarSeguimiento] = useState(false)
   const [seguimiento, setSeguimiento] = useState({ fecha: '', hora: '', duracion: 30, motivo: '' })
+  const [signosVitalesForm, setSignosVitalesForm] = useState({
+    presion_sistolica: '', presion_diastolica: '', frecuencia_cardiaca: '',
+    frecuencia_respiratoria: '', temperatura: '', saturacion_oxigeno: '', peso: '', estatura: ''
+  })
+  const [guardandoSignosVitales, setGuardandoSignosVitales] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [guardandoBorrador, setGuardandoBorrador] = useState(false)
   const [finalizada, setFinalizada] = useState(false)
@@ -48,6 +56,8 @@ export function useConsultaForm(citaId) {
   const { expediente } = useExpediente(cita?.paciente_id)
   const { tratamientos, agregar: agregarTratamiento } = useTratamientos(cita?.paciente_id)
   const { catalogo } = useCatalogoTratamientos()
+  const { registros: signosVitales, agregar: agregarSignosVitales } = useSignosVitales(cita?.paciente_id)
+  const { recetas, agregar: agregarReceta } = useRecetas(cita?.paciente_id)
 
   useEffect(() => {
     obtenerCitaPorId(citaId).then((data) => {
@@ -70,6 +80,32 @@ export function useConsultaForm(citaId) {
       if (actual.includes(frase)) return actual
       return actual ? `${actual.trim()} ${frase}. ` : `${frase}. `
     })
+  }
+
+  // Convierte cada campo numérico vacío a null en vez de guardar ''
+  // (que Postgres rechazaría en una columna integer/numeric) — solo se
+  // envían los campos que sí se llenaron, ninguno inventado.
+  const guardarSignosVitalesForm = async () => {
+    const campos = Object.fromEntries(
+      Object.entries(signosVitalesForm).map(([clave, valor]) => [clave, valor === '' ? null : Number(valor)])
+    )
+    if (Object.values(campos).every((v) => v === null)) {
+      toastError('Captura al menos un signo vital.')
+      return
+    }
+    setGuardandoSignosVitales(true)
+    try {
+      await agregarSignosVitales({ ...campos, registrado_por: perfil.id })
+      setSignosVitalesForm({
+        presion_sistolica: '', presion_diastolica: '', frecuencia_cardiaca: '',
+        frecuencia_respiratoria: '', temperatura: '', saturacion_oxigeno: '', peso: '', estatura: ''
+      })
+      toastExito('Signos vitales guardados.')
+    } catch (err) {
+      toastError('No se pudieron guardar los signos vitales: ' + err.message)
+    } finally {
+      setGuardandoSignosVitales(false)
+    }
   }
 
   const guardarNotaYMotivo = async () => {
@@ -109,6 +145,14 @@ export function useConsultaForm(citaId) {
     try {
       await guardarNotaYMotivo()
 
+      // Se completa la cita actual ANTES de crear el seguimiento — no
+      // al revés. Mientras esta cita siga en un estado que el
+      // constraint de traslapes considera "activo" (en_consulta,
+      // agendada, etc.), un seguimiento para un horario cercano al
+      // actual choca legítimamente contra ella. Una vez completada,
+      // deja de contar como ocupación del horario del dentista.
+      await actualizarCita(cita.id, { estado: 'completada' })
+
       if (programarSeguimiento) {
         if (!seguimiento.fecha || !seguimiento.hora) {
           toastError('Falta la fecha u hora del seguimiento.')
@@ -127,7 +171,6 @@ export function useConsultaForm(citaId) {
         })
       }
 
-      await actualizarCita(cita.id, { estado: 'completada' })
       setFinalizada(true)
       toastExito('Consulta guardada correctamente.')
       navigate('/')
@@ -146,6 +189,8 @@ export function useConsultaForm(citaId) {
     setModalExpediente,
     modalTratamiento,
     setModalTratamiento,
+    modalReceta,
+    setModalReceta,
     motivo,
     setMotivo,
     hallazgos,
@@ -175,6 +220,13 @@ export function useConsultaForm(citaId) {
     tratamientos,
     agregarTratamiento,
     catalogo,
+    signosVitales,
+    signosVitalesForm,
+    setSignosVitalesForm,
+    guardandoSignosVitales,
+    guardarSignosVitalesForm,
+    recetas,
+    agregarReceta,
     perfil,
     aplicarPlantillaNota,
     agregarFraseRapida,

@@ -95,7 +95,7 @@ export function TabRecetas({ pacienteId, paciente }) {
   )
 }
 
-function ModalNuevaReceta({ abierto, onCerrar, onGuardar, perfil }) {
+export function ModalNuevaReceta({ abierto, onCerrar, onGuardar, perfil }) {
   const [medicamentos, setMedicamentos] = useState([{ ...MEDICAMENTO_VACIO }])
   const [indicacionesGenerales, setIndicacionesGenerales] = useState('')
   const [vigenciaDias, setVigenciaDias] = useState(30)

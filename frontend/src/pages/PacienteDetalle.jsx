@@ -73,6 +73,7 @@ export function PacienteDetalle() {
 
   const tabsVisibles = TODAS_LAS_TABS.filter((t) => t.roles.includes(perfil?.rol))
   const [tab, setTab] = useState(null)
+  const [filtroHistorialInicial, setFiltroHistorialInicial] = useState('todos')
 
   useEffect(() => {
     if (!tab && tabsVisibles.length > 0) {
@@ -182,12 +183,16 @@ export function PacienteDetalle() {
       {tab === 'Resumen' && (
         <TabResumen
           pacienteId={id}
-          onIrA={setTab}
+          paciente={paciente}
+          onIrA={(destino, filtroHistorial) => {
+            if (filtroHistorial) setFiltroHistorialInicial(filtroHistorial)
+            setTab(destino)
+          }}
           onNuevaConsulta={puedeIniciarConsulta ? handleIniciarConsulta : undefined}
           iniciandoConsulta={iniciandoConsulta}
         />
       )}
-      {tab === 'Historial' && <TabHistorial pacienteId={id} />}
+      {tab === 'Historial' && <TabHistorial pacienteId={id} filtroInicial={filtroHistorialInicial} />}
       {tab === 'Datos generales' && <TabDatosGenerales paciente={paciente} alGuardar={recargarPaciente} />}
       {tab === 'Odontograma' && <Odontograma pacienteId={id} onIrATab={setTab} />}
       {tab === 'Plan' && <TabTratamientos pacienteId={id} paciente={paciente} />}

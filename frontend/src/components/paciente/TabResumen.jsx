@@ -4,6 +4,9 @@ import { supabase } from '../../lib/supabase'
 import { useExpediente } from '../../hooks/useExpediente'
 import { useTratamientos } from '../../hooks/useTratamientos'
 import { usePagos } from '../../hooks/usePagos'
+import { useAuthStore } from '../../store/useAuthStore'
+import { toastError } from '../../store/useToastStore'
+import { imprimirRecibo } from '../tratamientos/imprimirRecibo'
 import { Button } from '../ui/Button'
 import { Badge } from '../ui/Badge'
 
@@ -48,12 +51,14 @@ function useCitasResumen(pacienteId) {
   return { proximaCita, ultimaConsulta, cargando }
 }
 
-export function TabResumen({ pacienteId, onIrA, onNuevaConsulta, iniciandoConsulta }) {
+export function TabResumen({ pacienteId, paciente, onIrA, onNuevaConsulta, iniciandoConsulta }) {
   const navigate = useNavigate()
+  const perfil = useAuthStore((s) => s.perfil)
   const { expediente, notas, cargando: cargandoExp } = useExpediente(pacienteId)
   const { tratamientos, cargando: cargandoTrat } = useTratamientos(pacienteId)
-  const { saldo, cargando: cargandoSaldo } = usePagos(pacienteId)
+  const { pagos, saldo, cargando: cargandoSaldo } = usePagos(pacienteId)
   const { proximaCita, ultimaConsulta, cargando: cargandoCitas } = useCitasResumen(pacienteId)
+  const [imprimiendoComprobante, setImprimiendoComprobante] = useState(false)
 
   if (cargandoExp || cargandoTrat || cargandoSaldo || cargandoCitas || !expediente) {
     return <p className="text-slate-400">Cargando…</p>
@@ -64,6 +69,20 @@ export function TabResumen({ pacienteId, onIrA, onNuevaConsulta, iniciandoConsul
   const alergias = expediente.alergias ?? []
   const enfermedades = expediente.enfermedades ?? []
   const medicamentos = expediente.medicamentos_actuales ?? []
+  const ultimoPago = pagos[0] ?? null
+  const estadoPago = saldo.saldo > 0 ? 'Pendiente' : Number(saldo.total_tratamientos) > 0 ? 'Al corriente' : 'Sin cargos'
+
+  const handleGenerarComprobante = async () => {
+    if (!ultimoPago) return
+    setImprimiendoComprobante(true)
+    try {
+      await imprimirRecibo({ pago: ultimoPago, paciente, clinicaId: perfil?.clinica_id })
+    } catch (err) {
+      toastError('No se pudo generar el comprobante: ' + err.message)
+    } finally {
+      setImprimiendoComprobante(false)
+    }
+  }
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -77,6 +96,60 @@ export function TabResumen({ pacienteId, onIrA, onNuevaConsulta, iniciandoConsul
           </div>
         </div>
       )}
+
+      <div className="rounded-xl border-2 border-clinico-azul bg-white p-4 lg:col-span-2">
+        <div className="mb-3 flex items-center justify-between">
+          <span className="text-sm font-semibold text-slate-700">💵 Saldo</span>
+          <span
+            className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+              estadoPago === 'Pendiente' ? 'bg-amber-100 text-amber-800'
+                : estadoPago === 'Al corriente' ? 'bg-green-100 text-green-800'
+                : 'bg-slate-100 text-slate-500'
+            }`}
+          >
+            {estadoPago}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div>
+            <div className="text-xs text-slate-400">Total</div>
+            <div className="text-2xl font-bold text-slate-800">${Number(saldo.total_tratamientos).toFixed(2)}</div>
+          </div>
+          <div>
+            <div className="text-xs text-slate-400">Pagado</div>
+            <div className="text-2xl font-bold text-clinico-verde">${Number(saldo.total_pagado).toFixed(2)}</div>
+          </div>
+          <div>
+            <div className="text-xs text-slate-400">Pendiente</div>
+            <div className={`text-2xl font-bold ${saldo.saldo > 0 ? 'text-clinico-ambar' : 'text-slate-300'}`}>
+              ${Number(saldo.saldo).toFixed(2)}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs text-slate-400">Último pago</div>
+            {ultimoPago ? (
+              <div>
+                <div className="text-lg font-semibold text-slate-700">${Number(ultimoPago.monto).toFixed(2)}</div>
+                <div className="text-xs text-slate-400">
+                  {new Date(ultimoPago.creado_en).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
+                  {ultimoPago.tipo !== 'pago' && ` · ${ultimoPago.tipo}`}
+                </div>
+              </div>
+            ) : (
+              <div className="text-sm text-slate-300">—</div>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-3">
+          <Button variante="secundario" onClick={() => onIrA('Plan')}>💰 Registrar pago</Button>
+          <Button variante="secundario" onClick={() => onIrA('Historial', 'pago')}>📋 Ver historial de pagos</Button>
+          <Button variante="secundario" onClick={handleGenerarComprobante} disabled={!ultimoPago || imprimiendoComprobante}>
+            {imprimiendoComprobante ? 'Generando…' : '🖨 Generar comprobante'}
+          </Button>
+        </div>
+      </div>
 
       <div className="rounded-xl border border-slate-200 bg-white p-4">
         <div className="mb-2 text-sm font-semibold text-slate-700">Última consulta</div>
@@ -123,24 +196,6 @@ export function TabResumen({ pacienteId, onIrA, onNuevaConsulta, iniciandoConsul
         )}
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white p-4">
-        <div className="mb-2 text-sm font-semibold text-slate-700">Saldo</div>
-        <div className="grid grid-cols-3 gap-2 text-sm">
-          <div>
-            <div className="text-xs text-slate-400">Costo</div>
-            <div className="font-medium text-slate-700">${Number(saldo.total_tratamientos).toFixed(2)}</div>
-          </div>
-          <div>
-            <div className="text-xs text-slate-400">Pagado</div>
-            <div className="font-medium text-clinico-verde">${Number(saldo.total_pagado).toFixed(2)}</div>
-          </div>
-          <div>
-            <div className="text-xs text-slate-400">Pendiente</div>
-            <div className={`font-medium ${saldo.saldo > 0 ? 'text-clinico-ambar' : 'text-slate-400'}`}>${Number(saldo.saldo).toFixed(2)}</div>
-          </div>
-        </div>
-      </div>
-
       <div className="rounded-xl border border-slate-200 bg-white p-4 lg:col-span-2">
         <div className="mb-2 text-sm font-semibold text-slate-700">Última nota</div>
         {ultimaNota ? (
@@ -167,7 +222,6 @@ export function TabResumen({ pacienteId, onIrA, onNuevaConsulta, iniciandoConsul
             </Button>
           )}
           <Button variante="secundario" onClick={() => onIrA('Historial')}>Ver historial</Button>
-          <Button variante="secundario" onClick={() => onIrA('Plan')}>Registrar pago</Button>
           <Button variante="secundario" onClick={() => navigate('/agenda')}>Programar cita</Button>
         </div>
       </div>
