@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { buscarPosiblesDuplicados, crearPaciente } from '../services/pacientes'
 import { crearCitaUrgencia } from '../services/citas'
+import { usePacientes } from '../hooks/usePacientes'
 import { useAuthStore } from '../store/useAuthStore'
 import { toastExito, toastError } from '../store/useToastStore'
 import { Modal } from './ui/Modal'
@@ -18,6 +19,11 @@ export function ModalNuevaUrgencia({ abierto, onCerrar, onCreada }) {
   const perfil = useAuthStore((s) => s.perfil)
   const navigate = useNavigate()
 
+  const [modo, setModo] = useState('existente') // 'existente' | 'nuevo'
+  const [terminoBusqueda, setTerminoBusqueda] = useState('')
+  const [pacienteExistenteId, setPacienteExistenteId] = useState('')
+  const { pacientes: resultadosBusqueda } = usePacientes(terminoBusqueda)
+
   const [nombre, setNombre] = useState('')
   const [telefono, setTelefono] = useState('')
   const [motivo, setMotivo] = useState('')
@@ -26,12 +32,29 @@ export function ModalNuevaUrgencia({ abierto, onCerrar, onCreada }) {
   const [guardando, setGuardando] = useState(false)
 
   const cerrar = () => {
+    setModo('existente')
+    setTerminoBusqueda('')
+    setPacienteExistenteId('')
     setNombre('')
     setTelefono('')
     setMotivo('')
     setPrioridad('urgente')
     setPosiblesDuplicados(null)
     onCerrar()
+  }
+
+  const handleSubmitExistente = (e) => {
+    e.preventDefault()
+    const paciente = resultadosBusqueda.find((p) => p.id === pacienteExistenteId)
+    if (!paciente) {
+      toastError('Selecciona un paciente de la lista.')
+      return
+    }
+    // Ya sabemos exactamente quién es — no hace falta pasar por la
+    // detección de duplicados, esa es solo para cuando se está
+    // escribiendo un nombre/teléfono a mano y podría coincidir con
+    // alguien que ya existe.
+    registrarUrgencia(paciente)
   }
 
   const handleBuscarDuplicados = async (e) => {
@@ -85,6 +108,23 @@ export function ModalNuevaUrgencia({ abierto, onCerrar, onCreada }) {
 
   return (
     <Modal abierto={abierto} onCerrar={cerrar} titulo="Nueva urgencia">
+      {!posiblesDuplicados && (
+        <div className="mb-4 flex gap-2">
+          <button
+            onClick={() => setModo('existente')}
+            className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium ${modo === 'existente' ? 'bg-clinico-azul text-white' : 'border border-slate-300 text-slate-600'}`}
+          >
+            👤 Paciente existente
+          </button>
+          <button
+            onClick={() => setModo('nuevo')}
+            className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium ${modo === 'nuevo' ? 'bg-clinico-azul text-white' : 'border border-slate-300 text-slate-600'}`}
+          >
+            🆕 Paciente nuevo
+          </button>
+        </div>
+      )}
+
       {posiblesDuplicados ? (
         <div className="space-y-3">
           <p className="text-sm text-slate-600">
@@ -105,6 +145,40 @@ export function ModalNuevaUrgencia({ abierto, onCerrar, onCreada }) {
             {guardando ? 'Guardando…' : 'Es un paciente nuevo, continuar'}
           </Button>
         </div>
+      ) : modo === 'existente' ? (
+        <form onSubmit={handleSubmitExistente} className="space-y-4">
+          <Input
+            label="Buscar paciente por nombre o teléfono"
+            value={terminoBusqueda}
+            onChange={(e) => { setTerminoBusqueda(e.target.value); setPacienteExistenteId('') }}
+            placeholder="Escribe para buscar…"
+            autoFocus
+          />
+          <select
+            value={pacienteExistenteId}
+            onChange={(e) => setPacienteExistenteId(e.target.value)}
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            size={terminoBusqueda ? Math.min(resultadosBusqueda.length + 1, 6) : 1}
+          >
+            <option value="">{terminoBusqueda ? 'Selecciona un paciente' : 'Escribe arriba para buscar…'}</option>
+            {resultadosBusqueda.map((p) => (
+              <option key={p.id} value={p.id}>{p.nombre_completo} · {p.telefono}</option>
+            ))}
+          </select>
+
+          <Input label="Motivo" value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Ej. Dolor intenso pieza 36" />
+
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium text-slate-700">Prioridad</span>
+            <select value={prioridad} onChange={(e) => setPrioridad(e.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+              {PRIORIDADES.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
+            </select>
+          </label>
+
+          <Button type="submit" disabled={guardando || !pacienteExistenteId} className="w-full">
+            {guardando ? 'Registrando…' : 'Registrar urgencia'}
+          </Button>
+        </form>
       ) : (
         <form onSubmit={handleBuscarDuplicados} className="space-y-4">
           <Input label="Nombre completo" required value={nombre} onChange={(e) => setNombre(e.target.value)} autoFocus />

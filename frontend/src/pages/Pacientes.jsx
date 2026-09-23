@@ -36,7 +36,7 @@ export function Pacientes() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-slate-800">Pacientes</h1>
-        <Button onClick={() => setModalAbierto(true)}>+ Nuevo paciente</Button>
+        <Button onClick={() => setModalAbierto(true)}>👤 + Nuevo paciente</Button>
       </div>
 
       <div className="mb-4 flex flex-wrap items-end gap-3">
@@ -140,7 +140,11 @@ function TablaPacientes({ pacientes, cargando, navigate }) {
                 <td className="px-4 py-2 font-medium text-slate-800">{p.nombre_completo}</td>
                 <td className="px-4 py-2 text-slate-500">{p.numero_expediente ?? '—'}</td>
                 <td className="px-4 py-2 text-slate-600">{edad !== null ? edad : '—'}</td>
-                <td className="px-4 py-2 text-slate-600">{p.telefono}</td>
+                <td className="px-4 py-2 text-slate-600" onClick={(e) => e.stopPropagation()}>
+                  {p.telefono ? (
+                    <a href={`tel:${p.telefono}`} className="hover:text-clinico-azul hover:underline">📞 {p.telefono}</a>
+                  ) : '—'}
+                </td>
                 <td className="px-4 py-2 text-slate-500">
                   {p.ultima_consulta ? new Date(p.ultima_consulta).toLocaleDateString('es-MX') : '—'}
                 </td>

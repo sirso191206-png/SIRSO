@@ -139,7 +139,7 @@ export function PacienteDetalle() {
                       onClick={() => { setModalExpedienteCompleto(true); setMenuAcciones(false) }}
                       className="block w-full px-3 py-2 text-left text-sm text-slate-600 hover:bg-slate-50"
                     >
-                      Ver expediente completo
+                      📋 Ver expediente completo
                     </button>
                   )}
                   {puedeIniciarConsulta && (
@@ -148,7 +148,7 @@ export function PacienteDetalle() {
                       disabled={imprimiendoExpediente}
                       className="block w-full px-3 py-2 text-left text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-50"
                     >
-                      {imprimiendoExpediente ? 'Preparando…' : 'Imprimir expediente completo'}
+                      {imprimiendoExpediente ? 'Preparando…' : '🖨 Imprimir expediente completo'}
                     </button>
                   )}
                   {perfil?.rol === 'owner' && !paciente.archivado_en && (
@@ -156,7 +156,7 @@ export function PacienteDetalle() {
                       onClick={() => { setModalArchivar(true); setMenuAcciones(false) }}
                       className="block w-full px-3 py-2 text-left text-sm text-clinico-rojo hover:bg-red-50"
                     >
-                      Archivar paciente
+                      🗄 Archivar paciente
                     </button>
                   )}
                 </div>
