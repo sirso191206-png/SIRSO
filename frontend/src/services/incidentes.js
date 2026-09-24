@@ -8,7 +8,7 @@ export { ESTADOS_INCIDENTE, SEVERIDADES_INCIDENTE }
 export async function listarIncidentes() {
   const { data, error } = await supabase
     .from('incidentes_seguridad')
-    .select('*, detector:usuarios!incidentes_seguridad_detectado_por_fkey(nombre)')
+    .select('*, detector:usuarios!incidentes_seguridad_detectado_por_fkey(nombre), clinica:clinicas(nombre)')
     .order('fecha', { ascending: false })
   if (error) throw error
   return data

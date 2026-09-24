@@ -1,11 +1,20 @@
 import { useEffect } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../../store/useAuthStore'
+import { useEscucharCierreSesion } from '../../hooks/useEscucharCierreSesion'
 import { Sidebar } from './Sidebar'
 
 export function ProtectedRoute({ children }) {
-  const { session, perfil, clinicaEstado, cargando, logout, refrescarEstadoClinica } = useAuthStore()
+  const { session, perfil, clinicaEstado, cargando, logout, refrescarEstadoClinica, sesionActualId } = useAuthStore()
   const location = useLocation()
+
+  // Si otro dispositivo cierra esta misma sesión (p. ej. "Cerrar todas
+  // mis sesiones" desde el iPad), este dispositivo se entera en
+  // segundos vía Realtime y cierra sesión local de inmediato — sin
+  // esto, seguiría funcionando hasta que su access token expirara por
+  // su cuenta. Va antes de cualquier return para respetar las reglas
+  // de hooks de React (nunca condicional).
+  useEscucharCierreSesion(sesionActualId, logout)
 
   // Re-consulta el estado de la clínica en cada navegación, para que una
   // suspensión aplicada mientras la sesión ya estaba abierta se note sin

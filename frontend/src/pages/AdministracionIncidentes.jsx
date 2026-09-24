@@ -34,8 +34,8 @@ export function AdministracionIncidentes() {
 
   useEffect(() => { recargar() }, [])
 
-  if (perfil?.rol !== 'owner') {
-    return <p className="text-slate-400">Esta sección solo está disponible para el owner de la clínica.</p>
+  if (perfil?.rol !== 'owner' && !perfil?.es_super_admin) {
+    return <p className="text-slate-400">Esta sección solo está disponible para el owner de la clínica o el super-administrador.</p>
   }
 
   return (
@@ -61,7 +61,10 @@ export function AdministracionIncidentes() {
                     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${COLOR_SEVERIDAD[inc.severidad]}`}>{inc.severidad}</span>
                     <span className="rounded-full bg-clinico-azulClaro px-2 py-0.5 text-xs font-medium text-clinico-azul">{ETIQUETA_ESTADO[inc.estado]}</span>
                   </div>
-                  <div className="text-xs text-slate-400">{new Date(inc.fecha).toLocaleString('es-MX')}</div>
+                  <div className="text-xs text-slate-400">
+                    {new Date(inc.fecha).toLocaleString('es-MX')}
+                    {perfil?.es_super_admin && (inc.clinica?.nombre ? ` · ${inc.clinica.nombre}` : ' · Plataforma')}
+                  </div>
                 </div>
                 <span className="text-slate-400">{expandidoId === inc.id ? '▾' : '▸'}</span>
               </button>
