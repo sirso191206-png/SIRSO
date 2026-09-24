@@ -7,11 +7,12 @@ const FILTROS = [
   { value: 'tratamiento', label: 'Tratamientos' },
   { value: 'pago', label: 'Pagos' },
   { value: 'cita', label: 'Citas' },
-  { value: 'foto', label: 'Fotografías' }
+  { value: 'foto', label: 'Fotografías' },
+  { value: 'consentimiento', label: 'Consentimientos' }
 ]
 
 const ICONO_TIPO = {
-  paciente: '👤', cita: '📅', pago: '💵', tratamiento: '🦷', foto: '📷', nota: '📝', documento: '📄'
+  paciente: '👤', cita: '📅', pago: '💵', tratamiento: '🦷', foto: '📷', nota: '📝', documento: '📄', consentimiento: '✍️'
 }
 
 const TAMANO_PAGINA = 15

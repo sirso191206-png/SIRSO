@@ -13,7 +13,8 @@ import { TabHistorial } from '../components/paciente/TabHistorial'
 import { TabArchivos } from '../components/paciente/TabArchivos'
 import { TabDocumentosClinicos } from '../components/documentos/TabDocumentosClinicos'
 import { imprimirExpedienteCompleto } from '../components/expediente/imprimirExpedienteCompleto'
-import { toastError } from '../store/useToastStore'
+import { exportarDatosPaciente, descargarComoJson } from '../services/exportacion'
+import { toastExito, toastError } from '../store/useToastStore'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
 import { ConfirmModal } from '../components/ui/ConfirmModal'
@@ -44,6 +45,7 @@ export function PacienteDetalle() {
   const [modalExpedienteCompleto, setModalExpedienteCompleto] = useState(false)
   const [menuAcciones, setMenuAcciones] = useState(false)
   const [imprimiendoExpediente, setImprimiendoExpediente] = useState(false)
+  const [exportando, setExportando] = useState(false)
   const perfil = useAuthStore((s) => s.perfil)
   const { expediente } = useExpediente(id)
 
@@ -56,6 +58,21 @@ export function PacienteDetalle() {
       toastError('No se pudo generar el expediente para imprimir: ' + err.message)
     } finally {
       setImprimiendoExpediente(false)
+    }
+  }
+
+  const handleExportarDatos = async () => {
+    setMenuAcciones(false)
+    setExportando(true)
+    try {
+      const datos = await exportarDatosPaciente(id, { usuarioId: perfil.id, clinicaId: perfil.clinica_id })
+      const nombreArchivo = `${paciente.nombre_completo.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.json`
+      descargarComoJson(datos, nombreArchivo)
+      toastExito('Datos exportados.')
+    } catch (err) {
+      toastError('No se pudo exportar: ' + err.message)
+    } finally {
+      setExportando(false)
     }
   }
 
@@ -149,6 +166,15 @@ export function PacienteDetalle() {
                       className="block w-full px-3 py-2 text-left text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-50"
                     >
                       {imprimiendoExpediente ? 'Preparando…' : '🖨 Imprimir expediente completo'}
+                    </button>
+                  )}
+                  {puedeIniciarConsulta && (
+                    <button
+                      onClick={handleExportarDatos}
+                      disabled={exportando}
+                      className="block w-full px-3 py-2 text-left text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                    >
+                      {exportando ? 'Exportando…' : '⬇ Exportar datos (JSON)'}
                     </button>
                   )}
                   {perfil?.rol === 'owner' && !paciente.archivado_en && (

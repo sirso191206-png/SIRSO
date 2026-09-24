@@ -63,7 +63,10 @@ export function ConfiguracionClinica() {
         direccion: form.direccion || null,
         telefono: form.telefono || null,
         correo: form.correo || null,
-        responsable_sanitario: form.responsable_sanitario || null
+        responsable_sanitario: form.responsable_sanitario || null,
+        razon_social: form.razon_social || null,
+        rfc: form.rfc || null,
+        correo_privacidad: form.correo_privacidad || null
       })
       toastExito('Datos del establecimiento actualizados.')
     } catch (err) {
@@ -133,6 +136,27 @@ export function ConfiguracionClinica() {
           onChange={handleChange('responsable_sanitario')}
           placeholder="Nombre completo"
         />
+
+        <div className="border-t border-slate-100 pt-4">
+          <p className="mb-3 text-xs font-medium uppercase tracking-wide text-slate-400">
+            Datos para documentos legales (Aviso de Privacidad, Términos)
+          </p>
+          <Input
+            label="Razón social (opcional — si es distinta al nombre de arriba)"
+            value={form.razon_social ?? ''}
+            onChange={handleChange('razon_social')}
+          />
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            <Input label="RFC" value={form.rfc ?? ''} onChange={handleChange('rfc')} />
+            <Input
+              label="Correo de privacidad (opcional)"
+              type="email"
+              value={form.correo_privacidad ?? ''}
+              onChange={handleChange('correo_privacidad')}
+              placeholder="Si es distinto al correo de arriba"
+            />
+          </div>
+        </div>
 
         <Button type="submit" disabled={guardando} className="w-full">
           {guardando ? 'Guardando…' : 'Guardar cambios'}

@@ -10,11 +10,12 @@ import { Input } from '../ui/Input'
 import { Modal } from '../ui/Modal'
 
 export function TabConsentimientos({ pacienteId, paciente }) {
-  const { consentimientos, cargando, agregar, revocar } = useConsentimientos(pacienteId)
+  const { consentimientos, cargando, agregar, revocar, cancelar } = useConsentimientos(pacienteId)
   const perfil = useAuthStore((s) => s.perfil)
   const [modalAbierto, setModalAbierto] = useState(false)
   const [imprimiendoId, setImprimiendoId] = useState(null)
   const [consentimientoARevocar, setConsentimientoARevocar] = useState(null)
+  const [consentimientoACancelar, setConsentimientoACancelar] = useState(null)
 
   const handleImprimir = async (c) => {
     setImprimiendoId(c.id)
@@ -37,7 +38,7 @@ export function TabConsentimientos({ pacienteId, paciente }) {
 
       <div className="space-y-2">
         {consentimientos.map((c) => (
-          <div key={c.id} className={`flex items-center justify-between rounded-xl border p-4 ${c.revocado_en ? 'border-slate-200 bg-slate-50 opacity-70' : 'border-slate-200 bg-white'}`}>
+          <div key={c.id} className={`flex items-center justify-between rounded-xl border p-4 ${(c.revocado_en || c.estado === 'cancelado') ? 'border-slate-200 bg-slate-50 opacity-70' : 'border-slate-200 bg-white'}`}>
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-medium text-slate-800">{c.procedimiento}</span>
@@ -49,6 +50,9 @@ export function TabConsentimientos({ pacienteId, paciente }) {
                 {c.revocado_en && (
                   <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-medium uppercase text-slate-600">Revocado</span>
                 )}
+                {c.estado === 'cancelado' && (
+                  <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-medium uppercase text-slate-600">Cancelado</span>
+                )}
               </div>
               <div className="text-xs text-slate-400">
                 {new Date(c.creado_en).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}
@@ -56,16 +60,25 @@ export function TabConsentimientos({ pacienteId, paciente }) {
                 {c.dentista?.nombre && ` · ${c.dentista.nombre}`}
                 {c.firma_paciente_png && ' · ✓ Firmado'}
                 {c.revocado_en && ` · Revocado el ${new Date(c.revocado_en).toLocaleDateString('es-MX')}`}
+                {c.cancelado_en && ` · Cancelado el ${new Date(c.cancelado_en).toLocaleDateString('es-MX')}`}
               </div>
             </div>
             <div className="flex items-center gap-3">
-              {!c.revocado_en && (
-                <button
-                  onClick={() => setConsentimientoARevocar(c)}
-                  className="text-xs font-medium text-clinico-rojo hover:underline"
-                >
-                  Revocar
-                </button>
+              {c.estado === 'firmado' && !c.revocado_en && (
+                <>
+                  <button
+                    onClick={() => setConsentimientoARevocar(c)}
+                    className="text-xs font-medium text-clinico-rojo hover:underline"
+                  >
+                    Revocar
+                  </button>
+                  <button
+                    onClick={() => setConsentimientoACancelar(c)}
+                    className="text-xs font-medium text-slate-500 hover:underline"
+                  >
+                    Cancelar
+                  </button>
+                </>
               )}
               <button
                 onClick={() => handleImprimir(c)}
@@ -93,7 +106,52 @@ export function TabConsentimientos({ pacienteId, paciente }) {
         onRevocar={revocar}
         usuarioId={perfil?.id}
       />
+
+      <ModalCancelar
+        consentimiento={consentimientoACancelar}
+        onCerrar={() => setConsentimientoACancelar(null)}
+        onCancelar={cancelar}
+        usuarioId={perfil?.id}
+      />
     </div>
+  )
+}
+
+function ModalCancelar({ consentimiento, onCerrar, onCancelar, usuarioId }) {
+  const [motivo, setMotivo] = useState('')
+  const [procesando, setProcesando] = useState(false)
+
+  const handleCancelar = async () => {
+    setProcesando(true)
+    try {
+      await onCancelar(consentimiento.id, { usuarioId, motivo })
+      toastExito('Consentimiento cancelado.')
+      onCerrar()
+      setMotivo('')
+    } catch (err) {
+      toastError('No se pudo cancelar: ' + err.message)
+    } finally {
+      setProcesando(false)
+    }
+  }
+
+  return (
+    <Modal abierto={!!consentimiento} onCerrar={onCerrar} titulo="Cancelar consentimiento">
+      <p className="mb-4 text-sm text-slate-600">
+        Usa esto solo cuando el consentimiento nunca debió existir (por ejemplo, se creó por error). Si el
+        procedimiento sí era válido y el paciente retiró su autorización después, usa "Revocar" en vez de esto.
+      </p>
+      <label className="mb-4 block text-sm">
+        <span className="mb-1 block font-medium text-slate-700">Motivo (opcional)</span>
+        <textarea value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={2} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+      </label>
+      <div className="flex gap-2">
+        <Button variante="secundario" onClick={onCerrar} className="flex-1" disabled={procesando}>Cerrar</Button>
+        <Button variante="peligro" onClick={handleCancelar} className="flex-1" disabled={procesando}>
+          {procesando ? 'Cancelando…' : 'Cancelar consentimiento'}
+        </Button>
+      </div>
+    </Modal>
   )
 }
 
@@ -144,6 +202,9 @@ function ModalNuevoConsentimiento({ abierto, onCerrar, onGuardar, perfil, pacien
   const [molestias, setMolestias] = useState('')
   const [beneficios, setBeneficios] = useState('')
   const [alternativas, setAlternativas] = useState('')
+  const [indicaciones, setIndicaciones] = useState('')
+  const [contraindicaciones, setContraindicaciones] = useState('')
+  const [observaciones, setObservaciones] = useState('')
   const [motivoEleccion, setMotivoEleccion] = useState('')
   const [gradoUrgencia, setGradoUrgencia] = useState('electivo')
   const [lugar, setLugar] = useState('')
@@ -165,7 +226,8 @@ function ModalNuevoConsentimiento({ abierto, onCerrar, onGuardar, perfil, pacien
 
   const cerrar = () => {
     setDiagnostico(''); setProcedimiento(''); setPronostico(''); setRiesgos(''); setMolestias('')
-    setBeneficios(''); setAlternativas(''); setMotivoEleccion(''); setGradoUrgencia('electivo'); setLugar('')
+    setBeneficios(''); setAlternativas(''); setIndicaciones(''); setContraindicaciones(''); setObservaciones('')
+    setMotivoEleccion(''); setGradoUrgencia('electivo'); setLugar('')
     setFechaProcedimiento('')
     setFirmaPacientePng(null); setFirmaMedicoPng(null); setTestigo1(''); setTestigo2('')
     onCerrar()
@@ -188,6 +250,9 @@ function ModalNuevoConsentimiento({ abierto, onCerrar, onGuardar, perfil, pacien
         molestias_efectos_secundarios: molestias || null,
         beneficios: beneficios || null,
         alternativas: alternativas || null,
+        indicaciones: indicaciones || null,
+        contraindicaciones: contraindicaciones || null,
+        observaciones: observaciones || null,
         motivo_eleccion: motivoEleccion || null,
         grado_urgencia: gradoUrgencia || null,
         lugar: lugar || null,
@@ -256,6 +321,18 @@ function ModalNuevoConsentimiento({ abierto, onCerrar, onGuardar, perfil, pacien
           <label className="block text-sm">
             <span className="mb-1 block font-medium text-slate-700">Alternativa(s) de tratamiento (opcional)</span>
             <textarea value={alternativas} onChange={(e) => setAlternativas(e.target.value)} rows={2} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium text-slate-700">Indicaciones (opcional)</span>
+            <textarea value={indicaciones} onChange={(e) => setIndicaciones(e.target.value)} rows={2} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium text-slate-700">Contraindicaciones (opcional)</span>
+            <textarea value={contraindicaciones} onChange={(e) => setContraindicaciones(e.target.value)} rows={2} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium text-slate-700">Observaciones (opcional)</span>
+            <textarea value={observaciones} onChange={(e) => setObservaciones(e.target.value)} rows={2} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
           </label>
           <label className="block text-sm">
             <span className="mb-1 block font-medium text-slate-700">Motivo de elección (opcional)</span>

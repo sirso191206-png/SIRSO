@@ -40,3 +40,18 @@ export async function revocarConsentimiento(id, { usuarioId, motivo }) {
   if (error) throw error
   return data
 }
+
+// Distinto de revocar: cancelar es para un consentimiento que nunca
+// debió existir (se creó por error) — no que haya sido válido y el
+// paciente luego retiró su autorización. Mismo trigger, misma
+// protección: ningún otro campo puede cambiar en esta llamada.
+export async function cancelarConsentimiento(id, { usuarioId, motivo }) {
+  const { data, error } = await supabase
+    .from('consentimientos_informados')
+    .update({ estado: 'cancelado', cancelado_en: new Date().toISOString(), cancelado_por: usuarioId, motivo_cancelacion: motivo || null })
+    .eq('id', id)
+    .select(SELECT_CON_DENTISTA)
+    .single()
+  if (error) throw error
+  return data
+}

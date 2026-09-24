@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { supabase, invocarFuncionAutenticada } from '../lib/supabase'
+import { registrarSesion, marcarSesionFinalizada } from '../services/sesiones'
 
 export const useAuthStore = create((set, get) => ({
   session: null,
@@ -7,6 +8,7 @@ export const useAuthStore = create((set, get) => ({
   clinicaNombre: null,
   clinicaEstado: null, // 'activa' | 'suspendida' — para bloquear acceso
   cargando: true,
+  sesionActualId: null,
 
   // Se llama una vez al montar la app
   init: async () => {
@@ -61,6 +63,8 @@ export const useAuthStore = create((set, get) => ({
     })
     if (error) throw error
     await get().cargarPerfil(data.session)
+    const sesion = await registrarSesion(data.session.user.id)
+    set({ sesionActualId: sesion?.id ?? null })
     return data
   },
 
@@ -82,8 +86,10 @@ export const useAuthStore = create((set, get) => ({
   },
 
   logout: async () => {
+    const sesionActualId = get().sesionActualId
+    if (sesionActualId) await marcarSesionFinalizada(sesionActualId).catch(() => {})
     await supabase.auth.signOut()
-    set({ session: null, perfil: null, clinicaNombre: null, clinicaEstado: null })
+    set({ session: null, perfil: null, clinicaNombre: null, clinicaEstado: null, sesionActualId: null })
   },
 
   // Se llama en cada navegación (ver ProtectedRoute) para que, si el

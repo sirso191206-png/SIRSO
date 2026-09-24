@@ -59,7 +59,9 @@ const SECCIONES = [
     enlaces: [
       { to: '/usuarios', label: 'Usuarios', roles: ['owner'] },
       { to: '/sucursales', label: 'Sucursales', roles: ['owner'] },
-      { to: '/configuracion', label: 'Configuración', roles: ['owner'] }
+      { to: '/configuracion', label: 'Configuración', roles: ['owner'] },
+      { to: '/administracion/arco', label: 'Derechos ARCO', roles: ['owner'] },
+      { to: '/administracion/incidentes', label: 'Incidentes de seguridad', roles: ['owner'] }
     ]
   }
 ]
@@ -126,6 +128,16 @@ export function Sidebar() {
               >
                 ⚡ Clínicas
               </NavLink>
+              <NavLink
+                to="/admin/legal"
+                className={({ isActive }) =>
+                  `block rounded-lg px-3 py-2 text-sm font-medium ${
+                    isActive ? 'bg-amber-50 text-clinico-ambar' : 'text-clinico-ambar hover:bg-amber-50'
+                  }`
+                }
+              >
+                ⚖️ Legal
+              </NavLink>
             </div>
           )}
         </nav>
@@ -152,6 +164,9 @@ export function Sidebar() {
         >
           Cambiar contraseña
         </button>
+        <NavLink to="/configuracion/seguridad" className="block text-sm text-slate-400 hover:text-clinico-azul">
+          Sesiones activas
+        </NavLink>
         <button onClick={logout} className="mt-1 block text-sm text-slate-400 hover:text-clinico-rojo">
           Cerrar sesión
         </button>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useAuthStore } from '../store/useAuthStore'
 import { HeaderPublico } from '../components/layout/HeaderPublico'
 import { ModalOlvidePassword } from '../components/ModalOlvidePassword'
@@ -134,6 +134,13 @@ export function Login() {
               {cargando ? 'Entrando…' : 'Iniciar sesión'}
             </button>
           </form>
+
+          <p className="mt-4 text-center text-xs text-slate-400">
+            Al continuar aceptas los{' '}
+            <Link to="/legal/terminos" className="text-clinico-azul hover:underline">Términos y Condiciones</Link>
+            {' '}y reconoces haber consultado el{' '}
+            <Link to="/legal/privacidad" className="text-clinico-azul hover:underline">Aviso de Privacidad</Link>.
+          </p>
 
           <p className="mt-8 text-center text-xs font-medium uppercase tracking-wide text-slate-400">
             Solución Integral de Registro Odontológico
