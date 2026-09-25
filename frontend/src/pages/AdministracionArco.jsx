@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useAuthStore } from '../store/useAuthStore'
 import { toastExito, toastError } from '../store/useToastStore'
-import { listarSolicitudesDeClinica, actualizarSolicitudArco, marcarIdentidadVerificada, ESTADOS_ARCO } from '../services/arco'
+import { listarSolicitudesDeClinica, actualizarSolicitudArco, marcarIdentidadVerificada, crearSolicitudArco, ESTADOS_ARCO } from '../services/arco'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
+import { Modal } from '../components/ui/Modal'
 
 const ETIQUETA_ESTADO = {
   recibida: 'Recibida', en_revision: 'En revisión', requiere_informacion: 'Requiere información',
@@ -17,6 +18,7 @@ export function AdministracionArco() {
   const [solicitudes, setSolicitudes] = useState([])
   const [cargando, setCargando] = useState(true)
   const [expandidaId, setExpandidaId] = useState(null)
+  const [modalNueva, setModalNueva] = useState(false)
 
   const recargar = async () => {
     setCargando(true)
@@ -37,9 +39,13 @@ export function AdministracionArco() {
 
   return (
     <div>
-      <h1 className="mb-2 text-2xl font-semibold text-slate-800">Derechos ARCO</h1>
+      <div className="mb-2 flex items-center justify-between">
+        <h1 className="text-2xl font-semibold text-slate-800">Derechos ARCO</h1>
+        <Button onClick={() => setModalNueva(true)}>+ Registrar solicitud</Button>
+      </div>
       <p className="mb-6 text-sm text-slate-400">
-        Solicitudes de Acceso, Rectificación, Cancelación u Oposición recibidas para tu clínica.
+        Solicitudes de Acceso, Rectificación, Cancelación u Oposición recibidas para tu clínica — ya sea por el
+        formulario público, o registradas aquí manualmente cuando alguien la hace por teléfono o correo.
       </p>
 
       {cargando ? (
@@ -71,7 +77,78 @@ export function AdministracionArco() {
           ))}
         </div>
       )}
+
+      <ModalNuevaSolicitud
+        abierto={modalNueva}
+        onCerrar={() => setModalNueva(false)}
+        clinicaId={perfil.clinica_id}
+        onCreada={recargar}
+      />
     </div>
+  )
+}
+
+function ModalNuevaSolicitud({ abierto, onCerrar, clinicaId, onCreada }) {
+  const [tipo, setTipo] = useState('acceso')
+  const [nombre, setNombre] = useState('')
+  const [correo, setCorreo] = useState('')
+  const [descripcion, setDescripcion] = useState('')
+  const [guardando, setGuardando] = useState(false)
+
+  const cerrar = () => {
+    setTipo('acceso'); setNombre(''); setCorreo(''); setDescripcion('')
+    onCerrar()
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (!nombre.trim() || !correo.trim() || !descripcion.trim()) {
+      toastError('Completa nombre, correo y descripción.')
+      return
+    }
+    setGuardando(true)
+    try {
+      // usuario_id se deja sin mandar (queda null) a propósito — esta
+      // solicitud es de la persona que llamó o escribió, no del owner
+      // que la está registrando por ella.
+      await crearSolicitudArco({
+        tipo,
+        solicitante_nombre: nombre.trim(),
+        solicitante_correo: correo.trim(),
+        descripcion: descripcion.trim(),
+        clinica_id: clinicaId
+      })
+      toastExito('Solicitud registrada.')
+      cerrar()
+      await onCreada()
+    } catch (err) {
+      toastError('No se pudo registrar: ' + err.message)
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  return (
+    <Modal abierto={abierto} onCerrar={cerrar} titulo="Registrar solicitud ARCO">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <label className="block text-sm">
+          <span className="mb-1 block font-medium text-slate-700">Tipo</span>
+          <select value={tipo} onChange={(e) => setTipo(e.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+            <option value="acceso">Acceso</option>
+            <option value="rectificacion">Rectificación</option>
+            <option value="cancelacion">Cancelación</option>
+            <option value="oposicion">Oposición</option>
+          </select>
+        </label>
+        <Input label="Nombre de quien solicita" required value={nombre} onChange={(e) => setNombre(e.target.value)} />
+        <Input label="Correo de contacto" type="email" required value={correo} onChange={(e) => setCorreo(e.target.value)} />
+        <label className="block text-sm">
+          <span className="mb-1 block font-medium text-slate-700">Descripción</span>
+          <textarea value={descripcion} onChange={(e) => setDescripcion(e.target.value)} rows={3} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="Qué te pidió, tal como te lo dijo…" />
+        </label>
+        <Button type="submit" disabled={guardando} className="w-full">{guardando ? 'Registrando…' : 'Registrar solicitud'}</Button>
+      </form>
+    </Modal>
   )
 }
 

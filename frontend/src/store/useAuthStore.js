@@ -15,6 +15,15 @@ export const useAuthStore = create((set, get) => ({
     const { data: { session } } = await supabase.auth.getSession()
     if (session) {
       await get().cargarPerfil(session)
+      // Sin esto, un dispositivo que reabre la app con una sesión YA
+      // existente (restaurada automáticamente, sin volver a escribir
+      // la contraseña) nunca obtiene un sesionActualId — y sin eso,
+      // "Cerrar todas mis sesiones" no tiene forma de avisarle a ESE
+      // dispositivo en particular que debe cerrar sesión: quedaría
+      // fuera del listado de sesiones y fuera del mecanismo de cierre
+      // remoto por completo, aunque el usuario sí siga con acceso ahí.
+      const sesion = await registrarSesion(session.user.id)
+      set({ sesionActualId: sesion?.id ?? null })
     } else {
       set({ session: null, perfil: null, clinicaNombre: null, clinicaEstado: null, cargando: false })
     }
