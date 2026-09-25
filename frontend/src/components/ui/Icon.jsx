@@ -1,0 +1,50 @@
+// Íconos SVG inline, únicos para todo SIRO — sin librerías externas,
+// sin emojis. Misma firma técnica en todos: viewBox 24, stroke 1.75,
+// currentColor (hereda el color de quien lo use). Se centralizan aquí
+// para que Sidebar, Mi día, y cada pantalla que se vaya actualizando
+// después usen exactamente el mismo trazo, en vez de redefinir cada
+// ícono por separado en cada archivo.
+const p = { width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.75, strokeLinecap: 'round', strokeLinejoin: 'round' }
+
+export const Icon = {
+  home: () => (<svg {...p}><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z" /><path d="M9 21V12h6v9" /></svg>),
+  calendar: () => (<svg {...p}><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></svg>),
+  calendarPlus: () => (<svg {...p}><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4M12 14v4M10 16h4" /></svg>),
+  users: () => (<svg {...p}><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" /></svg>),
+  userPlus: () => (<svg {...p}><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M19 8v6M22 11h-6" /></svg>),
+  user: () => (<svg {...p}><path d="M16 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" /><circle cx="10" cy="7" r="4" /></svg>),
+  sparkles: () => (<svg {...p}><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z" /><path d="M19 13l.75 2.25L22 16l-2.25.75L19 19l-.75-2.25L16 16l2.25-.75L19 13z" /></svg>),
+  card: () => (<svg {...p}><rect x="2" y="5" width="20" height="14" rx="2" /><path d="M2 10h20" /></svg>),
+  chart: () => (<svg {...p}><path d="M4 19V9M12 19V5M20 19v-7" /></svg>),
+  building: () => (<svg {...p}><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6" /></svg>),
+  settings: () => (<svg {...p}><circle cx="12" cy="12" r="3" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" /></svg>),
+  shield: () => (<svg {...p}><path d="M12 2l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5l8-3z" /><path d="M9 12l2 2 4-4" /></svg>),
+  alertTriangle: () => (<svg {...p}><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /><path d="M12 9v4M12 17h.01" /></svg>),
+  briefcase: () => (<svg {...p}><rect x="2" y="7" width="20" height="14" rx="2" /><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2" /></svg>),
+  scale: () => (<svg {...p}><path d="M12 3v18M9 21h6M5 7h14" /><path d="M5 7l-3 7a3 3 0 006 0L5 7z" /><path d="M19 7l-3 7a3 3 0 006 0l-3-7z" /></svg>),
+  logOut: () => (<svg {...p}><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" /></svg>),
+  zap: () => (<svg {...p}><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></svg>),
+  clock: () => (<svg {...p}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 3" /></svg>),
+  folder: () => (<svg {...p}><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" /></svg>),
+  play: () => (<svg {...p}><path d="M6 4l14 8-14 8V4z" /></svg>),
+  check: () => (<svg {...p}><path d="M5 12l5 5L20 7" /></svg>),
+  checkCircle: () => (<svg {...p}><circle cx="12" cy="12" r="9" /><path d="M8 12l3 3 5-6" /></svg>),
+  xCircle: () => (<svg {...p}><circle cx="12" cy="12" r="9" /><path d="M15 9l-6 6M9 9l6 6" /></svg>),
+  x: () => (<svg {...p}><path d="M18 6L6 18M6 6l12 12" /></svg>),
+  dollar: () => (<svg {...p}><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" /></svg>),
+  inbox: () => (<svg {...p}><path d="M22 12h-6l-2 3h-4l-2-3H2" /><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z" /></svg>),
+  phone: () => (<svg {...p}><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.13.96.36 1.9.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0122 16.92z" /></svg>),
+  lock: () => (<svg {...p}><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>),
+  chair: () => (<svg {...p}><path d="M5 4v9M19 4v9M5 9h14M6 13v7M18 13v7" /></svg>),
+  clipboard: () => (<svg {...p}><rect x="5" y="4" width="14" height="17" rx="2" /><path d="M9 4V3a1 1 0 011-1h4a1 1 0 011 1v1M9 11h6M9 15h6" /></svg>),
+  printer: () => (<svg {...p}><path d="M6 9V3h12v6M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2" /><rect x="6" y="14" width="12" height="8" /></svg>),
+  download: () => (<svg {...p}><path d="M12 3v12M7 11l5 5 5-5M5 21h14" /></svg>),
+  archive: () => (<svg {...p}><rect x="2" y="4" width="20" height="5" rx="1" /><path d="M4 9v9a2 2 0 002 2h12a2 2 0 002-2V9M10 13h4" /></svg>),
+  refresh: () => (<svg {...p}><path d="M21 12a9 9 0 01-15.5 6.36M3 12a9 9 0 0115.5-6.36M21 3v6h-6M3 21v-6h6" /></svg>),
+  edit: () => (<svg {...p}><path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>),
+  camera: () => (<svg {...p}><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" /><circle cx="12" cy="13" r="4" /></svg>),
+  chevronLeft: () => (<svg {...p}><path d="M15 18l-6-6 6-6" /></svg>),
+  chevronRight: () => (<svg {...p}><path d="M9 18l6-6-6-6" /></svg>),
+  fileText: () => (<svg {...p}><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><path d="M14 2v6h6M9 13h6M9 17h6" /></svg>),
+  heartPulse: () => (<svg {...p}><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg>)
+}

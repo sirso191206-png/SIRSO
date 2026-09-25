@@ -8,6 +8,7 @@ import { toastExito, toastError } from '../store/useToastStore'
 import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
+import { Icon } from '../components/ui/Icon'
 
 const POR_PAGINA = 15
 
@@ -35,8 +36,10 @@ export function Pacientes() {
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-slate-800">Pacientes</h1>
-        <Button onClick={() => setModalAbierto(true)}>👤 + Nuevo paciente</Button>
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-800">Pacientes</h1>
+        <Button onClick={() => setModalAbierto(true)} className="inline-flex items-center gap-1.5">
+          <Icon.userPlus /> Nuevo paciente
+        </Button>
       </div>
 
       <div className="mb-4 flex flex-wrap items-end gap-3">
@@ -87,17 +90,17 @@ export function Pacientes() {
             <button
               onClick={() => setPagina((p) => Math.max(1, p - 1))}
               disabled={pagina === 1}
-              className="rounded-lg border border-slate-300 px-3 py-1 disabled:opacity-40"
+              className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-1 disabled:opacity-40"
             >
-              ← Anterior
+              <Icon.chevronLeft /> Anterior
             </button>
             <span>Página {pagina} de {totalPaginas}</span>
             <button
               onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
               disabled={pagina >= totalPaginas}
-              className="rounded-lg border border-slate-300 px-3 py-1 disabled:opacity-40"
+              className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-1 disabled:opacity-40"
             >
-              Siguiente →
+              Siguiente <Icon.chevronRight />
             </button>
           </div>
         </div>
@@ -113,7 +116,7 @@ function TablaPacientes({ pacientes, cargando, navigate }) {
   if (pacientes.length === 0) return <p className="text-slate-400">Sin resultados.</p>
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+    <div className="overflow-x-auto rounded-2xl border border-slate-200/80 bg-white shadow-sm">
       <table className="w-full text-sm">
         <thead className="bg-slate-50 text-left text-slate-500">
           <tr>
@@ -142,7 +145,9 @@ function TablaPacientes({ pacientes, cargando, navigate }) {
                 <td className="px-4 py-2 text-slate-600">{edad !== null ? edad : '—'}</td>
                 <td className="px-4 py-2 text-slate-600" onClick={(e) => e.stopPropagation()}>
                   {p.telefono ? (
-                    <a href={`tel:${p.telefono}`} className="hover:text-clinico-azul hover:underline">📞 {p.telefono}</a>
+                    <a href={`tel:${p.telefono}`} className="inline-flex items-center gap-1.5 hover:text-clinico-azul hover:underline">
+                      <Icon.phone /> {p.telefono}
+                    </a>
                   ) : '—'}
                 </td>
                 <td className="px-4 py-2 text-slate-500">
@@ -353,7 +358,7 @@ function ModalNuevoPaciente({ abierto, onCerrar }) {
 
 function SkeletonTabla() {
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+    <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
       <div className="h-9 border-b border-slate-100 bg-slate-50" />
       {Array.from({ length: 6 }).map((_, i) => (
         <div key={i} className="flex items-center gap-4 border-t border-slate-100 px-4 py-3 first:border-t-0">

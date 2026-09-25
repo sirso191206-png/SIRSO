@@ -1,3 +1,5 @@
+import { Icon } from './Icon'
+
 export function Modal({ abierto, onCerrar, titulo, children, ancho = 'normal' }) {
   if (!abierto) return null
 
@@ -15,9 +17,7 @@ export function Modal({ abierto, onCerrar, titulo, children, ancho = 'normal' })
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold tracking-tight text-slate-800">{titulo}</h2>
           <button onClick={onCerrar} className="text-slate-400 transition-colors duration-150 hover:text-slate-600" aria-label="Cerrar">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M18 6L6 18M6 6l12 12" />
-            </svg>
+            <Icon.x />
           </button>
         </div>
         {children}

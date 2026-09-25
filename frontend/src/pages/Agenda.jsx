@@ -18,6 +18,7 @@ import { ModalNuevaUrgencia } from '../components/ModalNuevaUrgencia'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
+import { Icon } from '../components/ui/Icon'
 
 function inicioDeSemanaLunes(fecha) {
   const d = new Date(fecha)
@@ -150,7 +151,7 @@ export function Agenda() {
           }}
         />
 
-        <div className="space-y-2 rounded-xl border border-slate-200 bg-white p-3">
+        <div className="space-y-2 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm">
           <label className="block text-xs font-medium text-slate-500">Dentista</label>
           <select
             value={filtroDentista}
@@ -172,7 +173,7 @@ export function Agenda() {
           </select>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-3">
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm">
           <div className="mb-1.5 text-xs font-medium text-slate-500">Colores de la agenda</div>
           <div className="grid grid-cols-2 gap-x-2 gap-y-1">
             {ESTADOS_CITA.map((e) => (
@@ -186,11 +187,11 @@ export function Agenda() {
 
         {puedeGestionar && (
           <div className="space-y-2">
-            <button onClick={() => setModalBloqueo(true)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs text-slate-600 hover:bg-slate-50">
-              🔒 + Bloquear horario
+            <button onClick={() => setModalBloqueo(true)} className="flex w-full items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs text-slate-600 hover:bg-slate-50">
+              <Icon.lock /> Bloquear horario
             </button>
-            <button onClick={() => setModalListaEspera(true)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs text-slate-600 hover:bg-slate-50">
-              🪑 Lista de espera {listaEspera.length > 0 && `(${listaEspera.length})`}
+            <button onClick={() => setModalListaEspera(true)} className="flex w-full items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs text-slate-600 hover:bg-slate-50">
+              <Icon.chair /> Lista de espera {listaEspera.length > 0 && `(${listaEspera.length})`}
             </button>
           </div>
         )}
@@ -213,14 +214,18 @@ export function Agenda() {
                 </button>
               ))}
             </div>
-            <Button variante="secundario" onClick={() => cambiarPeriodo(-1)}>←</Button>
+            <Button variante="secundario" onClick={() => cambiarPeriodo(-1)} aria-label="Periodo anterior"><Icon.chevronLeft /></Button>
             <Button variante="secundario" onClick={() => setFechaBase(new Date())}>Hoy</Button>
-            <Button variante="secundario" onClick={() => cambiarPeriodo(1)}>→</Button>
+            <Button variante="secundario" onClick={() => cambiarPeriodo(1)} aria-label="Periodo siguiente"><Icon.chevronRight /></Button>
             {puedeGestionar && (
-              <Button onClick={() => { setFechaParaNuevaCita(null); setModalNuevaCita(true) }}>📅 + Nueva cita</Button>
+              <Button onClick={() => { setFechaParaNuevaCita(null); setModalNuevaCita(true) }} className="inline-flex items-center gap-1.5">
+                <Icon.calendarPlus /> Nueva cita
+              </Button>
             )}
             {puedeGestionar && (
-              <Button variante="secundario" onClick={() => setModalUrgenciaAbierto(true)}>🚨 + Urgencia</Button>
+              <Button variante="secundario" onClick={() => setModalUrgenciaAbierto(true)} className="inline-flex items-center gap-1.5">
+                <Icon.zap /> Urgencia
+              </Button>
             )}
           </div>
         </div>

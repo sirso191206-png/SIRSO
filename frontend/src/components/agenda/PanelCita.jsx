@@ -5,6 +5,7 @@ import { toastExito, toastError } from '../../store/useToastStore'
 import { ESTADOS_CITA, infoEstado, ESTADOS_FINALES } from './constantes'
 import { Button } from '../ui/Button'
 import { ConfirmModal } from '../ui/ConfirmModal'
+import { Icon } from '../ui/Icon'
 
 export function PanelCita({ cita, onCerrar, onCambiarEstado, onReagendar, onDesagendar }) {
   const navigate = useNavigate()
@@ -67,7 +68,7 @@ export function PanelCita({ cita, onCerrar, onCambiarEstado, onReagendar, onDesa
           <span className="rounded-full px-3 py-1 text-xs font-semibold" style={{ backgroundColor: info.fondo, color: info.texto }}>
             {info.icono} {info.label}
           </span>
-          <button onClick={onCerrar} className="text-slate-400 hover:text-slate-600">✕</button>
+          <button onClick={onCerrar} className="text-slate-400 hover:text-slate-600" aria-label="Cerrar"><Icon.x /></button>
         </div>
 
         <h2 className="mb-4 text-lg font-semibold text-slate-800">{cita.paciente?.nombre_completo}</h2>
@@ -77,8 +78,8 @@ export function PanelCita({ cita, onCerrar, onCambiarEstado, onReagendar, onDesa
             <div className="flex justify-between gap-3 border-b border-slate-50 pb-2">
               <dt className="shrink-0 text-slate-400">Teléfono</dt>
               <dd className="text-right">
-                <a href={`tel:${cita.paciente.telefono}`} className="text-clinico-azul hover:underline">
-                  📞 {cita.paciente.telefono}
+                <a href={`tel:${cita.paciente.telefono}`} className="inline-flex items-center gap-1.5 text-clinico-azul hover:underline">
+                  <Icon.phone /> {cita.paciente.telefono}
                 </a>
               </dd>
             </div>
@@ -97,34 +98,35 @@ export function PanelCita({ cita, onCerrar, onCambiarEstado, onReagendar, onDesa
         {!finalizada && !reprogramando && (
           <div className="mb-6 grid grid-cols-2 gap-2">
             {cita.estado === 'pendiente_confirmar' && (
-              <Button onClick={() => ejecutar(() => onCambiarEstado(cita.id, 'confirmada'), 'Cita confirmada.')} disabled={procesando}>
-                ✓ Confirmar
+              <Button onClick={() => ejecutar(() => onCambiarEstado(cita.id, 'confirmada'), 'Cita confirmada.')} disabled={procesando} className="inline-flex items-center justify-center gap-1.5">
+                <Icon.check /> Confirmar
               </Button>
             )}
             {['agendada', 'confirmada'].includes(cita.estado) && (
-              <Button variante="secundario" onClick={() => ejecutar(() => onCambiarEstado(cita.id, 'en_espera'), 'Paciente marcado en espera.')} disabled={procesando}>
-                ⏳ Marcar en espera
+              <Button variante="secundario" onClick={() => ejecutar(() => onCambiarEstado(cita.id, 'en_espera'), 'Paciente marcado en espera.')} disabled={procesando} className="inline-flex items-center justify-center gap-1.5">
+                <Icon.clock /> En espera
               </Button>
             )}
             {['agendada', 'confirmada', 'en_espera'].includes(cita.estado) && (
-              <Button variante="secundario" onClick={() => ejecutar(() => onCambiarEstado(cita.id, 'en_consulta'), 'Consulta iniciada.')} disabled={procesando}>
-                ▶ Iniciar consulta
+              <Button variante="secundario" onClick={() => ejecutar(() => onCambiarEstado(cita.id, 'en_consulta'), 'Consulta iniciada.')} disabled={procesando} className="inline-flex items-center justify-center gap-1.5">
+                <Icon.play /> Iniciar consulta
               </Button>
             )}
             {cita.estado === 'en_consulta' && (
-              <Button onClick={() => ejecutar(() => onCambiarEstado(cita.id, 'completada'), 'Cita completada.')} disabled={procesando}>
-                ✔ Completar
+              <Button onClick={() => ejecutar(() => onCambiarEstado(cita.id, 'completada'), 'Cita completada.')} disabled={procesando} className="inline-flex items-center justify-center gap-1.5">
+                <Icon.checkCircle /> Completar
               </Button>
             )}
-            <Button variante="secundario" onClick={() => setReprogramando(true)} disabled={procesando}>
-              🔄 Reprogramar
+            <Button variante="secundario" onClick={() => setReprogramando(true)} disabled={procesando} className="inline-flex items-center justify-center gap-1.5">
+              <Icon.refresh /> Reprogramar
             </Button>
             <Button
               variante="peligro"
               onClick={() => ejecutar(() => onCambiarEstado(cita.id, 'cancelada'), 'Cita cancelada.')}
               disabled={procesando}
+              className="inline-flex items-center justify-center gap-1.5"
             >
-              ✕ Cancelar
+              <Icon.x /> Cancelar
             </Button>
           </div>
         )}
@@ -152,8 +154,8 @@ export function PanelCita({ cita, onCerrar, onCambiarEstado, onReagendar, onDesa
           </form>
         )}
 
-        <Button variante="secundario" onClick={() => navigate(`/pacientes/${cita.paciente_id}`)} className="w-full">
-          📋 Ver expediente
+        <Button variante="secundario" onClick={() => navigate(`/pacientes/${cita.paciente_id}`)} className="inline-flex w-full items-center justify-center gap-1.5">
+          <Icon.clipboard /> Ver expediente
         </Button>
 
         {perfil?.rol === 'owner' && (

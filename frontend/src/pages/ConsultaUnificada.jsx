@@ -14,6 +14,7 @@ import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { Badge } from '../components/ui/Badge'
+import { Icon } from '../components/ui/Icon'
 
 const MOTIVOS_RAPIDOS = ['Dolor', 'Revisión', 'Limpieza', 'Sensibilidad', 'Seguimiento', 'Urgencia']
 const HALLAZGOS_RAPIDOS = ['Sin alteraciones', 'Caries', 'Inflamación', 'Sangrado', 'Sensibilidad', 'Movilidad']
@@ -81,8 +82,8 @@ export function ConsultaUnificada() {
           <CampoSignoVital label="Peso" unidad="kg" valor={f.signosVitalesForm.peso} onChange={(v) => f.setSignosVitalesForm((s) => ({ ...s, peso: v }))} paso="0.1" />
           <CampoSignoVital label="Estatura" unidad="m" valor={f.signosVitalesForm.estatura} onChange={(v) => f.setSignosVitalesForm((s) => ({ ...s, estatura: v }))} paso="0.01" />
         </div>
-        <Button variante="secundario" className="mt-3" onClick={f.guardarSignosVitalesForm} disabled={f.guardandoSignosVitales}>
-          {f.guardandoSignosVitales ? 'Guardando…' : '💓 Guardar signos vitales'}
+        <Button variante="secundario" className="mt-3 inline-flex items-center gap-1.5" onClick={f.guardarSignosVitalesForm} disabled={f.guardandoSignosVitales}>
+          {f.guardandoSignosVitales ? 'Guardando…' : (<><Icon.heartPulse /> Guardar signos vitales</>)}
         </Button>
         {f.signosVitales.length > 0 && (
           <p className="mt-2 text-xs text-slate-400">
@@ -211,7 +212,9 @@ export function ConsultaUnificada() {
 
       {/* Sección 9: Receta */}
       <Seccion titulo="9. Receta">
-        <Button variante="secundario" onClick={() => f.setModalReceta(true)}>🖋 + Nueva receta</Button>
+        <Button variante="secundario" onClick={() => f.setModalReceta(true)} className="inline-flex items-center gap-1.5">
+          <Icon.edit /> Nueva receta
+        </Button>
         <div className="mt-3 space-y-2">
           {f.recetas.length === 0 && <p className="text-sm text-slate-400">Sin recetas generadas en este expediente.</p>}
           {f.recetas.slice(0, 3).map((r) => (
@@ -227,8 +230,12 @@ export function ConsultaUnificada() {
         <Button variante="secundario" onClick={f.handleGuardarBorrador} disabled={f.guardandoBorrador || f.guardando}>
           {f.guardandoBorrador ? 'Guardando…' : 'Guardar borrador'}
         </Button>
-        <Button onClick={f.handleFinalizar} disabled={f.guardando || f.guardandoBorrador || f.finalizada}>
-          {f.guardando ? 'Guardando…' : f.finalizada ? 'Consulta guardada ✓' : 'Guardar y finalizar consulta'}
+        <Button onClick={f.handleFinalizar} disabled={f.guardando || f.guardandoBorrador || f.finalizada} className="inline-flex items-center gap-1.5">
+          {f.guardando
+            ? 'Guardando…'
+            : f.finalizada
+              ? (<><Icon.checkCircle /> Consulta guardada</>)
+              : 'Guardar y finalizar consulta'}
         </Button>
       </div>
 

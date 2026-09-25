@@ -8,6 +8,7 @@ import { PadFirma } from '../PadFirma'
 import { Modal } from '../ui/Modal'
 import { Input } from '../ui/Input'
 import { Button } from '../ui/Button'
+import { Icon } from '../ui/Icon'
 
 export function etiquetaPacientesPorRol(rol) {
   return {
@@ -16,31 +17,6 @@ export function etiquetaPacientesPorRol(rol) {
     asistente: 'Pacientes asignados',
     recepcion: 'Buscar pacientes'
   }[rol] ?? 'Pacientes'
-}
-
-// Íconos SVG inline — sin librerías, sin emojis. Los 9 primeros son
-// los del sistema de diseño; los últimos 5 (shield, alertTriangle,
-// briefcase, scale, logOut) se agregaron con el mismo lenguaje visual
-// exacto (viewBox 24, stroke 1.75, currentColor) para los ítems reales
-// que ya existen en SIRO (ARCO, Incidentes, Superadministrador, cerrar
-// sesión) y que el documento de diseño no llegó a mapear.
-const props = { width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.75, strokeLinecap: 'round', strokeLinejoin: 'round' }
-
-const Icon = {
-  home: () => (<svg {...props}><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z" /><path d="M9 21V12h6v9" /></svg>),
-  calendar: () => (<svg {...props}><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></svg>),
-  users: () => (<svg {...props}><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" /></svg>),
-  sparkles: () => (<svg {...props}><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z" /><path d="M19 13l.75 2.25L22 16l-2.25.75L19 19l-.75-2.25L16 16l2.25-.75L19 13z" /></svg>),
-  card: () => (<svg {...props}><rect x="2" y="5" width="20" height="14" rx="2" /><path d="M2 10h20" /></svg>),
-  chart: () => (<svg {...props}><path d="M4 19V9M12 19V5M20 19v-7" /></svg>),
-  user: () => (<svg {...props}><path d="M16 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" /><circle cx="10" cy="7" r="4" /></svg>),
-  building: () => (<svg {...props}><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6" /></svg>),
-  settings: () => (<svg {...props}><circle cx="12" cy="12" r="3" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" /></svg>),
-  shield: () => (<svg {...props}><path d="M12 2l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5l8-3z" /><path d="M9 12l2 2 4-4" /></svg>),
-  alertTriangle: () => (<svg {...props}><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /><path d="M12 9v4M12 17h.01" /></svg>),
-  briefcase: () => (<svg {...props}><rect x="2" y="7" width="20" height="14" rx="2" /><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2" /></svg>),
-  scale: () => (<svg {...props}><path d="M12 3v18M9 21h6M5 7h14" /><path d="M5 7l-3 7a3 3 0 006 0L5 7z" /><path d="M19 7l-3 7a3 3 0 006 0l-3-7z" /></svg>),
-  logOut: () => (<svg {...props}><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" /></svg>)
 }
 
 // Estructura por secciones, siguiendo el flujo real de trabajo de la

@@ -7,23 +7,7 @@ import { capitalizarPrimeraLetra } from '../lib/texto'
 import { ColaDeEspera } from '../components/ColaDeEspera'
 import { ModalNuevaUrgencia } from '../components/ModalNuevaUrgencia'
 import { Button } from '../components/ui/Button'
-
-// Mismo lenguaje visual que el Sidebar: SVG inline, sin librerías,
-// sin emojis en botones de acción — solo se permite un emoji puntual
-// en alertas clínicas (⚠), tal como pide el sistema de diseño.
-const svgProps = { width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.75, strokeLinecap: 'round', strokeLinejoin: 'round' }
-const Icon = {
-  userPlus: () => (<svg {...svgProps}><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M19 8v6M22 11h-6" /></svg>),
-  calendarPlus: () => (<svg {...svgProps}><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4M12 14v4M10 16h4" /></svg>),
-  zap: () => (<svg {...svgProps}><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></svg>),
-  clock: () => (<svg {...svgProps}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 3" /></svg>),
-  folder: () => (<svg {...svgProps}><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" /></svg>),
-  play: () => (<svg {...svgProps}><path d="M6 4l14 8-14 8V4z" /></svg>),
-  check: () => (<svg {...svgProps}><path d="M5 12l5 5L20 7" /></svg>),
-  sparkles: () => (<svg {...svgProps}><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z" /><path d="M19 13l.75 2.25L22 16l-2.25.75L19 19l-.75-2.25L16 16l2.25-.75L19 13z" /></svg>),
-  dollar: () => (<svg {...svgProps}><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" /></svg>),
-  inbox: () => (<svg {...svgProps}><path d="M22 12h-6l-2 3h-4l-2-3H2" /><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z" /></svg>)
-}
+import { Icon } from '../components/ui/Icon'
 
 function saludo() {
   const hora = new Date().getHours()
