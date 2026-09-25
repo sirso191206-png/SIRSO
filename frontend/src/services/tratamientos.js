@@ -35,6 +35,21 @@ export async function cambiarEstadoTratamiento(id, estado) {
   return data
 }
 
+// Cancelar deja el registro (nunca se borra) — solo cambia su estado y
+// deja constancia de quién y por qué. El costo de un tratamiento
+// cancelado ya no cuenta en el saldo del paciente (v_saldo_pacientes
+// lo excluye desde siempre).
+export async function cancelarTratamiento(id, { usuarioId, motivo }) {
+  const { data, error } = await supabase
+    .from('tratamientos')
+    .update({ estado: 'cancelado', motivo_cancelacion: motivo || null, cancelado_por: usuarioId })
+    .eq('id', id)
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
 export async function actualizarTratamiento(id, cambios) {
   const { data, error } = await supabase
     .from('tratamientos')

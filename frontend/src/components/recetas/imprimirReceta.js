@@ -176,6 +176,9 @@ export async function imprimirReceta({ receta, paciente, clinicaId, incluirSigno
         .signos-vitales-titulo { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
         .signos-vitales-fila { font-size: 12.5px; color: #374151; }
         .firma { margin-top: auto; padding-top: 10mm; text-align: center; }
+        .firma-doble { margin-top: auto; padding-top: 10mm; display: flex; justify-content: space-around; align-items: flex-end; gap: 20px; }
+        .firma-col { text-align: center; flex: 1; }
+        .firma-imagen { max-height: 42px; max-width: 100%; object-fit: contain; display: block; margin: 0 auto 3px; }
 
         /* Cuando hay 2+ medicamentos, el contenido crece y empieza a
            empujar la firma hacia abajo — comprimimos el espaciado
@@ -189,7 +192,7 @@ export async function imprimirReceta({ receta, paciente, clinicaId, incluirSigno
         .hoja-media-carta.compacto .medicamento-indicaciones { font-size: 11.5px; }
         .hoja-media-carta.compacto .indicaciones-generales { margin-top: 8px; font-size: 11.5px; }
         .hoja-media-carta.compacto .signos-vitales { margin-top: 8px; padding: 6px 10px; }
-        .hoja-media-carta.compacto .firma { padding-top: 6mm; }
+        .hoja-media-carta.compacto .firma, .hoja-media-carta.compacto .firma-doble { padding-top: 6mm; }
         .firma-linea { border-top: 1.5px solid #111827; width: 220px; margin: 0 auto 5px; }
         .firma-texto { font-size: 12.5px; color: #374151; }
       </style>
@@ -229,12 +232,26 @@ export async function imprimirReceta({ receta, paciente, clinicaId, incluirSigno
 
       ${receta.indicaciones_generales ? `<div class="indicaciones-generales"><strong>Indicaciones generales:</strong> ${receta.indicaciones_generales}</div>` : ''}
 
+      ${receta.firma_paciente_png || receta.firma_dentista_png ? `
+      <div class="firma-doble">
+        ${receta.firma_paciente_png ? `
+        <div class="firma-col">
+          <img src="${receta.firma_paciente_png}" class="firma-imagen" alt="Firma del paciente" />
+          <div class="firma-linea"></div>
+          <div class="firma-texto">${paciente?.nombre_completo ?? 'Paciente'}</div>
+        </div>` : ''}
+        <div class="firma-col">
+          ${receta.firma_dentista_png ? `<img src="${receta.firma_dentista_png}" class="firma-imagen" alt="Firma del médico" />` : ''}
+          <div class="firma-linea"></div>
+          <div class="firma-texto">${profesional.nombre}</div>
+        </div>
+      </div>` : `
       <div class="firma">
         <div class="firma-linea"></div>
         <div class="firma-texto">
           ${profesional.nombre}
         </div>
-      </div>
+      </div>`}
       <div class="guia-corte">✂ cortar aquí</div>
       </div>
 

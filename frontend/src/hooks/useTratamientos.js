@@ -3,6 +3,7 @@ import {
   obtenerTratamientos,
   crearTratamiento,
   cambiarEstadoTratamiento,
+  cancelarTratamiento,
   actualizarTratamiento,
   registrarSesion
 } from '../services/tratamientos'
@@ -32,6 +33,11 @@ export function useTratamientos(pacienteId) {
     await recargar()
   }
 
+  const cancelar = async (id, datos) => {
+    await cancelarTratamiento(id, datos)
+    await recargar()
+  }
+
   const actualizar = async (id, cambios) => {
     await actualizarTratamiento(id, cambios)
     await recargar()
@@ -42,5 +48,5 @@ export function useTratamientos(pacienteId) {
     await recargar()
   }
 
-  return { tratamientos, cargando, agregar, cambiarEstado, actualizar, sumarSesion }
+  return { tratamientos, cargando, agregar, cambiarEstado, cancelar, actualizar, sumarSesion }
 }

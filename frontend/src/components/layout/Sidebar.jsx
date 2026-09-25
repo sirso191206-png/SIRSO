@@ -4,6 +4,7 @@ import { useAuthStore } from '../../store/useAuthStore'
 import { toastExito, toastError } from '../../store/useToastStore'
 import { actualizarMiPerfilProfesional } from '../../services/usuarios'
 import { SelectorSucursal } from '../sucursales/SelectorSucursal'
+import { PadFirma } from '../PadFirma'
 import { Modal } from '../ui/Modal'
 import { Input } from '../ui/Input'
 import { Button } from '../ui/Button'
@@ -259,6 +260,8 @@ function ModalPerfilProfesional({ abierto, onCerrar }) {
   const perfil = useAuthStore((s) => s.perfil)
   const recargarPerfil = useAuthStore((s) => s.recargarPerfil)
   const [form, setForm] = useState({ nombre: '', rfc: '', cedulaProfesional: '', escuelaProcedencia: '' })
+  const [firmaPng, setFirmaPng] = useState(undefined) // undefined = sin tocar, usa la guardada
+  const [refirmando, setRefirmando] = useState(false)
   const [guardando, setGuardando] = useState(false)
 
   // Se sincroniza con el perfil real cada vez que se abre — así
@@ -272,6 +275,8 @@ function ModalPerfilProfesional({ abierto, onCerrar }) {
         cedulaProfesional: perfil.cedula_profesional ?? '',
         escuelaProcedencia: perfil.escuela_procedencia ?? ''
       })
+      setFirmaPng(undefined)
+      setRefirmando(false)
     }
   }, [abierto, perfil])
 
@@ -279,7 +284,13 @@ function ModalPerfilProfesional({ abierto, onCerrar }) {
     e.preventDefault()
     setGuardando(true)
     try {
-      await actualizarMiPerfilProfesional(perfil.id, form)
+      // Si firmaPng nunca se tocó (undefined), se conserva la firma que
+      // ya estaba guardada — no se manda nada y no se borra por
+      // accidente solo por abrir y cerrar este modal sin firmar de nuevo.
+      const datosGuardar = { ...form }
+      if (firmaPng !== undefined) datosGuardar.firmaPng = firmaPng
+      else datosGuardar.firmaPng = perfil.firma_png
+      await actualizarMiPerfilProfesional(perfil.id, datosGuardar)
       await recargarPerfil()
       toastExito('Datos profesionales actualizados.')
       onCerrar()
@@ -289,6 +300,8 @@ function ModalPerfilProfesional({ abierto, onCerrar }) {
       setGuardando(false)
     }
   }
+
+  const mostrarFirmaGuardada = perfil?.firma_png && !refirmando
 
   return (
     <Modal abierto={abierto} onCerrar={onCerrar} titulo="Datos profesionales">
@@ -320,6 +333,26 @@ function ModalPerfilProfesional({ abierto, onCerrar }) {
           value={form.escuelaProcedencia}
           onChange={(e) => setForm({ ...form, escuelaProcedencia: e.target.value })}
         />
+
+        <div>
+          <span className="mb-1 block text-sm font-medium text-slate-700">Firma</span>
+          <p className="mb-2 text-xs text-slate-400">
+            Se dibuja una sola vez aquí y se copia automáticamente a cada receta nueva que generes — no
+            es una firma electrónica con validez legal formal, es el equivalente digital de firmar a
+            mano.
+          </p>
+          {mostrarFirmaGuardada ? (
+            <div className="rounded-lg border border-slate-200 p-2">
+              <img src={perfil.firma_png} alt="Tu firma guardada" className="h-20 w-full object-contain" />
+              <button type="button" onClick={() => setRefirmando(true)} className="mt-1 text-xs text-clinico-azul hover:underline">
+                Firmar de nuevo
+              </button>
+            </div>
+          ) : (
+            <PadFirma onCambiar={setFirmaPng} />
+          )}
+        </div>
+
         <Button type="submit" disabled={guardando} className="w-full">
           {guardando ? 'Guardando…' : 'Guardar datos profesionales'}
         </Button>

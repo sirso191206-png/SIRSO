@@ -58,7 +58,7 @@ export function CorteDeCaja() {
     return <p className="text-slate-400">Esta sección solo está disponible para owner y recepción.</p>
   }
 
-  const totalesPorMetodo = pagos.reduce((acc, p) => {
+  const totalesPorMetodo = pagos.filter((p) => !p.anulado_en).reduce((acc, p) => {
     const signo = p.tipo === 'reembolso' ? -1 : 1
     acc[p.metodo] = (acc[p.metodo] ?? 0) + signo * Number(p.monto)
     return acc
@@ -72,7 +72,7 @@ export function CorteDeCaja() {
   // no se muestra — es exactamente el corte de siempre.
   const sucursalesActivas = sucursales.filter((s) => s.activa)
   const mostrarConsolidado = !sucursalActualId && sucursalesActivas.length >= 2
-  const totalesPorSucursal = mostrarConsolidado ? calcularTotalesPorSucursal(pagos) : []
+  const totalesPorSucursal = mostrarConsolidado ? calcularTotalesPorSucursal(pagos.filter((p) => !p.anulado_en)) : []
 
   const handleImprimir = async () => {
     if (pagos.length === 0) return toastError('No hay movimientos en este periodo.')
@@ -169,12 +169,12 @@ export function CorteDeCaja() {
               </thead>
               <tbody>
                 {pagos.map((p) => (
-                  <tr key={p.id} className="border-t border-slate-100">
+                  <tr key={p.id} className={`border-t border-slate-100 ${p.anulado_en ? 'text-slate-300 line-through' : ''}`}>
                     <td className="px-4 py-2 font-mono text-xs text-slate-500">{p.numero_recibo}</td>
                     <td className="px-4 py-2">{p.paciente?.nombre_completo}</td>
                     {mostrarConsolidado && <td className="px-4 py-2 text-slate-500">{p.sucursal?.nombre ?? '—'}</td>}
                     <td className="px-4 py-2 capitalize">{p.metodo}</td>
-                    <td className="px-4 py-2 capitalize">{p.tipo}</td>
+                    <td className="px-4 py-2 capitalize">{p.tipo}{p.anulado_en ? ' (anulado)' : ''}</td>
                     <td className="px-4 py-2 text-slate-500">{p.registrado_por?.nombre}</td>
                     <td className="px-4 py-2 text-right font-medium">
                       {p.tipo === 'reembolso' && '-'}${Number(p.monto).toFixed(2)}

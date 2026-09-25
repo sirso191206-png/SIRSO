@@ -6,6 +6,7 @@ import { imprimirReceta } from './imprimirReceta'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
 import { Modal } from '../ui/Modal'
+import { PadFirma } from '../PadFirma'
 
 const MEDICAMENTO_VACIO = { medicamento: '', presentacion: '', dosis: '', via: '', frecuencia: '', duracion: '', indicaciones: '' }
 
@@ -100,6 +101,7 @@ export function ModalNuevaReceta({ abierto, onCerrar, onGuardar, perfil }) {
   const [indicacionesGenerales, setIndicacionesGenerales] = useState('')
   const [vigenciaDias, setVigenciaDias] = useState(30)
   const [esControlada, setEsControlada] = useState(false)
+  const [firmaPacientePng, setFirmaPacientePng] = useState(null)
   const [guardando, setGuardando] = useState(false)
 
   const cerrar = () => {
@@ -107,6 +109,7 @@ export function ModalNuevaReceta({ abierto, onCerrar, onGuardar, perfil }) {
     setIndicacionesGenerales('')
     setVigenciaDias(30)
     setEsControlada(false)
+    setFirmaPacientePng(null)
     onCerrar()
   }
 
@@ -138,7 +141,13 @@ export function ModalNuevaReceta({ abierto, onCerrar, onGuardar, perfil }) {
         nombre_medico_snapshot: perfil.nombre ?? null,
         rfc_snapshot: perfil.rfc ?? null,
         cedula_profesional_snapshot: perfil.cedula_profesional ?? null,
-        escuela_snapshot: perfil.escuela_procedencia ?? null
+        escuela_snapshot: perfil.escuela_procedencia ?? null,
+        // Firma del dentista: se copia la que ya tiene guardada en su
+        // perfil (Datos profesionales) — no se le pide volver a
+        // firmar en cada receta. La del paciente sí se captura aquí,
+        // porque es específica de esta consulta.
+        firma_dentista_png: perfil.firma_png ?? null,
+        firma_paciente_png: firmaPacientePng
       })
       toastExito('Receta guardada.')
       cerrar()
@@ -213,6 +222,11 @@ export function ModalNuevaReceta({ abierto, onCerrar, onGuardar, perfil }) {
               medicamento lo requiere; el trámite del recetario especial es aparte.
             </p>
           )}
+        </div>
+
+        <div>
+          <span className="mb-1 block text-sm font-medium text-slate-700">Firma del paciente (opcional)</span>
+          <PadFirma onCambiar={setFirmaPacientePng} />
         </div>
 
         <Button type="submit" disabled={guardando} className="w-full">

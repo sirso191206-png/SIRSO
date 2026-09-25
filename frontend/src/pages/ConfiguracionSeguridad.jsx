@@ -1,20 +1,26 @@
 import { useEffect, useState } from 'react'
 import { useAuthStore } from '../store/useAuthStore'
 import { toastExito, toastError } from '../store/useToastStore'
-import { listarMisSesiones, marcarSesionFinalizada, cerrarTodasLasSesiones } from '../services/sesiones'
+import { listarMisSesiones, marcarSesionFinalizada, cerrarTodasLasSesiones, obtenerMiLimiteSesiones } from '../services/sesiones'
 import { Button } from '../components/ui/Button'
 
 export function ConfiguracionSeguridad() {
   const perfil = useAuthStore((s) => s.perfil)
   const sesionActualId = useAuthStore((s) => s.sesionActualId)
   const [sesiones, setSesiones] = useState([])
+  const [limite, setLimite] = useState(undefined) // undefined = aún no se consultó
   const [cargando, setCargando] = useState(true)
   const [procesando, setProcesando] = useState(false)
 
   const recargar = async () => {
     setCargando(true)
     try {
-      setSesiones(await listarMisSesiones())
+      const [listaSesiones, limiteActual] = await Promise.all([
+        listarMisSesiones(),
+        obtenerMiLimiteSesiones()
+      ])
+      setSesiones(listaSesiones)
+      setLimite(limiteActual)
     } catch (err) {
       toastError(err.message)
     } finally {
@@ -50,6 +56,14 @@ export function ConfiguracionSeguridad() {
       <p className="mb-6 text-sm text-slate-500">
         Dispositivos donde has iniciado sesión en SIRO, según nuestro propio registro.
       </p>
+
+      {limite !== undefined && limite !== null && (
+        <p className="mb-4 text-xs text-slate-400">
+          Tu plan permite hasta <strong>{limite}</strong> {limite === 1 ? 'sesión simultánea' : 'sesiones simultáneas'}. Si
+          inicias sesión en un dispositivo nuevo después de llegar al límite, el dispositivo que usaste hace más
+          tiempo se cierra automáticamente.
+        </p>
+      )}
 
       {cargando ? (
         <p className="text-slate-400">Cargando…</p>

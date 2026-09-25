@@ -42,6 +42,15 @@ export async function listarMisSesiones() {
   return data
 }
 
+// Cuántas sesiones simultáneas permite el plan de la clínica — la
+// base de datos es quien realmente lo aplica (trigger en
+// sesiones_usuario); esto es solo para poder mostrárselo a la persona.
+export async function obtenerMiLimiteSesiones() {
+  const { data, error } = await supabase.rpc('mi_limite_sesiones')
+  if (error) throw error
+  return data
+}
+
 // Solo cierra el REGISTRO de esta sesión — el signOut() real del
 // dispositivo actual lo maneja useAuthStore.logout() por separado.
 export async function marcarSesionFinalizada(id) {
@@ -66,4 +75,16 @@ export async function cerrarTodasLasSesiones(usuarioId) {
     .eq('usuario_id', usuarioId)
     .is('finalizada_en', null)
   if (errorFilas) console.error('No se pudieron marcar todas las sesiones como finalizadas:', errorFilas.message)
+}
+
+// Cuántas sesiones simultáneas permite el plan de la clínica de este
+// usuario (o un override específico de esa clínica, si tiene uno).
+// null significa sin límite — hoy solo aplica a super_admin.
+export async function obtenerLimiteSesiones(usuarioId) {
+  const { data, error } = await supabase.rpc('fn_limite_sesiones_de', { p_usuario_id: usuarioId })
+  if (error) {
+    console.error('No se pudo consultar el límite de sesiones:', error.message)
+    return null
+  }
+  return data
 }

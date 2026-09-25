@@ -67,14 +67,15 @@ export async function actualizarUsuario(id, { nombre, rol, cedulaProfesional, rf
 // rol/clinica_id/es_super_admin/activo (ni los recibe como parámetro):
 // la policy usuarios_update_self de Supabase exige que esos campos
 // queden exactamente igual, así que ni se intenta mandarlos.
-export async function actualizarMiPerfilProfesional(id, { nombre, rfc, cedulaProfesional, escuelaProcedencia }) {
+export async function actualizarMiPerfilProfesional(id, { nombre, rfc, cedulaProfesional, escuelaProcedencia, firmaPng }) {
   const { data, error } = await supabase
     .from('usuarios')
     .update({
       nombre,
       rfc: rfc || null,
       cedula_profesional: cedulaProfesional || null,
-      escuela_procedencia: escuelaProcedencia || null
+      escuela_procedencia: escuelaProcedencia || null,
+      firma_png: firmaPng || null
     })
     .eq('id', id)
     .select()

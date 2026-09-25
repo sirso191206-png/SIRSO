@@ -44,3 +44,18 @@ export async function registrarPago(pago) {
   if (error) throw error
   return data
 }
+
+// Anular deja el registro (nunca se borra ni se edita el monto) — un
+// trigger en la base de datos bloquea cualquier otro cambio. El pago
+// anulado ya no cuenta en el saldo del paciente (v_saldo_pacientes lo
+// excluye) ni en el corte de caja.
+export async function anularPago(id, { usuarioId, motivo }) {
+  const { data, error } = await supabase
+    .from('pagos')
+    .update({ anulado_en: new Date().toISOString(), anulado_por: usuarioId, motivo_anulacion: motivo || null })
+    .eq('id', id)
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}

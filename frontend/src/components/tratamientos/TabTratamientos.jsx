@@ -10,7 +10,7 @@ import { SeccionPagos } from './SeccionPagos'
 import { Button } from '../ui/Button'
 
 export function TabTratamientos({ pacienteId, paciente }) {
-  const { tratamientos, cargando, agregar, cambiarEstado, actualizar, sumarSesion } = useTratamientos(pacienteId)
+  const { tratamientos, cargando, agregar, cambiarEstado, cancelar, actualizar, sumarSesion } = useTratamientos(pacienteId)
   const { catalogo } = useCatalogoTratamientos()
   const perfil = useAuthStore((s) => s.perfil)
   const [modalNuevo, setModalNuevo] = useState(false)
@@ -49,7 +49,9 @@ export function TabTratamientos({ pacienteId, paciente }) {
             tratamiento={t}
             onEditar={() => setTratamientoEditar(t)}
             onCambiarEstado={cambiarEstado}
+            onCancelar={cancelar}
             onSumarSesion={sumarSesion}
+            usuarioId={perfil.id}
           />
         ))}
       </div>
