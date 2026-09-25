@@ -67,7 +67,19 @@ export async function invocarFuncionAutenticada(nombreFuncion, opciones = {}) {
     try {
       return await intentar()
     } catch (segundoError) {
-      throw new Error(await extraerMensajeError(segundoError))
+      const mensajeSegundo = await extraerMensajeError(segundoError)
+      // Si el reintento TAMBIÉN falla por autenticación, la sesión ya
+      // no es recuperable (el refresh token está muerto, no solo el
+      // access token venció) — seguir mostrando el mismo error una y
+      // otra vez deja a la persona atorada sin saber qué hacer. Se
+      // limpia la sesión local (esto dispara onAuthStateChange, que ya
+      // resetea todo el estado de la app) y se manda directo al login.
+      if (PATRON_ERROR_DE_AUTENTICACION.test(mensajeSegundo)) {
+        await supabase.auth.signOut().catch(() => {})
+        window.location.href = '/login'
+        throw new Error('Tu sesión ya no es válida. Inicia sesión de nuevo.')
+      }
+      throw new Error(mensajeSegundo)
     }
   }
 }
