@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabase'
 export async function obtenerPagosPorRango({ desde, hasta, sucursalId }) {
   let query = supabase
     .from('pagos')
-    .select('*, paciente:pacientes(nombre_completo), registrado_por:usuarios(nombre), sucursal:sucursales(nombre)')
+    .select('*, paciente:pacientes(nombre_completo), registrado_por:usuarios!pagos_registrado_por_fkey(nombre), sucursal:sucursales(nombre)')
     .gte('creado_en', desde)
     .lt('creado_en', hasta)
     .order('creado_en', { ascending: false })
@@ -26,7 +26,7 @@ export async function obtenerPagosPorRango({ desde, hasta, sucursalId }) {
 export async function obtenerPagos(pacienteId) {
   const { data, error } = await supabase
     .from('pagos')
-    .select('*, registrado_por:usuarios(nombre)')
+    .select('*, registrado_por:usuarios!pagos_registrado_por_fkey(nombre)')
     .eq('paciente_id', pacienteId)
     .order('creado_en', { ascending: false })
   if (error) throw error

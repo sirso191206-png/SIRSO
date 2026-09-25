@@ -4,12 +4,20 @@ export function Modal({ abierto, onCerrar, titulo, children, ancho = 'normal' })
   const anchoClase = ancho === 'grande' ? 'max-w-3xl' : 'max-w-lg'
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className={`w-full ${anchoClase} max-h-[90vh] overflow-y-auto rounded-xl bg-white p-6 shadow-xl`}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-[2px]"
+      onClick={onCerrar}
+    >
+      <div
+        className={`w-full ${anchoClase} max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl shadow-slate-900/10 ring-1 ring-slate-200/60 sm:p-6`}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-slate-800">{titulo}</h2>
-          <button onClick={onCerrar} className="text-slate-400 hover:text-slate-600" aria-label="Cerrar">
-            ✕
+          <h2 className="text-lg font-semibold tracking-tight text-slate-800">{titulo}</h2>
+          <button onClick={onCerrar} className="text-slate-400 transition-colors duration-150 hover:text-slate-600" aria-label="Cerrar">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
           </button>
         </div>
         {children}

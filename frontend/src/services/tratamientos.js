@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 export async function obtenerTratamientos(pacienteId) {
   const { data, error } = await supabase
     .from('tratamientos')
-    .select('*, dentista:usuarios(nombre)')
+    .select('*, dentista:usuarios!tratamientos_dentista_id_fkey(nombre)')
     .eq('paciente_id', pacienteId)
     .order('creado_en', { ascending: false })
   if (error) throw error

@@ -31,20 +31,23 @@ export function ColaDeEspera({ onIniciarConsulta }) {
   if (cargando) return <p className="text-sm text-slate-400">Cargando cola…</p>
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white">
-      <div className="border-b border-slate-100 px-4 py-3">
-        <h2 className="text-sm font-semibold text-slate-700">Cola de espera</h2>
+    <div className="rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+      <div className="flex items-center gap-2 border-b border-slate-100 px-5 py-4">
+        <h2 className="text-sm font-semibold tracking-tight text-slate-800">Cola de espera</h2>
+        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">
+          {turnos.length}
+        </span>
       </div>
 
       {turnos.length === 0 ? (
-        <p className="p-4 text-sm text-slate-400">No hay turnos activos por ahora.</p>
+        <p className="p-5 text-sm text-slate-400">No hay turnos activos por ahora.</p>
       ) : (
         <div className="divide-y divide-slate-100">
           {turnos.map((t) => {
             const info = infoEstado(t.estado)
             const accion = ETIQUETA_BOTON_SIGUIENTE[t.estado]
             return (
-              <div key={t.id} className="flex items-center justify-between gap-2 px-4 py-3">
+              <div key={t.id} className="flex items-center justify-between gap-2 px-5 py-3 transition-colors duration-150 hover:bg-slate-50">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-semibold text-slate-400">Turno {t.numero_turno}</span>

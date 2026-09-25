@@ -12,7 +12,7 @@ const colores = {
 
 export function Badge({ estado, children }) {
   return (
-    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${colores[estado] ?? 'bg-slate-100 text-slate-700'}`}>
+    <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${colores[estado] ?? 'bg-slate-100 text-slate-700'}`}>
       {children ?? estado}
     </span>
   )
