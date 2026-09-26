@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { ACCIONES_BOOLEANAS, ACCIONES_NUMERICAS, tieneAlMenosUnaAccion } from '../lib/saludBucal'
+import { Icon } from './ui/Icon'
 
 export function AccionSaludBucal({ valor, onCambiar }) {
   const [expandido, setExpandido] = useState(false)
@@ -17,7 +18,7 @@ export function AccionSaludBucal({ valor, onCambiar }) {
       >
         <span className="font-medium text-slate-700">
           Acciones de salud bucal
-          {registrada && <span className="ml-2 text-xs font-normal text-clinico-verde">✓ registradas</span>}
+          {registrada && <span className="ml-2 inline-flex items-center gap-1 text-xs font-normal text-clinico-verde"><Icon.check /> registradas</span>}
         </span>
         <span className="text-xs text-clinico-azul">{expandido ? 'Ocultar' : 'Registrar'}</span>
       </button>

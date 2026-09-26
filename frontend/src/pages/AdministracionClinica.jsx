@@ -4,6 +4,7 @@ import { verClinica, actualizarClinica, eliminarClinica } from '../services/admi
 import { useAuthStore } from '../store/useAuthStore'
 import { toastExito, toastError } from '../store/useToastStore'
 import { Modal } from '../components/ui/Modal'
+import { Icon } from '../components/ui/Icon'
 import { Button } from '../components/ui/Button'
 
 const PLANES = [
@@ -109,8 +110,8 @@ export function AdministracionClinica() {
 
   return (
     <div>
-      <Link to="/administracion" className="mb-4 inline-block text-sm text-clinico-azul hover:underline">
-        ← Todas las clínicas
+      <Link to="/administracion" className="mb-4 inline-flex items-center gap-1 text-sm text-clinico-azul hover:underline">
+        <Icon.chevronLeft /> Todas las clínicas
       </Link>
       <div className="mb-6 flex items-center gap-3">
         <h1 className="text-2xl font-semibold text-slate-800">{datos.clinica.nombre}</h1>

@@ -1,4 +1,5 @@
 import { useToastStore } from '../../store/useToastStore'
+import { Icon } from './Icon'
 
 export function ToastContainer() {
   const { toasts, quitar } = useToastStore()
@@ -15,7 +16,7 @@ export function ToastContainer() {
             t.tipo === 'error' ? 'bg-red-600 text-white' : 'bg-slate-800 text-white'
           }`}
         >
-          <span>{t.tipo === 'error' ? '✕' : '✓'}</span>
+          {t.tipo === 'error' ? <Icon.xCircle /> : <Icon.checkCircle />}
           {t.mensaje}
         </div>
       ))}

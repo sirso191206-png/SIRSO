@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { CampoAutocompletar } from './CampoAutocompletar'
 import { SUGERENCIAS_ALERGIAS } from './catalogosAntecedentes'
+import { Icon } from '../ui/Icon'
 
 const SEVERIDADES = ['Leve', 'Moderada', 'Grave']
 const TIPOS = [
@@ -58,7 +59,7 @@ export function EditorAlergias({ alergias, onGuardar }) {
                 {a.tipo && <span className="text-red-500"> ({TIPOS.find((t) => t.value === a.tipo)?.label ?? a.tipo})</span>}
                 {' — '}{a.severidad}
               </span>
-              <button onClick={() => quitar(i)} disabled={guardando} className="text-slate-400 hover:text-clinico-rojo">✕</button>
+              <button onClick={() => quitar(i)} disabled={guardando} className="text-slate-400 hover:text-clinico-rojo" aria-label="Quitar"><Icon.x /></button>
             </div>
           ))}
         </div>

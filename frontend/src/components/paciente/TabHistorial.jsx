@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useLineaTiempo } from '../../hooks/useLineaTiempo'
+import { Icon } from '../ui/Icon'
 
 const FILTROS = [
   { value: 'todos', label: 'Todos' },
@@ -12,7 +13,8 @@ const FILTROS = [
 ]
 
 const ICONO_TIPO = {
-  paciente: '👤', cita: '📅', pago: '💵', tratamiento: '🦷', foto: '📷', nota: '📝', documento: '📄', consentimiento: '✍️'
+  paciente: Icon.user, cita: Icon.calendar, pago: Icon.dollar, tratamiento: Icon.sparkles,
+  foto: Icon.camera, nota: Icon.edit, documento: Icon.fileText, consentimiento: Icon.edit
 }
 
 const TAMANO_PAGINA = 15
@@ -50,7 +52,7 @@ export function TabHistorial({ pacienteId, filtroInicial = 'todos' }) {
         <div className="space-y-3">
           {eventosVisibles.map((ev) => (
             <div key={ev.id} className="flex gap-3 text-sm">
-              <span className="text-base leading-none">{ICONO_TIPO[ev.tipo] ?? '•'}</span>
+              <span className="text-slate-400">{(() => { const IconoEvento = ICONO_TIPO[ev.tipo]; return IconoEvento ? <IconoEvento /> : <span className="text-base leading-none">•</span> })()}</span>
               <div>
                 <div className="text-slate-700">{ev.texto}</div>
                 <div className="text-xs text-slate-400">

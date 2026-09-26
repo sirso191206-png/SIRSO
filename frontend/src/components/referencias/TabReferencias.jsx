@@ -4,6 +4,7 @@ import { useAuthStore } from '../../store/useAuthStore'
 import { toastExito, toastError } from '../../store/useToastStore'
 import { imprimirReferencia } from './imprimirReferencia'
 import { Button } from '../ui/Button'
+import { Icon } from '../ui/Icon'
 import { Input } from '../ui/Input'
 import { Modal } from '../ui/Modal'
 
@@ -54,9 +55,9 @@ export function TabReferencias({ pacienteId, paciente }) {
               <button
                 onClick={() => handleImprimir(r)}
                 disabled={imprimiendoId === r.id}
-                className="shrink-0 text-xs font-medium text-clinico-azul hover:underline disabled:opacity-50"
+                className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-clinico-azul hover:underline disabled:opacity-50"
               >
-                {imprimiendoId === r.id ? 'Generando…' : '🖨 Imprimir carta'}
+                {imprimiendoId === r.id ? 'Generando…' : (<><Icon.printer /> Imprimir carta</>)}
               </button>
             )}
           </div>

@@ -4,6 +4,7 @@ import { useAuthStore } from '../../store/useAuthStore'
 import { toastExito, toastError } from '../../store/useToastStore'
 import { imprimirRecibo } from './imprimirRecibo'
 import { Button } from '../ui/Button'
+import { Icon } from '../ui/Icon'
 import { Input } from '../ui/Input'
 import { Modal } from '../ui/Modal'
 
@@ -81,9 +82,9 @@ export function SeccionPagos({ pacienteId, paciente }) {
               <button
                 onClick={() => handleImprimir(p)}
                 disabled={imprimiendoId === p.id}
-                className="text-xs font-medium text-clinico-azul hover:underline disabled:opacity-50"
+                className="inline-flex items-center gap-1 text-xs font-medium text-clinico-azul hover:underline disabled:opacity-50"
               >
-                {imprimiendoId === p.id ? 'Generando…' : '🖨 Recibo'}
+                {imprimiendoId === p.id ? 'Generando…' : (<><Icon.printer /> Recibo</>)}
               </button>
               {!p.anulado_en && (
                 <button onClick={() => setPagoAAnular(p)} className="text-xs font-medium text-clinico-rojo hover:underline">

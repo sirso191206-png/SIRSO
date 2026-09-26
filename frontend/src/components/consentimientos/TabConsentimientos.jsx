@@ -8,6 +8,7 @@ import { PadFirma } from '../PadFirma'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
 import { Modal } from '../ui/Modal'
+import { Icon } from '../ui/Icon'
 
 export function TabConsentimientos({ pacienteId, paciente }) {
   const { consentimientos, cargando, agregar, revocar, cancelar } = useConsentimientos(pacienteId)
@@ -58,7 +59,7 @@ export function TabConsentimientos({ pacienteId, paciente }) {
                 {new Date(c.creado_en).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}
                 {c.fecha_procedimiento && ` · Procedimiento: ${new Date(c.fecha_procedimiento + 'T00:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}`}
                 {c.dentista?.nombre && ` · ${c.dentista.nombre}`}
-                {c.firma_paciente_png && ' · ✓ Firmado'}
+                {c.firma_paciente_png && (<> · <span className="inline-flex items-center gap-1 align-middle"><Icon.checkCircle /> Firmado</span></>)}
                 {c.revocado_en && ` · Revocado el ${new Date(c.revocado_en).toLocaleDateString('es-MX')}`}
                 {c.cancelado_en && ` · Cancelado el ${new Date(c.cancelado_en).toLocaleDateString('es-MX')}`}
               </div>
@@ -83,9 +84,9 @@ export function TabConsentimientos({ pacienteId, paciente }) {
               <button
                 onClick={() => handleImprimir(c)}
                 disabled={imprimiendoId === c.id}
-                className="text-xs font-medium text-clinico-azul hover:underline disabled:opacity-50"
+                className="inline-flex items-center gap-1 text-xs font-medium text-clinico-azul hover:underline disabled:opacity-50"
               >
-                {imprimiendoId === c.id ? 'Generando…' : '🖨 Ver / imprimir'}
+                {imprimiendoId === c.id ? 'Generando…' : (<><Icon.printer /> Ver / imprimir</>)}
               </button>
             </div>
           </div>

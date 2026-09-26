@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { useAuthStore } from '../store/useAuthStore'
 import { HeaderPublico } from '../components/layout/HeaderPublico'
 import { FooterPublico } from '../components/layout/FooterPublico'
+import { Icon } from '../components/ui/Icon'
 
 const CATEGORIAS = [
   {
@@ -52,9 +53,9 @@ export function Legal() {
                   <Link
                     key={e.to}
                     to={e.to}
-                    className="block rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-clinico-azulClaro hover:text-clinico-azul"
+                    className="flex items-center justify-between rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-clinico-azulClaro hover:text-clinico-azul"
                   >
-                    {e.label} →
+                    {e.label} <Icon.chevronRight />
                   </Link>
                 ))}
               </div>

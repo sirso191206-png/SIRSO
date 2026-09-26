@@ -4,6 +4,7 @@ import { buscarPosiblesDuplicados, crearPaciente } from '../services/pacientes'
 import { crearCitaUrgencia } from '../services/citas'
 import { usePacientes } from '../hooks/usePacientes'
 import { useAuthStore } from '../store/useAuthStore'
+import { Icon } from './ui/Icon'
 import { toastExito, toastError } from '../store/useToastStore'
 import { Modal } from './ui/Modal'
 import { Button } from './ui/Button'
@@ -112,15 +113,15 @@ export function ModalNuevaUrgencia({ abierto, onCerrar, onCreada }) {
         <div className="mb-4 flex gap-2">
           <button
             onClick={() => setModo('existente')}
-            className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium ${modo === 'existente' ? 'bg-clinico-azul text-white' : 'border border-slate-300 text-slate-600'}`}
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium ${modo === 'existente' ? 'bg-clinico-azul text-white' : 'border border-slate-300 text-slate-600'}`}
           >
-            👤 Paciente existente
+            <Icon.users /> Paciente existente
           </button>
           <button
             onClick={() => setModo('nuevo')}
-            className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium ${modo === 'nuevo' ? 'bg-clinico-azul text-white' : 'border border-slate-300 text-slate-600'}`}
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium ${modo === 'nuevo' ? 'bg-clinico-azul text-white' : 'border border-slate-300 text-slate-600'}`}
           >
-            🆕 Paciente nuevo
+            <Icon.userPlus /> Paciente nuevo
           </button>
         </div>
       )}

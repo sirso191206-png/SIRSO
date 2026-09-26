@@ -8,6 +8,7 @@ import {
 import { listarUsuarios } from '../../services/usuarios'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
+import { Icon } from '../ui/Icon'
 
 export function DetalleSucursal({ sucursal }) {
   return (
@@ -143,7 +144,7 @@ function BloqueSillones({ consultorio, onDesactivarConsultorio }) {
               {sillones.length === 0 && <p className="text-xs text-slate-400">Sin sillones registrados todavía.</p>}
               {sillones.map((s) => (
                 <div key={s.id} className="flex items-center justify-between text-xs text-slate-600">
-                  <span>🪑 {s.nombre}</span>
+                  <span className="inline-flex items-center gap-1.5"><Icon.chair /> {s.nombre}</span>
                   <button onClick={() => handleDesactivarSillon(s)} className="text-red-500 hover:underline">Desactivar</button>
                 </div>
               ))}

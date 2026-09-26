@@ -18,6 +18,7 @@ import { toastExito, toastError } from '../store/useToastStore'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
 import { ConfirmModal } from '../components/ui/ConfirmModal'
+import { Icon } from '../components/ui/Icon'
 
 const TODAS_LAS_TABS = [
   { nombre: 'Resumen', roles: ['owner', 'dentista'] },
@@ -154,35 +155,35 @@ export function PacienteDetalle() {
                   {puedeIniciarConsulta && (
                     <button
                       onClick={() => { setModalExpedienteCompleto(true); setMenuAcciones(false) }}
-                      className="block w-full px-3 py-2 text-left text-sm text-slate-600 hover:bg-slate-50"
+                      className="flex w-full items-center gap-1.5 px-3 py-2 text-left text-sm text-slate-600 hover:bg-slate-50"
                     >
-                      📋 Ver expediente completo
+                      <Icon.clipboard /> Ver expediente completo
                     </button>
                   )}
                   {puedeIniciarConsulta && (
                     <button
                       onClick={handleImprimirExpediente}
                       disabled={imprimiendoExpediente}
-                      className="block w-full px-3 py-2 text-left text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                      className="flex w-full items-center gap-1.5 px-3 py-2 text-left text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-50"
                     >
-                      {imprimiendoExpediente ? 'Preparando…' : '🖨 Imprimir expediente completo'}
+                      {imprimiendoExpediente ? 'Preparando…' : (<><Icon.printer /> Imprimir expediente completo</>)}
                     </button>
                   )}
                   {puedeIniciarConsulta && (
                     <button
                       onClick={handleExportarDatos}
                       disabled={exportando}
-                      className="block w-full px-3 py-2 text-left text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                      className="flex w-full items-center gap-1.5 px-3 py-2 text-left text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-50"
                     >
-                      {exportando ? 'Exportando…' : '⬇ Exportar datos (JSON)'}
+                      {exportando ? 'Exportando…' : (<><Icon.download /> Exportar datos (JSON)</>)}
                     </button>
                   )}
                   {perfil?.rol === 'owner' && !paciente.archivado_en && (
                     <button
                       onClick={() => { setModalArchivar(true); setMenuAcciones(false) }}
-                      className="block w-full px-3 py-2 text-left text-sm text-clinico-rojo hover:bg-red-50"
+                      className="flex w-full items-center gap-1.5 px-3 py-2 text-left text-sm text-clinico-rojo hover:bg-red-50"
                     >
-                      🗄 Archivar paciente
+                      <Icon.archive /> Archivar paciente
                     </button>
                   )}
                 </div>

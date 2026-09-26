@@ -5,6 +5,7 @@ import { useTratamientos } from '../../hooks/useTratamientos'
 import { useAuthStore } from '../../store/useAuthStore'
 import { toastExito, toastError } from '../../store/useToastStore'
 import { Button } from '../ui/Button'
+import { Icon } from '../ui/Icon'
 
 const ETIQUETAS_FOTO = {
   intraoral: 'Intraoral', extraoral: 'Extraoral', antes: 'Antes', despues: 'Después', radiografia: 'Radiografía'
@@ -112,8 +113,8 @@ export function TabArchivos({ pacienteId }) {
             ) : (
               <div className="rounded-lg bg-white p-6 text-center">
                 <p className="mb-3 text-sm text-slate-600">{ampliado.etiquetaVisible}</p>
-                <a href={ampliado.url} target="_blank" rel="noreferrer" className="text-sm text-clinico-azul hover:underline">
-                  Abrir documento →
+                <a href={ampliado.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm text-clinico-azul hover:underline">
+                  Abrir documento <Icon.chevronRight />
                 </a>
               </div>
             )}
@@ -132,7 +133,7 @@ function ArchivoMiniatura({ item, onAmpliar }) {
         <img src={item.url} alt={item.etiquetaVisible} className="aspect-square w-full object-cover" loading="lazy" />
       ) : (
         <div className="flex aspect-square w-full flex-col items-center justify-center gap-1 text-slate-400">
-          <span className="text-2xl">📄</span>
+          <span className="scale-150"><Icon.fileText /></span>
           <span className="px-2 text-center text-[10px]">{item.etiquetaVisible}</span>
         </div>
       )}

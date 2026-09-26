@@ -4,6 +4,7 @@ import { useAuthStore } from '../../store/useAuthStore'
 import { toastExito, toastError } from '../../store/useToastStore'
 import { imprimirReceta } from './imprimirReceta'
 import { Button } from '../ui/Button'
+import { Icon } from '../ui/Icon'
 import { Input } from '../ui/Input'
 import { Modal } from '../ui/Modal'
 import { PadFirma } from '../PadFirma'
@@ -63,9 +64,9 @@ export function TabRecetas({ pacienteId, paciente }) {
               <button
                 onClick={() => handleImprimir(r)}
                 disabled={imprimiendoId === r.id}
-                className="text-xs font-medium text-clinico-azul hover:underline disabled:opacity-50"
+                className="inline-flex items-center gap-1 text-xs font-medium text-clinico-azul hover:underline disabled:opacity-50"
               >
-                {imprimiendoId === r.id ? 'Generando…' : '🖨 Imprimir'}
+                {imprimiendoId === r.id ? 'Generando…' : (<><Icon.printer /> Imprimir</>)}
               </button>
             </div>
             <div className="space-y-2">

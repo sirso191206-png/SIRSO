@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { CampoAutocompletar } from './CampoAutocompletar'
+import { Icon } from '../ui/Icon'
 
 export function EditorLista({ etiqueta, items, onGuardar, placeholder, destacar = false, sugerencias = [] }) {
   const [nuevoItem, setNuevoItem] = useState('')
@@ -41,7 +42,7 @@ export function EditorLista({ etiqueta, items, onGuardar, placeholder, destacar 
               className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs ${destacar ? 'bg-white text-red-800' : 'bg-slate-100 text-slate-700'}`}
             >
               {item}
-              <button onClick={() => quitar(i)} disabled={guardando} className="text-slate-400 hover:text-clinico-rojo">✕</button>
+              <button onClick={() => quitar(i)} disabled={guardando} className="text-slate-400 hover:text-clinico-rojo" aria-label="Quitar"><Icon.x /></button>
             </span>
           ))}
         </div>

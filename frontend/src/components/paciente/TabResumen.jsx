@@ -9,6 +9,7 @@ import { toastError } from '../../store/useToastStore'
 import { imprimirRecibo } from '../tratamientos/imprimirRecibo'
 import { Button } from '../ui/Button'
 import { Badge } from '../ui/Badge'
+import { Icon } from '../ui/Icon'
 
 // Próxima cita y última consulta completada — datos puntuales que no
 // tienen hook propio todavía, se piden directo aquí (mismo patrón que
@@ -99,7 +100,7 @@ export function TabResumen({ pacienteId, paciente, onIrA, onNuevaConsulta, inici
 
       <div className="rounded-xl border-2 border-clinico-azul bg-white p-4 lg:col-span-2">
         <div className="mb-3 flex items-center justify-between">
-          <span className="text-sm font-semibold text-slate-700">💵 Saldo</span>
+          <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-700"><Icon.dollar /> Saldo</span>
           <span
             className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
               estadoPago === 'Pendiente' ? 'bg-amber-100 text-amber-800'
@@ -143,10 +144,14 @@ export function TabResumen({ pacienteId, paciente, onIrA, onNuevaConsulta, inici
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-3">
-          <Button variante="secundario" onClick={() => onIrA('Plan')}>💰 Registrar pago</Button>
-          <Button variante="secundario" onClick={() => onIrA('Historial', 'pago')}>📋 Ver historial de pagos</Button>
-          <Button variante="secundario" onClick={handleGenerarComprobante} disabled={!ultimoPago || imprimiendoComprobante}>
-            {imprimiendoComprobante ? 'Generando…' : '🖨 Generar comprobante'}
+          <Button variante="secundario" onClick={() => onIrA('Plan')} className="inline-flex items-center gap-1.5">
+            <Icon.dollar /> Registrar pago
+          </Button>
+          <Button variante="secundario" onClick={() => onIrA('Historial', 'pago')} className="inline-flex items-center gap-1.5">
+            <Icon.clipboard /> Ver historial de pagos
+          </Button>
+          <Button variante="secundario" onClick={handleGenerarComprobante} disabled={!ultimoPago || imprimiendoComprobante} className="inline-flex items-center gap-1.5">
+            {imprimiendoComprobante ? 'Generando…' : (<><Icon.printer /> Generar comprobante</>)}
           </Button>
         </div>
       </div>

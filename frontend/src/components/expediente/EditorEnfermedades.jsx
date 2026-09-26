@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { CampoAutocompletar } from './CampoAutocompletar'
 import { SUGERENCIAS_ENFERMEDADES, OPCIONES_CONTROLADA } from './catalogosAntecedentes'
+import { Icon } from '../ui/Icon'
 
 function esTextoSimple(item) {
   return typeof item === 'string'
@@ -56,7 +57,7 @@ export function EditorEnfermedades({ items, onGuardar }) {
             <div key={i} className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">
               <div className="flex items-center justify-between">
                 <span className="font-medium">{esTextoSimple(item) ? item : item.nombre}</span>
-                <button onClick={() => quitar(i)} disabled={guardando} className="text-slate-400 hover:text-clinico-rojo">✕</button>
+                <button onClick={() => quitar(i)} disabled={guardando} className="text-slate-400 hover:text-clinico-rojo" aria-label="Quitar"><Icon.x /></button>
               </div>
               {!esTextoSimple(item) && (item.desde_cuando || item.controlada || item.medicacion || item.notas) && (
                 <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-500">

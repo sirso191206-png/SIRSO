@@ -8,6 +8,7 @@ import { FilaTratamiento } from './FilaTratamiento'
 import { ModalTratamiento } from './ModalTratamiento'
 import { SeccionPagos } from './SeccionPagos'
 import { Button } from '../ui/Button'
+import { Icon } from '../ui/Icon'
 
 export function TabTratamientos({ pacienteId, paciente }) {
   const { tratamientos, cargando, agregar, cambiarEstado, cancelar, actualizar, sumarSesion } = useTratamientos(pacienteId)
@@ -36,8 +37,8 @@ export function TabTratamientos({ pacienteId, paciente }) {
     <div className="space-y-4">
       <div className="flex justify-between">
         <Button onClick={() => setModalNuevo(true)}>+ Nuevo tratamiento</Button>
-        <Button variante="secundario" onClick={handleImprimir} disabled={imprimiendo}>
-          {imprimiendo ? 'Generando…' : '🖨 Presupuesto imprimible'}
+        <Button variante="secundario" onClick={handleImprimir} disabled={imprimiendo} className="inline-flex items-center gap-1.5">
+          {imprimiendo ? 'Generando…' : (<><Icon.printer /> Presupuesto imprimible</>)}
         </Button>
       </div>
 

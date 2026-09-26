@@ -7,6 +7,7 @@ import { useSucursalStore } from '../store/useSucursalStore'
 import { toastError } from '../store/useToastStore'
 import { imprimirCorteDeCaja } from '../components/pagos/imprimirCorteDeCaja'
 import { Button } from '../components/ui/Button'
+import { Icon } from '../components/ui/Icon'
 
 function inicioDelDia(fecha) {
   const d = new Date(fecha)
@@ -102,8 +103,8 @@ export function CorteDeCaja() {
           <h1 className="text-2xl font-semibold text-slate-800">Corte de caja</h1>
           <p className="text-sm text-slate-500">Totales de todo lo cobrado en la clínica, por método de pago.</p>
         </div>
-        <Button onClick={handleImprimir} disabled={imprimiendo}>
-          {imprimiendo ? 'Generando…' : '🖨 Imprimir corte'}
+        <Button onClick={handleImprimir} disabled={imprimiendo} className="inline-flex items-center gap-1.5">
+          {imprimiendo ? 'Generando…' : (<><Icon.printer /> Imprimir corte</>)}
         </Button>
       </div>
 
