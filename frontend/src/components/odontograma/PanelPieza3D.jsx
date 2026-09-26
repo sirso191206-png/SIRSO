@@ -4,6 +4,7 @@ import {
   TIPOS_DIENTES, NOMBRES_TIPO, ESTADOS_PIEZA, esArcadaSuperior, nombreCara
 } from './constantesOdontograma'
 import { Button } from '../ui/Button'
+import { Icon } from '../ui/Icon'
 
 export function PanelPieza3D({ pieza, tratamientos, onCerrar, onVerEnExpediente, onIrAPlan }) {
   const [historial, setHistorial] = useState(null)
@@ -42,7 +43,7 @@ export function PanelPieza3D({ pieza, tratamientos, onCerrar, onVerEnExpediente,
           <h3 className="text-lg font-semibold text-slate-800">Pieza {pieza.numero_pieza}</h3>
           <p className="text-xs text-slate-500">{NOMBRES_TIPO[tipo]} · Arcada {arcada}</p>
         </div>
-        <button onClick={onCerrar} className="text-slate-400 hover:text-slate-600" aria-label="Cerrar panel">✕</button>
+        <button onClick={onCerrar} className="text-slate-400 hover:text-slate-600" aria-label="Cerrar panel"><Icon.x /></button>
       </div>
 
       {sinCondiciones ? (

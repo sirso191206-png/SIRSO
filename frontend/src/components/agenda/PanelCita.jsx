@@ -65,8 +65,8 @@ export function PanelCita({ cita, onCerrar, onCambiarEstado, onReagendar, onDesa
     <div className="fixed inset-0 z-50 flex justify-end bg-black/30" onClick={onCerrar}>
       <div className="h-full w-full max-w-md overflow-y-auto bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-start justify-between">
-          <span className="rounded-full px-3 py-1 text-xs font-semibold" style={{ backgroundColor: info.fondo, color: info.texto }}>
-            {info.icono} {info.label}
+          <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold" style={{ backgroundColor: info.fondo, color: info.texto }}>
+            <info.iconoComponente /> {info.label}
           </span>
           <button onClick={onCerrar} className="text-slate-400 hover:text-slate-600" aria-label="Cerrar"><Icon.x /></button>
         </div>

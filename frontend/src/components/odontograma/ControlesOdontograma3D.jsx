@@ -1,3 +1,5 @@
+import { Icon } from '../ui/Icon'
+
 const OPCIONES_ARCADA = [
   { value: 'ambas', label: 'Ambas arcadas' },
   { value: 'superior', label: 'Arcada superior' },
@@ -21,9 +23,9 @@ export function ControlesOdontograma3D({ arcoVisible, onCambiarArco, onCambiarVi
         onClick={() => { onCambiarArco('ambas'); onCambiarVista('restablecer') }}
         aria-label="Restablecer vista"
         title="Restablecer vista"
-        className="shrink-0 rounded-md border border-slate-300 px-2.5 py-1.5 text-sm text-slate-600 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-clinico-azul"
+        className="flex shrink-0 items-center justify-center rounded-md border border-slate-300 px-2.5 py-1.5 text-sm text-slate-600 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-clinico-azul"
       >
-        ↻
+        <Icon.refresh />
       </button>
 
       <select

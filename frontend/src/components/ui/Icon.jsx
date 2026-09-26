@@ -45,6 +45,11 @@ export const Icon = {
   camera: () => (<svg {...p}><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" /><circle cx="12" cy="13" r="4" /></svg>),
   chevronLeft: () => (<svg {...p}><path d="M15 18l-6-6 6-6" /></svg>),
   chevronRight: () => (<svg {...p}><path d="M9 18l6-6-6-6" /></svg>),
+  chevronUp: () => (<svg {...p}><path d="M18 15l-6-6-6 6" /></svg>),
+  chevronDown: () => (<svg {...p}><path d="M6 9l6 6 6-6" /></svg>),
   fileText: () => (<svg {...p}><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><path d="M14 2v6h6M9 13h6M9 17h6" /></svg>),
-  heartPulse: () => (<svg {...p}><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg>)
+  heartPulse: () => (<svg {...p}><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg>),
+  helpCircle: () => (<svg {...p}><circle cx="12" cy="12" r="9" /><path d="M9.5 9a2.5 2.5 0 015 0c0 1.5-2 2-2.5 3.5" /><path d="M12 17h.01" /></svg>),
+  pause: () => (<svg {...p}><rect x="6" y="4" width="4" height="16" rx="1" /><rect x="14" y="4" width="4" height="16" rx="1" /></svg>),
+  noEntry: () => (<svg {...p}><circle cx="12" cy="12" r="9" /><path d="M5 5l14 14" /></svg>)
 }

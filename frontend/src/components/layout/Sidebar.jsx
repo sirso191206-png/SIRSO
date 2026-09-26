@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuthStore } from '../../store/useAuthStore'
 import { toastExito, toastError } from '../../store/useToastStore'
@@ -125,6 +125,27 @@ export function Sidebar() {
   const { perfil, clinicaNombre, logout } = useAuthStore()
   const [modalAbierto, setModalAbierto] = useState(false)
   const [modalPerfilAbierto, setModalPerfilAbierto] = useState(false)
+  const [menuUsuarioAbierto, setMenuUsuarioAbierto] = useState(false)
+  const menuUsuarioRef = useRef(null)
+
+  // Cerrar el menú de usuario al hacer clic fuera o al presionar Escape.
+  useEffect(() => {
+    if (!menuUsuarioAbierto) return
+    function alClicFuera(e) {
+      if (menuUsuarioRef.current && !menuUsuarioRef.current.contains(e.target)) {
+        setMenuUsuarioAbierto(false)
+      }
+    }
+    function alEscape(e) {
+      if (e.key === 'Escape') setMenuUsuarioAbierto(false)
+    }
+    document.addEventListener('mousedown', alClicFuera)
+    document.addEventListener('keydown', alEscape)
+    return () => {
+      document.removeEventListener('mousedown', alClicFuera)
+      document.removeEventListener('keydown', alEscape)
+    }
+  }, [menuUsuarioAbierto])
 
   return (
     <aside className="flex h-screen w-60 flex-col justify-between border-r border-slate-200/80 bg-white p-4">
@@ -171,46 +192,66 @@ export function Sidebar() {
       <div className="border-t border-slate-100 px-1 pt-3">
         <SelectorSucursal />
 
-        <div className="mb-3 flex items-center gap-2.5 px-1.5">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-clinico-azulClaro text-xs font-semibold text-clinico-azul">
-            {iniciales(perfil?.nombre)}
-          </div>
-          <div className="min-w-0">
-            <div className="truncate text-sm font-medium text-slate-700">{perfil?.nombre}</div>
-            <div className="flex items-center gap-1.5">
-              <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${COLOR_ROL[perfil?.rol] ?? 'bg-slate-100 text-slate-600'}`}>
-                {ETIQUETA_ROL[perfil?.rol] ?? perfil?.rol}
-              </span>
-              {clinicaNombre && <span className="truncate text-[11px] text-slate-400">{clinicaNombre}</span>}
+        <div className="relative" ref={menuUsuarioRef}>
+          {menuUsuarioAbierto && (
+            <div className="absolute bottom-full left-0 right-0 mb-2 space-y-0.5 rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+              <button
+                onClick={() => { setModalPerfilAbierto(true); setMenuUsuarioAbierto(false) }}
+                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-slate-600 transition-colors duration-150 hover:bg-slate-50"
+              >
+                Datos profesionales
+              </button>
+              <button
+                onClick={() => { setModalAbierto(true); setMenuUsuarioAbierto(false) }}
+                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-slate-600 transition-colors duration-150 hover:bg-slate-50"
+              >
+                Cambiar contraseña
+              </button>
+              <NavLink
+                to="/configuracion/seguridad"
+                onClick={() => setMenuUsuarioAbierto(false)}
+                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-slate-600 transition-colors duration-150 hover:bg-slate-50"
+              >
+                Sesiones activas
+              </NavLink>
+              <div className="my-1 border-t border-slate-100" />
+              <button
+                onClick={logout}
+                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-clinico-rojo transition-colors duration-150 hover:bg-red-50"
+              >
+                <Icon.logOut />
+                Cerrar sesión
+              </button>
             </div>
-          </div>
-        </div>
+          )}
 
-        <div className="space-y-0.5">
           <button
-            onClick={() => setModalPerfilAbierto(true)}
-            className="flex w-full items-center gap-2 rounded-lg px-1.5 py-1.5 text-[13px] text-slate-500 transition-colors duration-150 hover:bg-slate-100 hover:text-slate-800"
+            onClick={() => setMenuUsuarioAbierto((v) => !v)}
+            className="flex w-full items-center gap-2.5 rounded-xl px-1.5 py-2 text-left transition-colors duration-150 hover:bg-slate-100"
           >
-            Datos profesionales
-          </button>
-          <button
-            onClick={() => setModalAbierto(true)}
-            className="flex w-full items-center gap-2 rounded-lg px-1.5 py-1.5 text-[13px] text-slate-500 transition-colors duration-150 hover:bg-slate-100 hover:text-slate-800"
-          >
-            Cambiar contraseña
-          </button>
-          <NavLink
-            to="/configuracion/seguridad"
-            className="flex w-full items-center gap-2 rounded-lg px-1.5 py-1.5 text-[13px] text-slate-500 transition-colors duration-150 hover:bg-slate-100 hover:text-slate-800"
-          >
-            Sesiones activas
-          </NavLink>
-          <button
-            onClick={logout}
-            className="flex w-full items-center gap-2 rounded-lg px-1.5 py-1.5 text-[13px] text-slate-500 transition-colors duration-150 hover:bg-red-50 hover:text-clinico-rojo"
-          >
-            <Icon.logOut />
-            Cerrar sesión
+            {perfil?.foto_url || perfil?.avatar_url ? (
+              <img
+                src={perfil.foto_url ?? perfil.avatar_url}
+                alt=""
+                className="h-9 w-9 shrink-0 rounded-full object-cover"
+              />
+            ) : (
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-clinico-azulClaro text-xs font-semibold text-clinico-azul">
+                {iniciales(perfil?.nombre)}
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-medium text-slate-700">{perfil?.nombre}</div>
+              <div className="flex items-center gap-1.5">
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${COLOR_ROL[perfil?.rol] ?? 'bg-slate-100 text-slate-600'}`}>
+                  {ETIQUETA_ROL[perfil?.rol] ?? perfil?.rol}
+                </span>
+                {clinicaNombre && <span className="truncate text-[11px] text-slate-400">{clinicaNombre}</span>}
+              </div>
+            </div>
+            <span className="shrink-0 text-slate-400">
+              {menuUsuarioAbierto ? <Icon.chevronUp /> : <Icon.chevronDown />}
+            </span>
           </button>
         </div>
       </div>
