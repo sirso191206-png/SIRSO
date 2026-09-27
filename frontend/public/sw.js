@@ -42,6 +42,19 @@ self.addEventListener('fetch', (event) => {
         caches.open(CACHE_NAME).then((cache) => cache.put(request, copia)).catch(() => {})
         return respuesta
       })
-      .catch(() => caches.match(request))
+      .catch(async () => {
+        const enCache = await caches.match(request)
+        if (enCache) return enCache
+        // Ni la red ni el caché tienen este archivo (p. ej. la primera
+        // vez que se prueba sin conexión, antes de que hubiera algo
+        // guardado) — se devuelve una respuesta explícita en vez de
+        // "nada". Dejar la promesa sin resolver a un Response válido es
+        // justo lo que el navegador reporta como "TypeError: Load
+        // failed" / "Failed to fetch".
+        return new Response(
+          'Sin conexión, y este archivo todavía no se había guardado localmente.',
+          { status: 503, statusText: 'Sin conexión', headers: { 'Content-Type': 'text/plain; charset=utf-8' } }
+        )
+      })
   )
 })
