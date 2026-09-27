@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { obtenerHistorialPieza } from '../../services/odontograma'
 import { useAuthStore } from '../../store/useAuthStore'
 import { toastExito, toastError } from '../../store/useToastStore'
-import { ESTADOS_PIEZA, nombreCara } from './constantesOdontograma'
+import { ESTADOS_PIEZA, MATERIALES_CORONA, TIPOS_INCRUSTACION, TIPOS_AUSENCIA, nombreCara } from './constantesOdontograma'
 import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
 
@@ -12,6 +12,9 @@ export function ModalPiezaGeneral({ pieza, tratamientos, onCerrar, onGuardar }) 
   const [diagnostico, setDiagnostico] = useState(pieza.diagnostico ?? '')
   const [tratamientoId, setTratamientoId] = useState(pieza.tratamiento_id ?? '')
   const [notas, setNotas] = useState(pieza.notas ?? '')
+  const [materialCorona, setMaterialCorona] = useState(pieza.material_corona ?? '')
+  const [tipoIncrustacion, setTipoIncrustacion] = useState(pieza.tipo_incrustacion ?? '')
+  const [tipoAusencia, setTipoAusencia] = useState(pieza.tipo_ausencia ?? '')
   const [guardando, setGuardando] = useState(false)
   const [historial, setHistorial] = useState(null)
   const [cargandoHistorial, setCargandoHistorial] = useState(false)
@@ -19,11 +22,18 @@ export function ModalPiezaGeneral({ pieza, tratamientos, onCerrar, onGuardar }) 
   const handleGuardar = async () => {
     setGuardando(true)
     try {
-      await onGuardar(pieza.id, { estado, diagnostico, tratamientoId, notas, usuarioId: perfil.id })
+      await onGuardar(pieza.id, {
+        estado, diagnostico, tratamientoId, notas, materialCorona, tipoIncrustacion, tipoAusencia,
+        usuarioId: perfil.id, actualizadoEnEsperado: pieza.actualizado_en
+      })
       toastExito(`Pieza ${pieza.numero_pieza} actualizada.`)
       onCerrar()
     } catch (err) {
-      toastError('No se pudo guardar: ' + err.message)
+      if (err.message === 'CONFLICTO_CONCURRENCIA') {
+        toastError('Otra persona ya modificó esta pieza mientras tenías el formulario abierto. Cierra y vuelve a abrirla para ver los cambios más recientes.')
+      } else {
+        toastError('No se pudo guardar: ' + err.message)
+      }
     } finally {
       setGuardando(false)
     }
@@ -53,6 +63,46 @@ export function ModalPiezaGeneral({ pieza, tratamientos, onCerrar, onGuardar }) 
           <p className="mt-1 text-xs text-slate-400">
             Para caries, obturaciones o fracturas de una cara específica, cierra esto y da clic directo sobre esa cara en el diagrama.
           </p>
+        </label>
+
+        {estado === 'corona' && (
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium text-slate-700">Material de la corona</span>
+            <select
+              value={materialCorona}
+              onChange={(e) => setMaterialCorona(e.target.value)}
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            >
+              <option value="">Sin especificar</option>
+              {MATERIALES_CORONA.map((m) => <option key={m} value={m}>{m}</option>)}
+            </select>
+          </label>
+        )}
+
+        {estado === 'ausente' && (
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium text-slate-700">Tipo de ausencia</span>
+            <select
+              value={tipoAusencia}
+              onChange={(e) => setTipoAusencia(e.target.value)}
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            >
+              <option value="">Sin especificar</option>
+              {TIPOS_AUSENCIA.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </label>
+        )}
+
+        <label className="block text-sm">
+          <span className="mb-1 block font-medium text-slate-700">Tipo de incrustación (si aplica)</span>
+          <select
+            value={tipoIncrustacion}
+            onChange={(e) => setTipoIncrustacion(e.target.value)}
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          >
+            <option value="">Sin incrustación</option>
+            {TIPOS_INCRUSTACION.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
         </label>
 
         <label className="block text-sm">

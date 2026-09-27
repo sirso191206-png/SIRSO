@@ -1,5 +1,6 @@
 import { supabase } from '../../lib/supabase'
 import { abrirVentanaImpresion } from '../../lib/imprimir'
+import { formatearMoneda } from '../../lib/formato'
 
 const NOMBRE_METODO = { efectivo: 'Efectivo', tarjeta: 'Tarjeta', transferencia: 'Transferencia', otro: 'Otro' }
 const NOMBRE_TIPO = { anticipo: 'Anticipo', pago: 'Pago', reembolso: 'Reembolso' }
@@ -50,7 +51,7 @@ export async function imprimirRecibo({ pago, paciente, clinicaId }) {
       </dl>
 
       <div class="monto">
-        <div class="monto-numero">$${Number(pago.monto).toFixed(2)}</div>
+        <div class="monto-numero">$${formatearMoneda(pago.monto)}</div>
         <div class="monto-tipo">${NOMBRE_TIPO[pago.tipo] ?? pago.tipo}</div>
       </div>
 

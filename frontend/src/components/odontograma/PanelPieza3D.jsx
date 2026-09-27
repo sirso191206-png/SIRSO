@@ -28,6 +28,7 @@ export function PanelPieza3D({ pieza, tratamientos, onCerrar, onVerEnExpediente,
   // mensaje claro (tal como se pidió: "no mostrar campos vacíos
   // innecesarios").
   const sinCondiciones = pieza.estado === 'sano' && carasAfectadas.length === 0 && !pieza.diagnostico && !tratamientoVinculado && !pieza.notas
+    && !pieza.material_corona && !pieza.tipo_incrustacion && !pieza.tipo_ausencia
 
   const handleVerHistorial = async () => {
     setCargandoHistorial(true)
@@ -55,6 +56,12 @@ export function PanelPieza3D({ pieza, tratamientos, onCerrar, onVerEnExpediente,
             <dd className="text-slate-700">{estadoGeneral}</dd>
           </div>
 
+          {pieza._pendiente && (
+            <div className="rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs font-medium text-amber-800">
+              Cambio sin subir — se guardará solo al recuperar conexión
+            </div>
+          )}
+
           {carasAfectadas.length > 0 && (
             <div>
               <dt className="text-xs font-medium text-slate-400">Caras afectadas</dt>
@@ -70,6 +77,27 @@ export function PanelPieza3D({ pieza, tratamientos, onCerrar, onVerEnExpediente,
             <div>
               <dt className="text-xs font-medium text-slate-400">Diagnóstico</dt>
               <dd className="text-slate-700">{pieza.diagnostico}</dd>
+            </div>
+          )}
+
+          {pieza.material_corona && (
+            <div>
+              <dt className="text-xs font-medium text-slate-400">Material de la corona</dt>
+              <dd className="text-slate-700">{pieza.material_corona}</dd>
+            </div>
+          )}
+
+          {pieza.tipo_incrustacion && (
+            <div>
+              <dt className="text-xs font-medium text-slate-400">Tipo de incrustación</dt>
+              <dd className="text-slate-700">{pieza.tipo_incrustacion}</dd>
+            </div>
+          )}
+
+          {pieza.tipo_ausencia && (
+            <div>
+              <dt className="text-xs font-medium text-slate-400">Tipo de ausencia</dt>
+              <dd className="text-slate-700">{pieza.tipo_ausencia}</dd>
             </div>
           )}
 

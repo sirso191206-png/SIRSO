@@ -8,6 +8,7 @@ import { ColaDeEspera } from '../components/ColaDeEspera'
 import { ModalNuevaUrgencia } from '../components/ModalNuevaUrgencia'
 import { Button } from '../components/ui/Button'
 import { Icon } from '../components/ui/Icon'
+import { formatearMoneda } from '../lib/formato'
 
 function saludo() {
   const hora = new Date().getHours()
@@ -170,7 +171,7 @@ function PacienteActualCard({ cita, alertas, ultimaConsulta, tratamientoActivo, 
               <div className="rounded-xl bg-slate-50/80 p-3 text-sm">
                 <div className="flex items-center gap-1.5 text-xs text-slate-400"><Icon.dollar /> Saldo</div>
                 <div className={`font-semibold ${saldo.saldo > 0 ? 'text-clinico-ambar' : 'text-clinico-verde'}`}>
-                  {saldo.saldo > 0 ? `$${Number(saldo.saldo).toFixed(2)} pendiente` : 'Al corriente'}
+                  {saldo.saldo > 0 ? `$${formatearMoneda(saldo.saldo)} pendiente` : 'Al corriente'}
                 </div>
               </div>
             )}

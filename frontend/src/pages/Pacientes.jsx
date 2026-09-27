@@ -9,6 +9,7 @@ import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
 import { Icon } from '../components/ui/Icon'
+import { formatearMoneda } from '../lib/formato'
 
 const POR_PAGINA = 15
 
@@ -163,7 +164,7 @@ function TablaPacientes({ pacientes, cargando, navigate }) {
                 </td>
                 <td className="px-4 py-2">
                   {p.saldo > 0 ? (
-                    <span className="font-medium text-clinico-ambar">${p.saldo.toFixed(2)}</span>
+                    <span className="font-medium text-clinico-ambar">${formatearMoneda(p.saldo)}</span>
                   ) : (
                     <span className="text-slate-400">$0.00</span>
                   )}

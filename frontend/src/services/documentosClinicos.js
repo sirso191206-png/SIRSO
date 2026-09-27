@@ -12,14 +12,17 @@ export async function obtenerDocumentos(pacienteId, { desde = 0, limite = PAGINA
     .range(desde, desde + limite - 1)
   if (error) throw error
 
-  const conUrls = await Promise.all(
-    data.map(async (doc) => {
-      const { data: signed } = await supabase.storage
-        .from(BUCKET)
-        .createSignedUrl(doc.url_storage, 60 * 10)
-      return { ...doc, url_firmada: signed?.signedUrl }
-    })
-  )
+  // Una sola llamada de red para firmar todas las URLs de la página
+  // (createSignedUrls, por lotes) en vez de una llamada por documento
+  // — antes eran hasta PAGINA llamadas en paralelo, ahora es una sola.
+  let firmadaPorRuta = {}
+  if (data.length > 0) {
+    const { data: firmadas } = await supabase.storage
+      .from(BUCKET)
+      .createSignedUrls(data.map((d) => d.url_storage), 60 * 10)
+    firmadaPorRuta = Object.fromEntries((firmadas ?? []).map((f) => [f.path, f.signedUrl]))
+  }
+  const conUrls = data.map((doc) => ({ ...doc, url_firmada: firmadaPorRuta[doc.url_storage] }))
   return { documentos: conUrls, total: count ?? 0 }
 }
 

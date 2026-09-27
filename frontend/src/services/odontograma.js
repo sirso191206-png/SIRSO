@@ -12,39 +12,64 @@ export async function obtenerOdontogramaCompleto(pacienteId) {
   return data
 }
 
-// Estado GENERAL de la pieza — condiciones que cubren todo el diente:
-// ausente, corona, implante, endodoncia, en_tratamiento, sano. También
-// diagnóstico, tratamiento asociado y notas libres.
-export async function actualizarPiezaOdontograma(piezaId, { estado, diagnostico, tratamientoId, notas, usuarioId }) {
-  const cambios = { actualizado_en: new Date().toISOString(), actualizado_por: usuarioId }
+// Traduce los campos camelCase del formulario a las columnas snake_case
+// reales — se exporta para que la actualización optimista local (cola
+// offline, useOdontograma.js) use exactamente esta misma conversión en
+// vez de duplicarla, y nunca se desincronicen.
+export function construirCambiosPieza({ estado, diagnostico, tratamientoId, notas, materialCorona, tipoIncrustacion, tipoAusencia }) {
+  const cambios = {}
   if (estado !== undefined) cambios.estado = estado
   if (diagnostico !== undefined) cambios.diagnostico = diagnostico || null
   if (tratamientoId !== undefined) cambios.tratamiento_id = tratamientoId || null
   if (notas !== undefined) cambios.notas = notas || null
+  if (materialCorona !== undefined) cambios.material_corona = materialCorona || null
+  if (tipoIncrustacion !== undefined) cambios.tipo_incrustacion = tipoIncrustacion || null
+  if (tipoAusencia !== undefined) cambios.tipo_ausencia = tipoAusencia || null
+  return cambios
+}
 
-  const { data, error } = await supabase
-    .from('odontograma_piezas')
-    .update(cambios)
-    .eq('id', piezaId)
-    .select()
-    .single()
-  if (error) throw error
+// Estado GENERAL de la pieza — condiciones que cubren todo el diente:
+// ausente, corona, implante, endodoncia, en_tratamiento, sano. También
+// diagnóstico, tratamiento asociado y notas libres.
+// actualizado_en ya no la pone el frontend a mano — la mantiene un
+// trigger (migración 072). Si se pasa actualizadoEnEsperado, se agrega
+// como condición extra del UPDATE (se suma a RLS, no la reemplaza): si
+// alguien más ya modificó esta pieza desde que se abrió el formulario,
+// la condición no encuentra ninguna fila, y .single() lanza PGRST116
+// en vez de guardar encima de datos ya desactualizados.
+export async function actualizarPiezaOdontograma(piezaId, { estado, diagnostico, tratamientoId, notas, materialCorona, tipoIncrustacion, tipoAusencia, usuarioId, actualizadoEnEsperado }) {
+  const cambios = { ...construirCambiosPieza({ estado, diagnostico, tratamientoId, notas, materialCorona, tipoIncrustacion, tipoAusencia }), actualizado_por: usuarioId }
+
+  let query = supabase.from('odontograma_piezas').update(cambios).eq('id', piezaId)
+  if (actualizadoEnEsperado) {
+    query = query.eq('actualizado_en', actualizadoEnEsperado)
+  }
+  const { data, error } = await query.select().single()
+  if (error) {
+    if (error.code === 'PGRST116' && actualizadoEnEsperado) {
+      throw new Error('CONFLICTO_CONCURRENCIA')
+    }
+    throw error
+  }
   return data
 }
 
 // Estado de UNA cara específica — caries, obturado, fracturado, sano.
-export async function actualizarCara(caraId, { estado, usuarioId }) {
-  const { data, error } = await supabase
+export async function actualizarCara(caraId, { estado, usuarioId, actualizadoEnEsperado }) {
+  let query = supabase
     .from('odontograma_caras')
-    .update({
-      estado,
-      actualizado_en: new Date().toISOString(),
-      actualizado_por: usuarioId
-    })
+    .update({ estado, actualizado_por: usuarioId })
     .eq('id', caraId)
-    .select()
-    .single()
-  if (error) throw error
+  if (actualizadoEnEsperado) {
+    query = query.eq('actualizado_en', actualizadoEnEsperado)
+  }
+  const { data, error } = await query.select().single()
+  if (error) {
+    if (error.code === 'PGRST116' && actualizadoEnEsperado) {
+      throw new Error('CONFLICTO_CONCURRENCIA')
+    }
+    throw error
+  }
   return data
 }
 

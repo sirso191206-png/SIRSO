@@ -239,18 +239,16 @@ export async function obtenerCitasCompletadasCanceladas() {
 
 // Se agrupa por `descripcion` tal cual — cuando exista un catálogo de
 // tratamientos con categoría (fase futura), esto se puede agrupar mejor.
+//
+// El conteo se hace en SQL (fn_tratamientos_mas_realizados, migración
+// 066), no trayendo toda la tabla al navegador — antes esto pedía
+// TODOS los tratamientos de la clínica solo para contar en JS.
 export async function obtenerTratamientosMasRealizados(limite = 5) {
-  const { data, error } = await supabase.from('tratamientos').select('descripcion')
+  const { data, error } = await supabase.rpc('fn_tratamientos_mas_realizados', { p_limite: limite })
   if (error) throw error
-
-  const conteo = {}
-  for (const t of data) {
-    conteo[t.descripcion] = (conteo[t.descripcion] ?? 0) + 1
-  }
-  return Object.entries(conteo)
-    .map(([descripcion, cantidad]) => ({ descripcion, cantidad }))
-    .sort((a, b) => b.cantidad - a.cantidad)
-    .slice(0, limite)
+  // count(*) en Postgres es bigint — PostgREST lo manda como texto
+  // para no perder precisión en números muy grandes; se convierte aquí.
+  return data.map((d) => ({ descripcion: d.descripcion, cantidad: Number(d.cantidad) }))
 }
 
 export async function obtenerPacientesNuevosPorMes(mesesAtras = 6) {

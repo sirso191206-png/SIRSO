@@ -5,6 +5,7 @@ import { toastExito, toastError } from '../store/useToastStore'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
+import { formatearMoneda } from '../lib/formato'
 
 export function CatalogoTratamientos() {
   const perfil = useAuthStore((s) => s.perfil)
@@ -58,7 +59,7 @@ export function CatalogoTratamientos() {
                       {c.nombre}
                     </button>
                   </td>
-                  <td className="px-4 py-2 text-slate-600">${Number(c.precio).toFixed(2)}</td>
+                  <td className="px-4 py-2 text-slate-600">${formatearMoneda(c.precio)}</td>
                   <td className="px-4 py-2">
                     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${c.activo ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-500'}`}>
                       {c.activo ? 'Activo' : 'Inactivo'}

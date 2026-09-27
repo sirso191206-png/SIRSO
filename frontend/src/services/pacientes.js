@@ -60,14 +60,23 @@ export async function crearPaciente(paciente) {
   return data
 }
 
-export async function actualizarPaciente(id, cambios) {
-  const { data, error } = await supabase
-    .from('pacientes')
-    .update(cambios)
-    .eq('id', id)
-    .select()
-    .single()
-  if (error) throw error
+// Si se pasa actualizadoEnEsperado, se agrega como condición extra del
+// UPDATE (no reemplaza RLS, se suma a ella) — si alguien más ya
+// modificó este paciente desde que se abrió el formulario, la
+// condición no encuentra ninguna fila que coincida, y .single() lanza
+// PGRST116 en vez de guardar encima de datos ya desactualizados.
+export async function actualizarPaciente(id, cambios, actualizadoEnEsperado) {
+  let query = supabase.from('pacientes').update(cambios).eq('id', id)
+  if (actualizadoEnEsperado) {
+    query = query.eq('actualizado_en', actualizadoEnEsperado)
+  }
+  const { data, error } = await query.select().single()
+  if (error) {
+    if (error.code === 'PGRST116' && actualizadoEnEsperado) {
+      throw new Error('CONFLICTO_CONCURRENCIA')
+    }
+    throw error
+  }
   return data
 }
 

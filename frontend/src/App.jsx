@@ -34,6 +34,7 @@ import { AdministracionIncidentes } from './pages/AdministracionIncidentes'
 import { AdminLegal } from './pages/AdminLegal'
 import { ToastContainer } from './components/ui/Toast'
 import { BannerCookies } from './components/legal/BannerCookies'
+import { BannerSinConexion } from './components/layout/BannerSinConexion'
 
 export default function App() {
   const init = useAuthStore((s) => s.init)
@@ -46,6 +47,7 @@ export default function App() {
     <BrowserRouter>
       <ToastContainer />
       <BannerCookies />
+      <BannerSinConexion />
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/contacto" element={<Contacto />} />

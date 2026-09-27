@@ -3,6 +3,7 @@ import { toastExito, toastError } from '../../store/useToastStore'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
 import { Modal } from '../ui/Modal'
+import { formatearMoneda } from '../../lib/formato'
 
 export function ModalTratamiento({ abierto, onCerrar, onGuardar, catalogo, perfil, titulo, valorInicial }) {
   const [catalogoId, setCatalogoId] = useState('')
@@ -64,7 +65,7 @@ export function ModalTratamiento({ abierto, onCerrar, onGuardar, catalogo, perfi
             <select value={catalogoId} onChange={(e) => handleCatalogoChange(e.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
               <option value="">Escribir manualmente</option>
               {catalogo.map((c) => (
-                <option key={c.id} value={c.id}>{c.categoria ? `${c.categoria} — ` : ''}{c.nombre} (${Number(c.precio).toFixed(2)})</option>
+                <option key={c.id} value={c.id}>{c.categoria ? `${c.categoria} — ` : ''}{c.nombre} (${formatearMoneda(c.precio)})</option>
               ))}
             </select>
           </label>

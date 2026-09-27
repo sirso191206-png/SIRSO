@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { formatearMoneda } from '../lib/formato'
 
 // La línea del tiempo NO usa la tabla `auditoria` (esa es de solo lectura
 // para el owner, pensada para seguridad del sistema completo). Aquí se
@@ -53,7 +54,7 @@ export async function obtenerLineaTiempo(pacienteId) {
     eventos.push({
       id: `pago-${p.id}`,
       fecha: p.creado_en,
-      texto: `Pago registrado — $${Number(p.monto).toFixed(2)} (${p.tipo})`,
+      texto: `Pago registrado — $${formatearMoneda(p.monto)} (${p.tipo})`,
       tipo: 'pago'
     })
   }

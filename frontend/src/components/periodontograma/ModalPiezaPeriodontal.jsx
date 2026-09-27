@@ -48,7 +48,10 @@ export function ModalPiezaPeriodontal({ pieza, onCerrar, onGuardarPieza, onGuard
     setGuardando(true)
     try {
       await Promise.all([
-        onGuardarPieza(pieza.id, { movilidad: Number(movilidad), furcacion: Number(furcacion), usuarioId: perfil.id }),
+        onGuardarPieza(pieza.id, {
+          movilidad: Number(movilidad), furcacion: Number(furcacion),
+          usuarioId: perfil.id, actualizadoEnEsperado: pieza.actualizado_en
+        }),
         ...Object.values(sitios).map((s) =>
           onGuardarSitio(s.id, {
             profundidad_sondaje: Number(s.profundidad_sondaje),
@@ -56,14 +59,19 @@ export function ModalPiezaPeriodontal({ pieza, onCerrar, onGuardarPieza, onGuard
             sangrado: s.sangrado,
             placa: s.placa,
             calculo: s.calculo,
-            usuarioId: perfil.id
+            usuarioId: perfil.id,
+            actualizadoEnEsperado: s.actualizado_en
           })
         )
       ])
       toastExito(`Periodontograma de la pieza ${pieza.numero_pieza} actualizado.`)
       onCerrar()
     } catch (err) {
-      toastError('No se pudo guardar: ' + err.message)
+      if (err.message === 'CONFLICTO_CONCURRENCIA') {
+        toastError('Otra persona ya modificó esta pieza o alguno de sus sitios mientras tenías el formulario abierto. Cierra y vuelve a abrirlo para ver los datos más recientes.')
+      } else {
+        toastError('No se pudo guardar: ' + err.message)
+      }
     } finally {
       setGuardando(false)
     }
@@ -72,6 +80,11 @@ export function ModalPiezaPeriodontal({ pieza, onCerrar, onGuardarPieza, onGuard
   return (
     <Modal abierto onCerrar={onCerrar} titulo={`Pieza ${pieza.numero_pieza} — Periodontograma`} ancho="grande">
       <div className="space-y-4">
+        {(pieza._pendiente || (pieza.sitios ?? []).some((s) => s._pendiente)) && (
+          <div className="rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs font-medium text-amber-800">
+            Cambios sin subir de esta pieza — se guardarán solos al recuperar conexión
+          </div>
+        )}
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>

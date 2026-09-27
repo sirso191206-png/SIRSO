@@ -20,25 +20,39 @@ export async function obtenerPeriodontogramaCompleto(pacienteId) {
   return data
 }
 
-export async function actualizarPiezaPeriodontal(piezaId, { movilidad, furcacion, usuarioId }) {
-  const { data, error } = await supabase
+export async function actualizarPiezaPeriodontal(piezaId, { movilidad, furcacion, usuarioId, actualizadoEnEsperado }) {
+  let query = supabase
     .from('periodontograma_piezas')
-    .update({ movilidad, furcacion, actualizado_en: new Date().toISOString(), actualizado_por: usuarioId })
+    .update({ movilidad, furcacion, actualizado_por: usuarioId })
     .eq('id', piezaId)
-    .select()
-    .single()
-  if (error) throw error
+  if (actualizadoEnEsperado) {
+    query = query.eq('actualizado_en', actualizadoEnEsperado)
+  }
+  const { data, error } = await query.select().single()
+  if (error) {
+    if (error.code === 'PGRST116' && actualizadoEnEsperado) {
+      throw new Error('CONFLICTO_CONCURRENCIA')
+    }
+    throw error
+  }
   return data
 }
 
 export async function actualizarSitioPeriodontal(sitioId, cambios) {
-  const { usuarioId, ...resto } = cambios
-  const { data, error } = await supabase
+  const { usuarioId, actualizadoEnEsperado, ...resto } = cambios
+  let query = supabase
     .from('periodontograma_sitios')
-    .update({ ...resto, actualizado_en: new Date().toISOString(), actualizado_por: usuarioId })
+    .update({ ...resto, actualizado_por: usuarioId })
     .eq('id', sitioId)
-    .select()
-    .single()
-  if (error) throw error
+  if (actualizadoEnEsperado) {
+    query = query.eq('actualizado_en', actualizadoEnEsperado)
+  }
+  const { data, error } = await query.select().single()
+  if (error) {
+    if (error.code === 'PGRST116' && actualizadoEnEsperado) {
+      throw new Error('CONFLICTO_CONCURRENCIA')
+    }
+    throw error
+  }
   return data
 }

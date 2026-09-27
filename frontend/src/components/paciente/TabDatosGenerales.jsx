@@ -173,12 +173,16 @@ export function TabDatosGenerales({ paciente, alGuardar }) {
         estado_expediente: form.estado_expediente || 'activo',
         referido_por: form.referido_por || null,
       }
-      const actualizado = await actualizarPaciente(paciente.id, cambios)
+      const actualizado = await actualizarPaciente(paciente.id, cambios, paciente.actualizado_en)
       alGuardar?.(actualizado)
       setEditando(false)
       toastExito('Datos del paciente actualizados.')
     } catch (err) {
-      toastError('No se pudieron guardar los cambios: ' + err.message)
+      if (err.message === 'CONFLICTO_CONCURRENCIA') {
+        toastError('Otra persona ya modificó los datos de este paciente mientras tenías el formulario abierto. Recarga la página para ver los cambios más recientes antes de guardar los tuyos.')
+      } else {
+        toastError('No se pudieron guardar los cambios: ' + err.message)
+      }
     } finally {
       setGuardando(false)
     }

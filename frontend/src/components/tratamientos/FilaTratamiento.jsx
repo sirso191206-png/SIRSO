@@ -3,6 +3,7 @@ import { toastExito, toastError } from '../../store/useToastStore'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
+import { formatearMoneda } from '../../lib/formato'
 
 export const ESTADOS = [
   { value: 'planeado', label: 'Planeado' },
@@ -63,8 +64,8 @@ export function FilaTratamiento({ tratamiento: t, onEditar, onCambiarEstado, onC
 
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-sm">
         <div className="text-slate-600">
-          Costo: <strong>${Number(t.costo).toFixed(2)}</strong>
-          {Number(t.descuento) > 0 && <span className="ml-1 text-clinico-verde">(-${Number(t.descuento).toFixed(2)} desc. → ${total.toFixed(2)})</span>}
+          Costo: <strong>${formatearMoneda(t.costo)}</strong>
+          {Number(t.descuento) > 0 && <span className="ml-1 text-clinico-verde">(-${formatearMoneda(t.descuento)} desc. → ${formatearMoneda(total)})</span>}
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-slate-500">Sesiones: {t.sesiones_completadas} de {t.numero_sesiones}</span>

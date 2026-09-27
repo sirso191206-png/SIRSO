@@ -6,6 +6,7 @@ import { imprimirRecibo } from './imprimirRecibo'
 import { Button } from '../ui/Button'
 import { Icon } from '../ui/Icon'
 import { Input } from '../ui/Input'
+import { formatearMoneda } from '../../lib/formato'
 import { Modal } from '../ui/Modal'
 
 // Pagos vive dentro de "Plan" — el documento de reorganización agrupa
@@ -39,7 +40,7 @@ export function SeccionPagos({ pacienteId, paciente }) {
       <h3 className="mb-3 text-sm font-semibold text-slate-700">Pagos</h3>
 
       <div className="mb-3 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
-        Total tratamientos: ${Number(saldo.total_tratamientos).toFixed(2)} · Pagado: ${Number(saldo.total_pagado).toFixed(2)} · Pendiente: ${Number(saldo.saldo).toFixed(2)}
+        Total tratamientos: ${formatearMoneda(saldo.total_tratamientos)} · Pagado: ${formatearMoneda(saldo.total_pagado)} · Pendiente: ${formatearMoneda(saldo.saldo)}
       </div>
 
       <form
@@ -76,7 +77,7 @@ export function SeccionPagos({ pacienteId, paciente }) {
               <span className="ml-2">{p.tipo} · {p.metodo}</span>
               {p.anulado_en && <span className="ml-2 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-medium uppercase text-slate-600">Anulado</span>}
             </div>
-            <span className="font-medium">${Number(p.monto).toFixed(2)}</span>
+            <span className="font-medium">${formatearMoneda(p.monto)}</span>
             <span className="text-slate-400">{new Date(p.creado_en).toLocaleDateString('es-MX')}</span>
             <div className="flex items-center gap-3">
               <button

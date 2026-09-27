@@ -5,6 +5,7 @@ import {
   crearNotaClinica,
   actualizarExpediente
 } from '../services/expedientes'
+import { encolarOperacion, listarOperacionesPendientes } from '../lib/colaOffline'
 
 export function useExpediente(pacienteId) {
   const [expediente, setExpediente] = useState(null)
@@ -15,8 +16,15 @@ export function useExpediente(pacienteId) {
     setCargando(true)
     const exp = await obtenerExpediente(pacienteId)
     const listaNotas = await obtenerNotasClinicas(exp.id)
+    // Las notas creadas sin conexión y que todavía no se subieron no
+    // existen aún en el servidor — se agregan encima para que no
+    // desaparezcan de la vista mientras la cola termina de subirlas.
+    const pendientes = await listarOperacionesPendientes().catch(() => [])
+    const notasPendientes = pendientes
+      .filter((op) => op.tipo === 'crear_nota_clinica' && op.payload.expediente_id === exp.id)
+      .map((op) => ({ ...op.payload, _pendiente: true }))
     setExpediente(exp)
-    setNotas(listaNotas)
+    setNotas([...notasPendientes, ...listaNotas])
     setCargando(false)
   }, [pacienteId])
 
@@ -25,12 +33,30 @@ export function useExpediente(pacienteId) {
   }, [pacienteId, recargar])
 
   const agregarNota = async (nota) => {
+    if (!navigator.onLine) {
+      // Sin conexión: se genera el id aquí mismo (no lo asigna la base
+      // de datos) y se encola — al reconectar, procesarColaOffline() la
+      // sube usando ese mismo id, así que reintentar nunca duplica.
+      const id = crypto.randomUUID()
+      const notaCompleta = { ...nota, expediente_id: expediente.id, id, creado_en: new Date().toISOString() }
+      await encolarOperacion({ id, tipo: 'crear_nota_clinica', payload: notaCompleta, creado_en: Date.now() })
+      await recargar()
+      return
+    }
     await crearNotaClinica({ ...nota, expediente_id: expediente.id })
     await recargar()
   }
 
   const guardarAntecedentes = async (cambios) => {
-    await actualizarExpediente(expediente.id, cambios)
+    try {
+      await actualizarExpediente(expediente.id, cambios, expediente.actualizado_en)
+    } catch (err) {
+      // Si alguien más ya lo modificó, se recarga igual — así quien
+      // vuelva a intentar guardar ya parte de los datos frescos, no de
+      // los que tenía abiertos cuando ocurrió el conflicto.
+      await recargar()
+      throw err
+    }
     await recargar()
   }
 

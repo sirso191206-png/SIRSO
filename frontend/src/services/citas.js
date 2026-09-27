@@ -98,10 +98,14 @@ export async function crearCitaUrgencia({ pacienteId, dentistaId, motivo, priori
     prioridad: prioridad || 'urgente'
   })
 }
+// Si cita.id viene definido (lo genera el navegador con
+// crypto.randomUUID() para las citas de seguimiento creadas sin
+// conexión), se usa upsert en vez de insert — reintentar la subida
+// después de un fallo parcial nunca duplica la cita.
 export async function crearCita(cita) {
   const { data, error } = await supabase
     .from('citas')
-    .insert(cita)
+    .upsert(cita)
     .select()
     .single()
 
@@ -109,15 +113,26 @@ export async function crearCita(cita) {
   return data
 }
 
-export async function actualizarCita(id, cambios) {
-  const { data, error } = await supabase
-    .from('citas')
-    .update(cambios)
-    .eq('id', id)
-    .select()
-    .single()
+// actualizado_en la mantiene un trigger (migración 073), no el
+// frontend. Si se pasa actualizadoEnEsperado, se agrega como condición
+// extra del UPDATE — si alguien más ya modificó esta cita desde que se
+// abrió la consulta, la condición no encuentra ninguna fila, y
+// .single() lanza PGRST116. Ese código se revisa ANTES de pasar por
+// mensajeError() — envolver el error ahí abajo pierde `.code`, así que
+// la detección de conflicto tiene que pasar primero.
+export async function actualizarCita(id, cambios, actualizadoEnEsperado) {
+  let query = supabase.from('citas').update(cambios).eq('id', id)
+  if (actualizadoEnEsperado) {
+    query = query.eq('actualizado_en', actualizadoEnEsperado)
+  }
+  const { data, error } = await query.select().single()
 
-  if (error) throw new Error(mensajeError(error))
+  if (error) {
+    if (error.code === 'PGRST116' && actualizadoEnEsperado) {
+      throw new Error('CONFLICTO_CONCURRENCIA')
+    }
+    throw new Error(mensajeError(error))
+  }
   return data
 }
 

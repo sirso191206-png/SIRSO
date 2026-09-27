@@ -15,6 +15,7 @@ import { Input } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { Badge } from '../components/ui/Badge'
 import { Icon } from '../components/ui/Icon'
+import { formatearMoneda } from '../lib/formato'
 
 const MOTIVOS_RAPIDOS = ['Dolor', 'Revisión', 'Limpieza', 'Sensibilidad', 'Seguimiento', 'Urgencia']
 const HALLAZGOS_RAPIDOS = ['Sin alteraciones', 'Caries', 'Inflamación', 'Sangrado', 'Sensibilidad', 'Movilidad']
@@ -150,7 +151,7 @@ export function ConsultaUnificada() {
             <div key={t.id} className="flex items-center justify-between rounded-lg border border-slate-200 p-2 text-sm">
               <span>{t.descripcion} {t.pieza_dental && `(pieza ${t.pieza_dental})`}</span>
               <div className="flex items-center gap-2">
-                <span className="text-slate-500">${Number(t.costo).toFixed(2)}</span>
+                <span className="text-slate-500">${formatearMoneda(t.costo)}</span>
                 <Badge estado={t.estado} />
               </div>
             </div>

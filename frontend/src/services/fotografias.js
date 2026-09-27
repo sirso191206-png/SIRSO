@@ -16,15 +16,17 @@ export async function obtenerFotografias(pacienteId, { desde = 0, limite = PAGIN
   if (error) throw error
 
   // La URL firmada (de corta duración) solo se genera para esta página,
-  // no para el historial completo de fotos del paciente.
-  const conUrls = await Promise.all(
-    data.map(async (foto) => {
-      const { data: signed } = await supabase.storage
-        .from(BUCKET)
-        .createSignedUrl(foto.url_storage, 60 * 10) // 10 minutos
-      return { ...foto, url_firmada: signed?.signedUrl }
-    })
-  )
+  // no para el historial completo de fotos del paciente. Una sola
+  // llamada por lotes (createSignedUrls) en vez de una por foto — antes
+  // eran hasta PAGINA llamadas en paralelo, ahora es una sola.
+  let firmadaPorRuta = {}
+  if (data.length > 0) {
+    const { data: firmadas } = await supabase.storage
+      .from(BUCKET)
+      .createSignedUrls(data.map((f) => f.url_storage), 60 * 10) // 10 minutos
+    firmadaPorRuta = Object.fromEntries((firmadas ?? []).map((f) => [f.path, f.signedUrl]))
+  }
+  const conUrls = data.map((foto) => ({ ...foto, url_firmada: firmadaPorRuta[foto.url_storage] }))
   return { fotos: conUrls, total: count ?? 0 }
 }
 

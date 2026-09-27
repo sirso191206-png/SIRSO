@@ -9,6 +9,7 @@ import { useSignosVitales } from './useSignosVitales'
 import { useRecetas } from './useRecetas'
 import { useAuthStore } from '../store/useAuthStore'
 import { toastExito, toastError } from '../store/useToastStore'
+import { encolarOperacion } from '../lib/colaOffline'
 
 const PLANTILLAS_NOTA = {
   'Consulta general': 'Paciente acude a consulta general. ',
@@ -141,8 +142,66 @@ export function useConsultaForm(citaId) {
 
   const handleFinalizar = async () => {
     if (finalizada) return // evita doble envío si ya se guardó
+    // Se valida ANTES de decidir online/offline — un seguimiento
+    // incompleto es un error del formulario, no algo que dependa de si
+    // hay conexión.
+    if (programarSeguimiento && (!seguimiento.fecha || !seguimiento.hora)) {
+      toastError('Falta la fecha u hora del seguimiento.')
+      return
+    }
+
     setGuardando(true)
     try {
+      if (!navigator.onLine) {
+        if (!expediente) throw new Error('El expediente todavía está cargando, espera un momento e intenta de nuevo.')
+
+        // Mismos ids generados en el navegador que ya usan las notas y
+        // piezas encoladas — reintentar la subida nunca duplica nada.
+        const notaClinica = {
+          id: crypto.randomUUID(),
+          expediente_id: expediente.id,
+          cita_id: cita.id,
+          usuario_id: perfil.id,
+          contenido: notaContenido || '(sin nota)',
+          tipo: 'consulta',
+          diagnostico: diagnostico || null,
+          diagnostico_cie10_codigo: diagnosticoCie10Codigo || null,
+          diagnostico_cie10_descripcion: diagnosticoCie10Descripcion || null,
+          interrogatorio_sistemas: Object.keys(interrogatorioSistemas).length > 0 ? interrogatorioSistemas : null,
+          exploracion_fisica: Object.keys(exploracionFisica).length > 0 ? exploracionFisica : null,
+          accion_salud_bucal: Object.keys(accionSaludBucal).length > 0 ? accionSaludBucal : null,
+          hallazgos: hallazgos || null,
+          creado_en: new Date().toISOString()
+        }
+
+        let seguimientoPayload = null
+        if (programarSeguimiento) {
+          const inicioDate = new Date(`${seguimiento.fecha}T${seguimiento.hora}`)
+          const finDate = new Date(inicioDate.getTime() + Number(seguimiento.duracion) * 60000)
+          seguimientoPayload = {
+            id: crypto.randomUUID(),
+            paciente_id: cita.paciente_id,
+            dentista_id: cita.dentista_id,
+            inicio: inicioDate.toISOString(),
+            fin: finDate.toISOString(),
+            motivo_consulta: seguimiento.motivo || 'Seguimiento',
+            estado: 'agendada'
+          }
+        }
+
+        await encolarOperacion({
+          id: `finalizar_consulta_${cita.id}`,
+          tipo: 'finalizar_consulta',
+          payload: { citaId: cita.id, motivo, notaClinica, seguimientoPayload, actualizadoEnEsperado: cita.actualizado_en },
+          creado_en: Date.now()
+        })
+
+        setFinalizada(true)
+        toastExito('Consulta guardada sin conexión — se subirá sola cuando vuelva la señal.')
+        navigate('/')
+        return
+      }
+
       await guardarNotaYMotivo()
 
       // Se completa la cita actual ANTES de crear el seguimiento — no
@@ -154,11 +213,6 @@ export function useConsultaForm(citaId) {
       await actualizarCita(cita.id, { estado: 'completada' })
 
       if (programarSeguimiento) {
-        if (!seguimiento.fecha || !seguimiento.hora) {
-          toastError('Falta la fecha u hora del seguimiento.')
-          setGuardando(false)
-          return
-        }
         const inicioDate = new Date(`${seguimiento.fecha}T${seguimiento.hora}`)
         const finDate = new Date(inicioDate.getTime() + Number(seguimiento.duracion) * 60000)
         await crearCita({

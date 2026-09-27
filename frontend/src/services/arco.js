@@ -17,11 +17,17 @@ export async function crearSolicitudArco(solicitud) {
   return data
 }
 
+// Límite de seguridad, no paginación completa todavía: esta es una
+// bitácora que nunca se borra — sin un tope, con años de solicitudes
+// esto terminaría trayendo miles de filas de golpe. 200 es generoso
+// para el uso real de hoy; si algún día se necesita ver más atrás,
+// eso sí requiere paginación de verdad, no solo subir este número.
 export async function listarSolicitudesDeClinica() {
   const { data, error } = await supabase
     .from('arco_solicitudes')
     .select('*, responsable:usuarios!arco_solicitudes_responsable_id_fkey(nombre)')
     .order('creado_en', { ascending: false })
+    .limit(200)
   if (error) throw error
   return data
 }

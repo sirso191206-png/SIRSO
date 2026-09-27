@@ -53,7 +53,11 @@ function SeccionGeneral({ pacienteId }) {
       await guardarAntecedentes({ [campo]: valor })
       toastExito(mensaje)
     } catch (err) {
-      toastError('No se pudo guardar: ' + err.message)
+      if (err.message === 'CONFLICTO_CONCURRENCIA') {
+        toastError('Otra persona ya modificó el expediente de este paciente. Se recargaron los datos más recientes — revísalos antes de guardar de nuevo.')
+      } else {
+        toastError('No se pudo guardar: ' + err.message)
+      }
     }
   }
 
@@ -131,7 +135,11 @@ function GrupoSanguineoForm({ expediente, onGuardar }) {
       toastExito('Grupo sanguíneo actualizado.')
       setEditando(false)
     } catch (err) {
-      toastError('No se pudo guardar: ' + err.message)
+      if (err.message === 'CONFLICTO_CONCURRENCIA') {
+        toastError('Otra persona ya modificó el expediente de este paciente. Se recargaron los datos más recientes.')
+      } else {
+        toastError('No se pudo guardar: ' + err.message)
+      }
     } finally {
       setGuardando(false)
     }
@@ -193,7 +201,11 @@ function AntecedentesFamiliaresForm({ expediente, onGuardar }) {
           toastExito('Antecedentes familiares actualizados.')
           setEditando(false)
         } catch (err) {
-          toastError('No se pudo guardar: ' + err.message)
+          if (err.message === 'CONFLICTO_CONCURRENCIA') {
+            toastError('Otra persona ya modificó el expediente de este paciente. Se recargaron los datos más recientes.')
+          } else {
+            toastError('No se pudo guardar: ' + err.message)
+          }
         } finally {
           setGuardando(false)
         }
@@ -238,7 +250,11 @@ function HabitosForm({ expediente, onGuardar }) {
       toastExito('Hábitos y antecedentes odontológicos actualizados.')
       setEditando(false)
     } catch (err) {
-      toastError('No se pudo guardar: ' + err.message)
+      if (err.message === 'CONFLICTO_CONCURRENCIA') {
+        toastError('Otra persona ya modificó el expediente de este paciente. Se recargaron los datos más recientes.')
+      } else {
+        toastError('No se pudo guardar: ' + err.message)
+      }
     } finally {
       setGuardando(false)
     }

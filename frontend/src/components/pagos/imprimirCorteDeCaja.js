@@ -1,5 +1,6 @@
 import { supabase } from '../../lib/supabase'
 import { abrirVentanaImpresion } from '../../lib/imprimir'
+import { formatearMoneda } from '../../lib/formato'
 
 const NOMBRE_METODO = { efectivo: 'Efectivo', tarjeta: 'Tarjeta', transferencia: 'Transferencia', otro: 'Otro' }
 
@@ -11,7 +12,7 @@ export async function imprimirCorteDeCaja({ pagos, desde, hasta, clinicaId, tota
     .map(([metodo, monto]) => `
       <tr>
         <td>${NOMBRE_METODO[metodo] ?? metodo}</td>
-        <td style="text-align:right">$${monto.toFixed(2)}</td>
+        <td style="text-align:right">$${formatearMoneda(monto)}</td>
       </tr>
     `).join('')
 
@@ -21,7 +22,7 @@ export async function imprimirCorteDeCaja({ pagos, desde, hasta, clinicaId, tota
       <td>${p.paciente?.nombre_completo ?? ''}</td>
       <td>${NOMBRE_METODO[p.metodo] ?? p.metodo}</td>
       <td>${p.tipo}</td>
-      <td style="text-align:right">${p.tipo === 'reembolso' ? '-' : ''}$${Number(p.monto).toFixed(2)}</td>
+      <td style="text-align:right">${p.tipo === 'reembolso' ? '-' : ''}$${formatearMoneda(p.monto)}</td>
     </tr>
   `).join('')
 
@@ -56,7 +57,7 @@ export async function imprimirCorteDeCaja({ pagos, desde, hasta, clinicaId, tota
         <tbody>${filasMetodo}</tbody>
       </table>
 
-      <div class="total">Total del periodo: $${totalGeneral.toFixed(2)}</div>
+      <div class="total">Total del periodo: $${formatearMoneda(totalGeneral)}</div>
 
       <h2>Detalle de movimientos</h2>
       <table>

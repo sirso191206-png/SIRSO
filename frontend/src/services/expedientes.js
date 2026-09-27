@@ -10,14 +10,26 @@ export async function obtenerExpediente(pacienteId) {
   return data
 }
 
-export async function actualizarExpediente(expedienteId, cambios) {
-  const { data, error } = await supabase
-    .from('expedientes')
-    .update({ ...cambios, actualizado_en: new Date().toISOString() })
-    .eq('id', expedienteId)
-    .select()
-    .single()
-  if (error) throw error
+// actualizado_en ya no la pone el frontend a mano — la mantiene un
+// trigger (migración 071), que es quien realmente decide cuándo se
+// modificó, no el reloj del navegador de quien guarda. Si se pasa
+// actualizadoEnEsperado, se agrega como condición extra del UPDATE (no
+// reemplaza RLS, se suma a ella): si alguien más ya modificó este
+// expediente desde que se abrió el formulario, la condición no
+// encuentra ninguna fila, y .single() lanza PGRST116 en vez de guardar
+// encima de datos ya desactualizados.
+export async function actualizarExpediente(expedienteId, cambios, actualizadoEnEsperado) {
+  let query = supabase.from('expedientes').update(cambios).eq('id', expedienteId)
+  if (actualizadoEnEsperado) {
+    query = query.eq('actualizado_en', actualizadoEnEsperado)
+  }
+  const { data, error } = await query.select().single()
+  if (error) {
+    if (error.code === 'PGRST116' && actualizadoEnEsperado) {
+      throw new Error('CONFLICTO_CONCURRENCIA')
+    }
+    throw error
+  }
   return data
 }
 
@@ -31,11 +43,16 @@ export async function obtenerNotasClinicas(expedienteId) {
   return data
 }
 
+// Si `nota.id` viene definido (lo genera el navegador con
+// crypto.randomUUID() para las notas creadas sin conexión), se usa
+// upsert en vez de insert — así, si la subida se reintenta después de
+// un fallo parcial (la escritura sí llegó pero la respuesta se perdió
+// por la red), no se crea una nota duplicada.
 export async function crearNotaClinica(nota) {
-  // nota: { expediente_id, usuario_id, contenido, tipo }
+  // nota: { id?, expediente_id, usuario_id, contenido, tipo }
   const { data, error } = await supabase
     .from('notas_clinicas')
-    .insert(nota)
+    .upsert(nota)
     .select()
     .single()
   if (error) throw error

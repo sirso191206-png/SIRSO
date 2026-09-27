@@ -10,6 +10,7 @@ import { imprimirRecibo } from '../tratamientos/imprimirRecibo'
 import { Button } from '../ui/Button'
 import { Badge } from '../ui/Badge'
 import { Icon } from '../ui/Icon'
+import { formatearMoneda } from '../../lib/formato'
 
 // Próxima cita y última consulta completada — datos puntuales que no
 // tienen hook propio todavía, se piden directo aquí (mismo patrón que
@@ -115,23 +116,23 @@ export function TabResumen({ pacienteId, paciente, onIrA, onNuevaConsulta, inici
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div>
             <div className="text-xs text-slate-400">Total</div>
-            <div className="text-2xl font-bold text-slate-800">${Number(saldo.total_tratamientos).toFixed(2)}</div>
+            <div className="text-2xl font-bold text-slate-800">${formatearMoneda(saldo.total_tratamientos)}</div>
           </div>
           <div>
             <div className="text-xs text-slate-400">Pagado</div>
-            <div className="text-2xl font-bold text-clinico-verde">${Number(saldo.total_pagado).toFixed(2)}</div>
+            <div className="text-2xl font-bold text-clinico-verde">${formatearMoneda(saldo.total_pagado)}</div>
           </div>
           <div>
             <div className="text-xs text-slate-400">Pendiente</div>
             <div className={`text-2xl font-bold ${saldo.saldo > 0 ? 'text-clinico-ambar' : 'text-slate-300'}`}>
-              ${Number(saldo.saldo).toFixed(2)}
+              ${formatearMoneda(saldo.saldo)}
             </div>
           </div>
           <div>
             <div className="text-xs text-slate-400">Último pago</div>
             {ultimoPago ? (
               <div>
-                <div className="text-lg font-semibold text-slate-700">${Number(ultimoPago.monto).toFixed(2)}</div>
+                <div className="text-lg font-semibold text-slate-700">${formatearMoneda(ultimoPago.monto)}</div>
                 <div className="text-xs text-slate-400">
                   {new Date(ultimoPago.creado_en).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
                   {ultimoPago.tipo !== 'pago' && ` · ${ultimoPago.tipo}`}
@@ -193,7 +194,7 @@ export function TabResumen({ pacienteId, paciente, onIrA, onNuevaConsulta, inici
               <Badge estado={tratamientoActivo.estado} />
             </div>
             <p className="mt-1 text-xs text-slate-400">
-              Sesiones: {tratamientoActivo.sesiones_completadas} de {tratamientoActivo.numero_sesiones} · ${Number(tratamientoActivo.costo).toFixed(2)}
+              Sesiones: {tratamientoActivo.sesiones_completadas} de {tratamientoActivo.numero_sesiones} · ${formatearMoneda(tratamientoActivo.costo)}
             </p>
           </div>
         ) : (

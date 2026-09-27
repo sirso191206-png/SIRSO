@@ -8,6 +8,7 @@ import { toastError } from '../store/useToastStore'
 import { imprimirCorteDeCaja } from '../components/pagos/imprimirCorteDeCaja'
 import { Button } from '../components/ui/Button'
 import { Icon } from '../components/ui/Icon'
+import { formatearMoneda } from '../lib/formato'
 
 function inicioDelDia(fecha) {
   const d = new Date(fecha)
@@ -131,12 +132,12 @@ export function CorteDeCaja() {
                 {totalesPorSucursal.map((s) => (
                   <div key={s.sucursalId ?? 'sin-sucursal'} className="rounded-lg bg-slate-50 p-3">
                     <div className="text-xs text-slate-400">{s.nombre}</div>
-                    <div className="text-lg font-bold text-slate-800">${s.total.toFixed(2)}</div>
+                    <div className="text-lg font-bold text-slate-800">${formatearMoneda(s.total)}</div>
                   </div>
                 ))}
                 <div className="rounded-lg border-2 border-clinico-azul bg-clinico-azulClaro p-3">
                   <div className="text-xs text-clinico-azul">Consolidado</div>
-                  <div className="text-lg font-bold text-clinico-azul">${totalGeneral.toFixed(2)}</div>
+                  <div className="text-lg font-bold text-clinico-azul">${formatearMoneda(totalGeneral)}</div>
                 </div>
               </div>
             </div>
@@ -146,12 +147,12 @@ export function CorteDeCaja() {
             {Object.entries(totalesPorMetodo).map(([metodo, monto]) => (
               <div key={metodo} className="rounded-xl border border-slate-200 bg-white p-4">
                 <div className="text-xs uppercase tracking-wide text-slate-400">{metodo}</div>
-                <div className="text-xl font-bold text-slate-800">${monto.toFixed(2)}</div>
+                <div className="text-xl font-bold text-slate-800">${formatearMoneda(monto)}</div>
               </div>
             ))}
             <div className="rounded-xl border-2 border-clinico-azul bg-clinico-azulClaro p-4">
               <div className="text-xs uppercase tracking-wide text-clinico-azul">Total</div>
-              <div className="text-xl font-bold text-clinico-azul">${totalGeneral.toFixed(2)}</div>
+              <div className="text-xl font-bold text-clinico-azul">${formatearMoneda(totalGeneral)}</div>
             </div>
           </div>
 
@@ -178,7 +179,7 @@ export function CorteDeCaja() {
                     <td className="px-4 py-2 capitalize">{p.tipo}{p.anulado_en ? ' (anulado)' : ''}</td>
                     <td className="px-4 py-2 text-slate-500">{p.registrado_por?.nombre}</td>
                     <td className="px-4 py-2 text-right font-medium">
-                      {p.tipo === 'reembolso' && '-'}${Number(p.monto).toFixed(2)}
+                      {p.tipo === 'reembolso' && '-'}${formatearMoneda(p.monto)}
                     </td>
                   </tr>
                 ))}

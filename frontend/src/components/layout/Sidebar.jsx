@@ -4,6 +4,7 @@ import { useAuthStore } from '../../store/useAuthStore'
 import { toastExito, toastError } from '../../store/useToastStore'
 import { actualizarMiPerfilProfesional } from '../../services/usuarios'
 import { SelectorSucursal } from '../sucursales/SelectorSucursal'
+import { useColaOffline } from '../../hooks/useColaOffline'
 import { PadFirma } from '../PadFirma'
 import { Modal } from '../ui/Modal'
 import { Input } from '../ui/Input'
@@ -127,6 +128,7 @@ export function Sidebar() {
   const [modalPerfilAbierto, setModalPerfilAbierto] = useState(false)
   const [menuUsuarioAbierto, setMenuUsuarioAbierto] = useState(false)
   const menuUsuarioRef = useRef(null)
+  const { pendientes } = useColaOffline()
 
   // Cerrar el menú de usuario al hacer clic fuera o al presionar Escape.
   useEffect(() => {
@@ -190,6 +192,11 @@ export function Sidebar() {
       </div>
 
       <div className="border-t border-slate-100 px-1 pt-3">
+        {pendientes > 0 && (
+          <div className="mb-2 rounded-lg bg-amber-50 px-2.5 py-1.5 text-[11px] font-medium text-amber-800">
+            {pendientes} cambio{pendientes > 1 ? 's' : ''} sin subir — se suben solos al recuperar conexión
+          </div>
+        )}
         <SelectorSucursal />
 
         <div className="relative" ref={menuUsuarioRef}>

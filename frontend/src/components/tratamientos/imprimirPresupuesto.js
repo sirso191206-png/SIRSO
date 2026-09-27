@@ -1,5 +1,6 @@
 import { supabase } from '../../lib/supabase'
 import { abrirVentanaImpresion } from '../../lib/imprimir'
+import { formatearMoneda } from '../../lib/formato'
 
 export async function imprimirPresupuesto({ paciente, tratamientos, clinicaId }) {
   const { data: clinica } = await supabase.from('clinicas').select('nombre').eq('id', clinicaId).single()
@@ -12,9 +13,9 @@ export async function imprimirPresupuesto({ paciente, tratamientos, clinicaId })
       <tr>
         <td>${t.descripcion}${t.pieza_dental ? ` (pieza ${t.pieza_dental})` : ''}</td>
         <td style="text-align:center">${t.numero_sesiones ?? 1}</td>
-        <td style="text-align:right">$${costo.toFixed(2)}</td>
-        <td style="text-align:right">${descuento > 0 ? '-$' + descuento.toFixed(2) : '—'}</td>
-        <td style="text-align:right"><strong>$${total.toFixed(2)}</strong></td>
+        <td style="text-align:right">$${formatearMoneda(costo)}</td>
+        <td style="text-align:right">${descuento > 0 ? '-$' + formatearMoneda(descuento) : '—'}</td>
+        <td style="text-align:right"><strong>$${formatearMoneda(total)}</strong></td>
       </tr>
     `
   }).join('')
@@ -57,7 +58,7 @@ export async function imprimirPresupuesto({ paciente, tratamientos, clinicaId })
         </thead>
         <tbody>${filas}</tbody>
       </table>
-      <div class="total">Total general: <strong>$${totalGeneral.toFixed(2)}</strong></div>
+      <div class="total">Total general: <strong>$${formatearMoneda(totalGeneral)}</strong></div>
       <div class="pie">Este presupuesto es una estimación y puede variar según la evolución del tratamiento.</div>
       <script>window.print()</script>
     </body>

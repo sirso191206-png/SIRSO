@@ -24,6 +24,13 @@ export const COLOR_PIEZA = {
   implante: { color: '#C4B5FD', borde: '#7C3AED' }
 }
 
+// Catálogos de detalle — texto libre en la base de datos (varía por
+// clínica), estas son solo las opciones comunes que se ofrecen en el
+// formulario; "Otro" deja escribir lo que no esté en la lista.
+export const MATERIALES_CORONA = ['Porcelana', 'Zirconia', 'Metal-porcelana', 'Oro', 'Resina', 'Otro']
+export const TIPOS_INCRUSTACION = ['Inlay', 'Onlay', 'Overlay', 'Carilla', 'Otro']
+export const TIPOS_AUSENCIA = ['Extracción', 'Ausencia congénita', 'Pérdida traumática', 'No erupcionado', 'Otro']
+
 // Tono marfil clínico para dientes "sanos" en 3D — ni blanco puro (se ve
 // plástico) ni un color que choque con la paleta ya usada en 2D/UI.
 export const COLOR_MARFIL_CORONA = '#F3EFE5'
