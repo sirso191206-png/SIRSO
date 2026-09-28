@@ -1,13 +1,17 @@
 import { supabase } from '../lib/supabase'
+import { conCacheDeLectura } from '../lib/cacheLectura'
 
 export async function obtenerCitaPorId(id) {
-  const { data, error } = await supabase
-    .from('citas')
-    .select('*, paciente:pacientes(nombre_completo, telefono, numero_expediente), dentista:usuarios(nombre)')
-    .eq('id', id)
-    .single()
-  if (error) throw error
-  return data
+  const { datos } = await conCacheDeLectura(`cita:${id}`, async () => {
+    const { data, error } = await supabase
+      .from('citas')
+      .select('*, paciente:pacientes(nombre_completo, telefono, numero_expediente), dentista:usuarios(nombre)')
+      .eq('id', id)
+      .single()
+    if (error) throw error
+    return data
+  })
+  return datos
 }
 
 export async function obtenerCitasRango({ dentistaId, estado, desde, hasta, sucursalId }) {

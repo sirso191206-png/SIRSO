@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { conCacheDeLectura } from '../lib/cacheLectura'
 
 export async function obtenerHistorialPeriodontal(piezaId) {
   const { data, error } = await supabase
@@ -11,13 +12,16 @@ export async function obtenerHistorialPeriodontal(piezaId) {
 }
 
 export async function obtenerPeriodontogramaCompleto(pacienteId) {
-  const { data, error } = await supabase
-    .from('periodontograma_piezas')
-    .select('*, sitios:periodontograma_sitios(*)')
-    .eq('paciente_id', pacienteId)
-    .order('numero_pieza')
-  if (error) throw error
-  return data
+  const { datos } = await conCacheDeLectura(`periodontograma:${pacienteId}`, async () => {
+    const { data, error } = await supabase
+      .from('periodontograma_piezas')
+      .select('*, sitios:periodontograma_sitios(*)')
+      .eq('paciente_id', pacienteId)
+      .order('numero_pieza')
+    if (error) throw error
+    return data
+  })
+  return datos
 }
 
 export async function actualizarPiezaPeriodontal(piezaId, { movilidad, furcacion, usuarioId, actualizadoEnEsperado }) {

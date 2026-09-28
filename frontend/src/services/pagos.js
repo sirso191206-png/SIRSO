@@ -35,7 +35,33 @@ export async function obtenerPagos(pacienteId) {
 
 // El doble cobro por doble clic se evita en la UI (botón deshabilitado
 // mientras la promesa está en curso), no a nivel de BD.
+// DECISIÓN DELIBERADA: los pagos NO se encolan sin conexión, a
+// diferencia de notas/recetas/odontograma. Análisis:
+//
+// A nivel de base de datos, `pagos` es estructuralmente idéntico a una
+// nota clínica o una receta (un simple insert, sin ninguna pasarela ni
+// validación externa — `metodo` es solo texto descriptivo de cómo ya
+// se recibió el dinero, SIRO nunca procesa la transacción en sí). El
+// riesgo de duplicación TÉCNICA (dos filas por un reintento) sería
+// igual de bajo con un id generado en el navegador.
+//
+// El riesgo real es otro: si el registro offline se pierde o se
+// retrasa (sesión expirada, un conflicto, lo que sea), el efectivo que
+// el dentista ya tiene en la mano deja de coincidir con lo que
+// muestran los libros — y a diferencia de una nota clínica faltante
+// (que alguien nota rápido al revisar el expediente), un pago perdido
+// puede pasar inadvertido hasta el corte de caja, o peor: la persona,
+// pensando que no se guardó, lo vuelve a registrar a mano — ahí sí se
+// duplica, no por un bug de la cola, sino por una decisión humana
+// razonable tomada con información incompleta.
+//
+// Por eso se exige conexión real para registrar un pago — igual que
+// pediría el documento de referencia, "no inventar un flujo
+// financiero offline inseguro".
 export async function registrarPago(pago) {
+  if (!navigator.onLine) {
+    throw new Error('Los pagos requieren conexión a internet.')
+  }
   const { data, error } = await supabase
     .from('pagos')
     .insert(pago)

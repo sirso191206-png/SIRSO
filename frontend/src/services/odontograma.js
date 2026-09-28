@@ -1,15 +1,19 @@
 import { supabase } from '../lib/supabase'
+import { conCacheDeLectura } from '../lib/cacheLectura'
 
 // Trae las 32 piezas de un paciente, cada una con sus 5 caras embebidas
 // en un solo query (relación odontograma_piezas -> odontograma_caras).
 export async function obtenerOdontogramaCompleto(pacienteId) {
-  const { data, error } = await supabase
-    .from('odontograma_piezas')
-    .select('*, caras:odontograma_caras(*)')
-    .eq('paciente_id', pacienteId)
-    .order('numero_pieza')
-  if (error) throw error
-  return data
+  const { datos } = await conCacheDeLectura(`odontograma:${pacienteId}`, async () => {
+    const { data, error } = await supabase
+      .from('odontograma_piezas')
+      .select('*, caras:odontograma_caras(*)')
+      .eq('paciente_id', pacienteId)
+      .order('numero_pieza')
+    if (error) throw error
+    return data
+  })
+  return datos
 }
 
 // Traduce los campos camelCase del formulario a las columnas snake_case

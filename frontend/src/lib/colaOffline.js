@@ -1,9 +1,26 @@
 // Cola de operaciones pendientes de subir — IndexedDB nativo, sin
-// ninguna librería nueva. Cada operación: { id, tipo, payload,
-// creado_en, intentos }. "tipo" identifica QUÉ hacer al subirla
-// (ver procesadorColaOffline.js); "id" es el mismo id que ya se le
-// asignó al registro localmente (generado con crypto.randomUUID()),
-// así que reintentar la subida nunca crea un duplicado.
+// ninguna librería nueva.
+//
+// Forma de cada operación:
+//   id                — clave de la cola (permite "reemplazar si ya
+//                       existe" en vez de acumular); para creaciones
+//                       (notas, recetas) es el mismo id generado con
+//                       crypto.randomUUID() que ya lleva el registro.
+//   tipo               — qué hacer al subirla (ver procesadorColaOffline.js)
+//   entidad, entidadId — a qué tabla/registro afecta, para poder
+//                       mostrar "3 cambios pendientes: 1 nota,
+//                       2 piezas de odontograma" sin tener que
+//                       inspeccionar el payload de cada tipo.
+//   payload            — lo que la función de servicio real necesita
+//   creado_en          — timestamp de cuándo se encoló
+//   usuarioId, clinicaId, sucursalId — quién y dónde, para auditoría
+//   intentos           — cuántas veces se intentó subir sin éxito
+//   estado             — 'pendiente' | 'sincronizando' | 'error'
+//   ultimoError        — null, o el mensaje del último intento fallido
+//   claveIdempotencia  — para creaciones, el mismo id (ya sirve como
+//                       tal vía upsert); para actualizaciones, una
+//                       marca propia — nunca se reintenta con una
+//                       clave distinta a la original.
 
 const DB_NOMBRE = 'siro-cola-offline'
 const DB_VERSION = 1
@@ -27,7 +44,31 @@ export async function encolarOperacion(operacion) {
   const db = await abrirDB()
   return new Promise((resolve, reject) => {
     const tx = db.transaction(ALMACEN, 'readwrite')
-    tx.objectStore(ALMACEN).put({ intentos: 0, ...operacion })
+    tx.objectStore(ALMACEN).put({
+      intentos: 0,
+      estado: 'pendiente',
+      ultimoError: null,
+      ...operacion
+    })
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error)
+  })
+}
+
+// Marca una operación como "en proceso de subir" justo antes de
+// intentarlo — así, si alguien abre el indicador de sincronización a
+// mitad del proceso, ve "sincronizando" en vez de "pendiente" para la
+// que ya está en curso.
+export async function marcarSincronizando(id) {
+  const db = await abrirDB()
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(ALMACEN, 'readwrite')
+    const almacen = tx.objectStore(ALMACEN)
+    const peticion = almacen.get(id)
+    peticion.onsuccess = () => {
+      const actual = peticion.result
+      if (actual) almacen.put({ ...actual, estado: 'sincronizando' })
+    }
     tx.oncomplete = () => resolve()
     tx.onerror = () => reject(tx.error)
   })
@@ -53,6 +94,15 @@ export async function quitarOperacion(id) {
   })
 }
 
-export async function marcarIntentoFallido(operacion) {
-  await encolarOperacion({ ...operacion, intentos: (operacion.intentos ?? 0) + 1 })
+// mensajeError: el texto real del fallo (network, validación, lo que
+// haya sido) — se guarda en la operación para que el panel de
+// sincronización pueda mostrar POR QUÉ no se subió algo, no solo que
+// falló.
+export async function marcarIntentoFallido(operacion, mensajeError) {
+  await encolarOperacion({
+    ...operacion,
+    intentos: (operacion.intentos ?? 0) + 1,
+    estado: 'error',
+    ultimoError: mensajeError ?? null
+  })
 }

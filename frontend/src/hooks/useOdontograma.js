@@ -6,6 +6,8 @@ import {
   construirCambiosPieza
 } from '../services/odontograma'
 import { encolarOperacion, listarOperacionesPendientes } from '../lib/colaOffline'
+import { useAuthStore } from '../store/useAuthStore'
+import { useSucursalStore } from '../store/useSucursalStore'
 
 export function useOdontograma(pacienteId) {
   const [piezas, setPiezas] = useState([])
@@ -38,7 +40,19 @@ export function useOdontograma(pacienteId) {
       // reemplaza al anterior en la cola en vez de acumularse — solo
       // importa el último estado, no cada paso intermedio.
       const id = `actualizar_pieza_odontograma_${piezaId}`
-      await encolarOperacion({ id, tipo: 'actualizar_pieza_odontograma', payload: { piezaId, cambios }, creado_en: Date.now() })
+      const perfil = useAuthStore.getState().perfil
+      await encolarOperacion({
+        id,
+        tipo: 'actualizar_pieza_odontograma',
+        entidad: 'odontograma_piezas',
+        entidadId: piezaId,
+        payload: { piezaId, cambios },
+        creado_en: Date.now(),
+        usuarioId: perfil?.id ?? null,
+        clinicaId: perfil?.clinica_id ?? null,
+        sucursalId: useSucursalStore.getState().sucursalActualId,
+        claveIdempotencia: id
+      })
       // Optimista: refleja el cambio en pantalla de inmediato, usando
       // exactamente la misma conversión de campos que usaría el
       // guardado real, para que nunca se vean distintos.

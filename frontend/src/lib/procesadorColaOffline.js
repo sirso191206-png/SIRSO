@@ -1,10 +1,18 @@
 import { supabase } from './supabase'
 import { crearNotaClinica } from '../services/expedientes'
+import { crearReceta } from '../services/recetas'
 import { actualizarPiezaOdontograma } from '../services/odontograma'
 import { actualizarPiezaPeriodontal, actualizarSitioPeriodontal } from '../services/periodontograma'
 import { actualizarCita, crearCita } from '../services/citas'
-import { listarOperacionesPendientes, quitarOperacion, marcarIntentoFallido } from './colaOffline'
+import { listarOperacionesPendientes, quitarOperacion, marcarIntentoFallido, marcarSincronizando } from './colaOffline'
+import { guardarMetadato, leerMetadato } from './cacheLectura'
 import { toastExito, toastError } from '../store/useToastStore'
+
+const CLAVE_ULTIMA_SINCRONIZACION_COLA = 'ultima_sincronizacion_cola'
+
+export async function obtenerUltimaSincronizacionCola() {
+  return leerMetadato(CLAVE_ULTIMA_SINCRONIZACION_COLA)
+}
 
 // Registro de qué hacer por cada "tipo" de operación encolada.
 // - crear_nota_clinica: la más segura — es un insert nuevo, con id
@@ -19,6 +27,10 @@ import { toastExito, toastError } from '../store/useToastStore'
 // reintentarlo.
 const EJECUTORES = {
   crear_nota_clinica: (payload) => crearNotaClinica(payload),
+  // Misma seguridad que crear_nota_clinica: insert nuevo, id generado
+  // en el navegador, upsert del lado del servicio — reintentar nunca
+  // duplica una receta.
+  crear_receta: (payload) => crearReceta(payload),
   actualizar_pieza_odontograma: (payload) => actualizarPiezaOdontograma(payload.piezaId, payload.cambios),
   actualizar_pieza_periodontal: (payload) => actualizarPiezaPeriodontal(payload.piezaId, payload.cambios),
   actualizar_sitio_periodontal: (payload) => actualizarSitioPeriodontal(payload.sitioId, payload.cambios),
@@ -64,6 +76,12 @@ export async function procesarColaOffline() {
       return
     }
 
+    // Se guarda aquí, no al final: significa "la última vez que se
+    // confirmó de verdad que se podía hablar con el servidor para
+    // subir la cola" — independiente de si cada operación individual
+    // tuvo éxito o no.
+    await guardarMetadato(CLAVE_ULTIMA_SINCRONIZACION_COLA, { fecha: new Date().toISOString() })
+
     let subidas = 0
     let fallidasTransitorias = 0
     let perdidasPorConflicto = 0
@@ -78,6 +96,7 @@ export async function procesarColaOffline() {
         continue
       }
       try {
+        await marcarSincronizando(operacion.id)
         await ejecutor(operacion.payload)
         await quitarOperacion(operacion.id)
         subidas++
@@ -91,7 +110,7 @@ export async function procesarColaOffline() {
           await quitarOperacion(operacion.id)
           perdidasPorConflicto++
         } else {
-          await marcarIntentoFallido(operacion)
+          await marcarIntentoFallido(operacion, err.message)
           fallidasTransitorias++
         }
       }

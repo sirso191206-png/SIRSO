@@ -55,6 +55,16 @@ export function TabRecetas({ pacienteId, paciente }) {
                     Controlada
                   </span>
                 )}
+                {r.estado_sync === 'PENDIENTE_SYNC' && (
+                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-amber-800">
+                    Sin subir
+                  </span>
+                )}
+                {r.estado_sync === 'ERROR_SYNC' && (
+                  <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-red-700">
+                    Error al subir
+                  </span>
+                )}
                 {calcularVencida(r) ? (
                   <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-red-700">Vencida</span>
                 ) : (

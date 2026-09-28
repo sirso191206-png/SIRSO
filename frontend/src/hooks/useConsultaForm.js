@@ -8,6 +8,7 @@ import { useCatalogoTratamientos } from './useCatalogoTratamientos'
 import { useSignosVitales } from './useSignosVitales'
 import { useRecetas } from './useRecetas'
 import { useAuthStore } from '../store/useAuthStore'
+import { useSucursalStore } from '../store/useSucursalStore'
 import { toastExito, toastError } from '../store/useToastStore'
 import { encolarOperacion } from '../lib/colaOffline'
 
@@ -192,8 +193,14 @@ export function useConsultaForm(citaId) {
         await encolarOperacion({
           id: `finalizar_consulta_${cita.id}`,
           tipo: 'finalizar_consulta',
+          entidad: 'citas',
+          entidadId: cita.id,
           payload: { citaId: cita.id, motivo, notaClinica, seguimientoPayload, actualizadoEnEsperado: cita.actualizado_en },
-          creado_en: Date.now()
+          creado_en: Date.now(),
+          usuarioId: perfil?.id ?? null,
+          clinicaId: perfil?.clinica_id ?? null,
+          sucursalId: useSucursalStore.getState().sucursalActualId,
+          claveIdempotencia: `finalizar_consulta_${cita.id}`
         })
 
         setFinalizada(true)

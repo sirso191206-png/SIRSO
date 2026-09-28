@@ -6,6 +6,7 @@ import { toastExito, toastError } from '../store/useToastStore'
 import { capitalizarPrimeraLetra } from '../lib/texto'
 import { ColaDeEspera } from '../components/ColaDeEspera'
 import { ModalNuevaUrgencia } from '../components/ModalNuevaUrgencia'
+import { ModalSincronizarDia } from '../components/ModalSincronizarDia'
 import { Button } from '../components/ui/Button'
 import { Icon } from '../components/ui/Icon'
 import { formatearMoneda } from '../lib/formato'
@@ -22,6 +23,7 @@ export function MiDia() {
   const navigate = useNavigate()
   const { datos, cargando, error, iniciarConsulta, finalizarConsulta } = useMiDia()
   const [modalUrgenciaAbierto, setModalUrgenciaAbierto] = useState(false)
+  const [modalSincronizarAbierto, setModalSincronizarAbierto] = useState(false)
   const [colaVersion, setColaVersion] = useState(0)
 
   // Recepción no tiene "Mi día" en su flujo (ver menú) — si llega aquí
@@ -71,6 +73,9 @@ export function MiDia() {
           <Button onClick={() => setModalUrgenciaAbierto(true)} className="inline-flex items-center gap-1.5">
             <Icon.zap /> Nueva urgencia
           </Button>
+          <Button variante="secundario" onClick={() => setModalSincronizarAbierto(true)} className="inline-flex items-center gap-1.5">
+            <Icon.refresh /> Sincronizar mi día
+          </Button>
         </div>
       </div>
 
@@ -94,6 +99,11 @@ export function MiDia() {
         abierto={modalUrgenciaAbierto}
         onCerrar={() => setModalUrgenciaAbierto(false)}
         onCreada={() => setColaVersion((v) => v + 1)}
+      />
+
+      <ModalSincronizarDia
+        abierto={modalSincronizarAbierto}
+        onCerrar={() => setModalSincronizarAbierto(false)}
       />
     </div>
   )

@@ -8,6 +8,7 @@ import { Icon } from '../ui/Icon'
 import { Input } from '../ui/Input'
 import { formatearMoneda } from '../../lib/formato'
 import { Modal } from '../ui/Modal'
+import { useConexion } from '../../hooks/useConexion'
 
 // Pagos vive dentro de "Plan" — el documento de reorganización agrupa
 // diagnósticos, tratamientos, presupuestos y pagos en una sola sección
@@ -15,6 +16,7 @@ import { Modal } from '../ui/Modal'
 // antes tenía su propia pestaña, solo se movió de lugar.
 export function SeccionPagos({ pacienteId, paciente }) {
   const { pagos, saldo, cargando, agregar, anular } = usePagos(pacienteId)
+  const conectado = useConexion()
   const [monto, setMonto] = useState('')
   const [metodo, setMetodo] = useState('efectivo')
   const [guardando, setGuardando] = useState(false)
@@ -66,7 +68,12 @@ export function SeccionPagos({ pacienteId, paciente }) {
           <option value="transferencia">Transferencia</option>
           <option value="otro">Otro</option>
         </select>
-        <Button type="submit" disabled={guardando}>{guardando ? 'Registrando…' : 'Registrar pago'}</Button>
+        <Button type="submit" disabled={guardando || !conectado} title={!conectado ? 'Los pagos requieren conexión a internet.' : undefined}>
+          {guardando ? 'Registrando…' : 'Registrar pago'}
+        </Button>
+        {!conectado && (
+          <p className="mt-1 text-xs text-amber-700">Los pagos requieren conexión a internet.</p>
+        )}
       </form>
 
       <div className="space-y-2">

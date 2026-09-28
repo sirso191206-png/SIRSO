@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase'
 import { sanitizarTerminoBusqueda } from '../lib/texto'
+import { conCacheDeLectura } from '../lib/cacheLectura'
 
 // Si ya existe un paciente con esa CURP en la clínica, lo regresa (para
 // no crear un expediente duplicado) — si no, regresa null.
@@ -37,13 +38,16 @@ export async function buscarPacientes(termino, { incluirArchivados = false } = {
 }
 
 export async function obtenerPaciente(id) {
-  const { data, error } = await supabase
-    .from('v_pacientes_seguro')
-    .select('*')
-    .eq('id', id)
-    .single()
-  if (error) throw error
-  return data
+  const { datos } = await conCacheDeLectura(`paciente:${id}`, async () => {
+    const { data, error } = await supabase
+      .from('v_pacientes_seguro')
+      .select('*')
+      .eq('id', id)
+      .single()
+    if (error) throw error
+    return data
+  })
+  return datos
 }
 
 export async function crearPaciente(paciente) {
@@ -167,7 +171,7 @@ const FILTROS_CRUZADOS = {
   }
 }
 
-export async function buscarPacientesDetallado({
+async function _buscarPacientesDetalladoReal({
   termino = '',
   filtroEstado = 'activos', // activos | archivados | todos
   filtroExtra = '', // '' | con_saldo | con_tratamiento | con_cita
@@ -239,4 +243,16 @@ export async function buscarPacientesDetallado({
   }))
 
   return { pacientes: enriquecidos, total: count ?? 0 }
+}
+
+// Se guarda en caché por esta combinación exacta de filtros — así
+// volver a la lista con la misma búsqueda que ya habías hecho, sin
+// conexión, sí muestra algo en vez de una pantalla vacía. Una
+// combinación distinta de filtros (otra búsqueda, otra página) que
+// nunca se visitó sigue sin tener nada que mostrar, como es de
+// esperarse.
+export async function buscarPacientesDetallado(filtros) {
+  const clave = `pacientes:${JSON.stringify(filtros)}`
+  const { datos } = await conCacheDeLectura(clave, () => _buscarPacientesDetalladoReal(filtros))
+  return datos
 }

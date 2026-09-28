@@ -1,13 +1,17 @@
 import { supabase } from '../lib/supabase'
+import { conCacheDeLectura } from '../lib/cacheLectura'
 
 export async function obtenerExpediente(pacienteId) {
-  const { data, error } = await supabase
-    .from('expedientes')
-    .select('*')
-    .eq('paciente_id', pacienteId)
-    .single()
-  if (error) throw error
-  return data
+  const { datos } = await conCacheDeLectura(`expediente:${pacienteId}`, async () => {
+    const { data, error } = await supabase
+      .from('expedientes')
+      .select('*')
+      .eq('paciente_id', pacienteId)
+      .single()
+    if (error) throw error
+    return data
+  })
+  return datos
 }
 
 // actualizado_en ya no la pone el frontend a mano — la mantiene un
@@ -34,6 +38,11 @@ export async function actualizarExpediente(expedienteId, cambios, actualizadoEnE
 }
 
 export async function obtenerNotasClinicas(expedienteId) {
+  const { datos } = await conCacheDeLectura(`notas_clinicas:${expedienteId}`, () => _obtenerNotasClinicasReal(expedienteId))
+  return datos
+}
+
+async function _obtenerNotasClinicasReal(expedienteId) {
   const { data, error } = await supabase
     .from('notas_clinicas')
     .select('*, usuario:usuarios(nombre)')
@@ -74,12 +83,18 @@ export async function corregirNotaClinica(notaAnteriorId, notaNueva) {
 
 // Diagnósticos que ya se han escrito antes en esta clínica, para
 // autocompletar en la consulta unificada (datalist, no una tabla nueva).
+// Sin parámetro de clínica porque RLS ya lo acota solo — una sola
+// clave de caché por usuario/navegador es suficiente, dado que nunca
+// va a ver los diagnósticos de una clínica que no es la suya.
 export async function obtenerDiagnosticosFrecuentes() {
-  const { data, error } = await supabase
-    .from('notas_clinicas')
-    .select('diagnostico')
-    .not('diagnostico', 'is', null)
-    .limit(200)
-  if (error) throw error
-  return [...new Set(data.map((d) => d.diagnostico).filter(Boolean))].slice(0, 20)
+  const { datos } = await conCacheDeLectura('diagnosticos_frecuentes', async () => {
+    const { data, error } = await supabase
+      .from('notas_clinicas')
+      .select('diagnostico')
+      .not('diagnostico', 'is', null)
+      .limit(200)
+    if (error) throw error
+    return [...new Set(data.map((d) => d.diagnostico).filter(Boolean))].slice(0, 20)
+  })
+  return datos
 }

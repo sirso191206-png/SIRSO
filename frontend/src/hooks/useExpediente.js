@@ -6,6 +6,8 @@ import {
   actualizarExpediente
 } from '../services/expedientes'
 import { encolarOperacion, listarOperacionesPendientes } from '../lib/colaOffline'
+import { useAuthStore } from '../store/useAuthStore'
+import { useSucursalStore } from '../store/useSucursalStore'
 
 export function useExpediente(pacienteId) {
   const [expediente, setExpediente] = useState(null)
@@ -39,7 +41,19 @@ export function useExpediente(pacienteId) {
       // sube usando ese mismo id, así que reintentar nunca duplica.
       const id = crypto.randomUUID()
       const notaCompleta = { ...nota, expediente_id: expediente.id, id, creado_en: new Date().toISOString() }
-      await encolarOperacion({ id, tipo: 'crear_nota_clinica', payload: notaCompleta, creado_en: Date.now() })
+      const perfil = useAuthStore.getState().perfil
+      await encolarOperacion({
+        id,
+        tipo: 'crear_nota_clinica',
+        entidad: 'notas_clinicas',
+        entidadId: id,
+        payload: notaCompleta,
+        creado_en: Date.now(),
+        usuarioId: perfil?.id ?? null,
+        clinicaId: perfil?.clinica_id ?? null,
+        sucursalId: useSucursalStore.getState().sucursalActualId,
+        claveIdempotencia: id
+      })
       await recargar()
       return
     }

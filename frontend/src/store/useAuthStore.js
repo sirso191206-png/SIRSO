@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { supabase, invocarFuncionAutenticada } from '../lib/supabase'
 import { registrarSesion, marcarSesionFinalizada } from '../services/sesiones'
+import { guardarPerfilOffline, leerPerfilOffline } from '../lib/cacheAuth'
 
 export const useAuthStore = create((set, get) => ({
   session: null,
@@ -9,6 +10,13 @@ export const useAuthStore = create((set, get) => ({
   clinicaEstado: null, // 'activa' | 'suspendida' — para bloquear acceso
   cargando: true,
   sesionActualId: null,
+  // 'online': el último intento de cargar el perfil sí habló con
+  // Supabase. 'offline': se está usando el perfil guardado localmente
+  // porque Supabase no respondió — la sesión sigue siendo válida (el
+  // token la maneja Supabase Auth por su cuenta), pero el perfil que
+  // se ve podría no reflejar un cambio muy reciente (p. ej. un cambio
+  // de rol) hasta que vuelva la conexión.
+  connectionStatus: 'online',
 
   // Se llama una vez al montar la app
   init: async () => {
@@ -38,30 +46,61 @@ export const useAuthStore = create((set, get) => ({
   },
 
   cargarPerfil: async (session) => {
-    const { data, error } = await supabase
-      .from('usuarios')
-      .select('*')
-      .eq('id', session.user.id)
-      .single()
-
-    if (error) {
+    let data = null
+    let fallaDeRed = false
+    try {
+      const respuesta = await supabase.from('usuarios').select('*').eq('id', session.user.id).single()
+      if (respuesta.error) throw respuesta.error
+      data = respuesta.data
+    } catch (error) {
       console.error('Error cargando perfil de usuario:', error.message)
+      fallaDeRed = true
     }
 
-    set({ session, perfil: data ?? null, cargando: false })
+    if (!fallaDeRed) {
+      // Se pudo hablar con Supabase — este es el camino normal. Se
+      // guarda una copia local del perfil, para el día que SÍ haga
+      // falta el respaldo offline.
+      set({ session, perfil: data ?? null, connectionStatus: 'online', cargando: false })
 
-    // Nombre de la clínica: se carga aparte para no bloquear el login
-    // si por lo que sea tarda o falla.
-    if (data?.clinica_id) {
-      const { data: clinica } = await supabase
-        .from('clinicas')
-        .select('nombre, estado')
-        .eq('id', data.clinica_id)
-        .single()
+      let clinicaNombre = null
+      let clinicaEstado = null
+      if (data?.clinica_id) {
+        const { data: clinica } = await supabase
+          .from('clinicas')
+          .select('nombre, estado')
+          .eq('id', data.clinica_id)
+          .single()
+        clinicaNombre = clinica?.nombre ?? null
+        clinicaEstado = clinica?.estado ?? null
+        set({ clinicaNombre, clinicaEstado })
+      }
+
+      if (data) {
+        guardarPerfilOffline({ userId: session.user.id, perfil: data, clinicaNombre, clinicaEstado })
+      }
+      return
+    }
+
+    // Supabase no respondió — antes de rendirse (perfil en null,
+    // como si la sesión no existiera), se busca un perfil guardado de
+    // una sincronización anterior. La sesión en sí (el token) la
+    // sigue manejando Supabase Auth por su cuenta; esto solo evita que
+    // la UI se quede sin saber quién eres ni qué rol tienes.
+    const guardado = await leerPerfilOffline(session.user.id)
+    if (guardado) {
       set({
-        clinicaNombre: clinica?.nombre ?? null,
-        clinicaEstado: clinica?.estado ?? null
+        session,
+        perfil: guardado.perfil,
+        clinicaNombre: guardado.clinicaNombre,
+        clinicaEstado: guardado.clinicaEstado,
+        connectionStatus: 'offline',
+        cargando: false
       })
+    } else {
+      // Ni Supabase respondió, ni hay nada guardado (o ya expiró, más
+      // de 24 horas) — aquí sí no queda otra que pedir reconectar.
+      set({ session, perfil: null, connectionStatus: 'offline', cargando: false })
     }
   },
 
@@ -109,12 +148,20 @@ export const useAuthStore = create((set, get) => ({
   refrescarEstadoClinica: async () => {
     const clinicaId = get().perfil?.clinica_id
     if (!clinicaId) return
-    const { data: clinica } = await supabase
-      .from('clinicas')
-      .select('estado')
-      .eq('id', clinicaId)
-      .single()
-    if (clinica?.estado) set({ clinicaEstado: clinica.estado })
+    try {
+      const { data: clinica, error } = await supabase
+        .from('clinicas')
+        .select('estado')
+        .eq('id', clinicaId)
+        .single()
+      if (error) throw error
+      if (clinica?.estado) set({ clinicaEstado: clinica.estado, connectionStatus: 'online' })
+    } catch {
+      // Sin conexión: se deja el estado de clínica que ya se tenía
+      // (de la caché offline, si aplica) — no tiene caso tronar esto
+      // en cada navegación solo porque no hay red en este momento.
+      set({ connectionStatus: 'offline' })
+    }
   },
 
   // Helpers de permisos usados en toda la UI

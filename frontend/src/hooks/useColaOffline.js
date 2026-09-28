@@ -3,27 +3,52 @@ import { useConexion } from './useConexion'
 import { listarOperacionesPendientes } from '../lib/colaOffline'
 import { procesarColaOffline } from '../lib/procesadorColaOffline'
 
+// Expone el desglose real de la cola (pendientes/sincronizando/error),
+// no solo un número — para el indicador global (sección 14) y para
+// poder reintentar manualmente sin esperar a que se recupere la
+// conexión sola.
 export function useColaOffline() {
   const conectado = useConexion()
-  const [pendientes, setPendientes] = useState(0)
+  const [operaciones, setOperaciones] = useState([])
+  const [sincronizandoActivo, setSincronizandoActivo] = useState(false)
 
-  const actualizarConteo = useCallback(async () => {
+  const actualizar = useCallback(async () => {
     try {
       const lista = await listarOperacionesPendientes()
-      setPendientes(lista.length)
+      setOperaciones(lista)
     } catch {
       // IndexedDB puede fallar en modo privado de algunos navegadores
-      // — no es crítico, solo significa que el contador se queda en 0.
+      // — no es crítico, solo significa que el panel se queda vacío.
     }
   }, [])
 
-  useEffect(() => { actualizarConteo() }, [actualizarConteo])
+  const sincronizarAhora = useCallback(async () => {
+    setSincronizandoActivo(true)
+    try {
+      await procesarColaOffline()
+    } finally {
+      setSincronizandoActivo(false)
+      await actualizar()
+    }
+  }, [actualizar])
+
+  useEffect(() => { actualizar() }, [actualizar])
 
   useEffect(() => {
-    if (conectado) {
-      procesarColaOffline().then(actualizarConteo)
-    }
-  }, [conectado, actualizarConteo])
+    if (conectado) sincronizarAhora()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conectado])
 
-  return { pendientes, conectado }
+  const errores = operaciones.filter((o) => o.estado === 'error')
+  const pendientes = operaciones.length - errores.length
+
+  return {
+    operaciones,
+    pendientes,
+    errores,
+    totalPendientes: operaciones.length,
+    sincronizando: sincronizandoActivo,
+    conectado,
+    sincronizarAhora
+  }
 }

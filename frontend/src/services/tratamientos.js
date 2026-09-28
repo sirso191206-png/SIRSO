@@ -1,13 +1,17 @@
 import { supabase } from '../lib/supabase'
+import { conCacheDeLectura } from '../lib/cacheLectura'
 
 export async function obtenerTratamientos(pacienteId) {
-  const { data, error } = await supabase
-    .from('tratamientos')
-    .select('*, dentista:usuarios!tratamientos_dentista_id_fkey(nombre)')
-    .eq('paciente_id', pacienteId)
-    .order('creado_en', { ascending: false })
-  if (error) throw error
-  return data
+  const { datos } = await conCacheDeLectura(`tratamientos:${pacienteId}`, async () => {
+    const { data, error } = await supabase
+      .from('tratamientos')
+      .select('*, dentista:usuarios!tratamientos_dentista_id_fkey(nombre)')
+      .eq('paciente_id', pacienteId)
+      .order('creado_en', { ascending: false })
+    if (error) throw error
+    return data
+  })
+  return datos
 }
 
 export async function crearTratamiento(tratamiento) {

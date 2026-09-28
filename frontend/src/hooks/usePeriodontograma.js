@@ -5,6 +5,17 @@ import {
   actualizarSitioPeriodontal
 } from '../services/periodontograma'
 import { encolarOperacion, listarOperacionesPendientes } from '../lib/colaOffline'
+import { useAuthStore } from '../store/useAuthStore'
+import { useSucursalStore } from '../store/useSucursalStore'
+
+function datosOperador() {
+  const perfil = useAuthStore.getState().perfil
+  return {
+    usuarioId: perfil?.id ?? null,
+    clinicaId: perfil?.clinica_id ?? null,
+    sucursalId: useSucursalStore.getState().sucursalActualId
+  }
+}
 
 // Los campos que llegan aquí ya vienen en snake_case exacto de la base
 // de datos (movilidad, furcacion; profundidad_sondaje, recesion,
@@ -49,7 +60,16 @@ export function usePeriodontograma(pacienteId) {
   const cambiarPieza = async (piezaId, cambios) => {
     if (!navigator.onLine) {
       const id = `actualizar_pieza_periodontal_${piezaId}`
-      await encolarOperacion({ id, tipo: 'actualizar_pieza_periodontal', payload: { piezaId, cambios }, creado_en: Date.now() })
+      await encolarOperacion({
+        id,
+        tipo: 'actualizar_pieza_periodontal',
+        entidad: 'periodontograma_piezas',
+        entidadId: piezaId,
+        payload: { piezaId, cambios },
+        creado_en: Date.now(),
+        ...datosOperador(),
+        claveIdempotencia: id
+      })
       await recargar()
       return
     }
@@ -60,7 +80,16 @@ export function usePeriodontograma(pacienteId) {
   const cambiarSitio = async (sitioId, cambios) => {
     if (!navigator.onLine) {
       const id = `actualizar_sitio_periodontal_${sitioId}`
-      await encolarOperacion({ id, tipo: 'actualizar_sitio_periodontal', payload: { sitioId, cambios }, creado_en: Date.now() })
+      await encolarOperacion({
+        id,
+        tipo: 'actualizar_sitio_periodontal',
+        entidad: 'periodontograma_sitios',
+        entidadId: sitioId,
+        payload: { sitioId, cambios },
+        creado_en: Date.now(),
+        ...datosOperador(),
+        claveIdempotencia: id
+      })
       await recargar()
       return
     }
