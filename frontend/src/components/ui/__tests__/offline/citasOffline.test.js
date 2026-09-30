@@ -94,6 +94,47 @@ describe('agendar cita para un paciente YA existente, sin conexión (capacidad n
   })
 })
 
+describe('reagendar / cambiar estado / cancelar una cita YA agendada, sin conexión (capacidad nueva)', () => {
+  it('se sube vía el ejecutor actualizar_cita, con los datos correctos', async () => {
+    m.actualizarCita.mockResolvedValue({ id: 'cita-existente', estado: 'confirmada' })
+    await encolarOperacion({
+      id: 'reagendar-op-1', tipo: 'actualizar_cita', entidad: 'citas', entidadId: 'cita-existente',
+      payload: { id: 'cita-existente', cambios: { estado: 'confirmada' } },
+      dependeDe: [], usuarioId: 'u1', creado_en: 1
+    })
+
+    await procesarColaOffline()
+
+    expect(m.actualizarCita).toHaveBeenCalledTimes(1)
+    expect(m.actualizarCita).toHaveBeenCalledWith('cita-existente', { estado: 'confirmada' }, undefined)
+    expect(await listarOperacionesPendientes()).toHaveLength(0)
+  })
+
+  it('cancelar (estado: cancelada) sube igual, como cualquier otro cambio de estado', async () => {
+    m.actualizarCita.mockResolvedValue({ id: 'cita-existente' })
+    await encolarOperacion({
+      id: 'cancelar-op-1', tipo: 'actualizar_cita', entidad: 'citas', entidadId: 'cita-existente',
+      payload: { id: 'cita-existente', cambios: { estado: 'cancelada' } },
+      dependeDe: [], usuarioId: 'u1', creado_en: 1
+    })
+    await procesarColaOffline()
+    expect(m.actualizarCita).toHaveBeenCalledWith('cita-existente', { estado: 'cancelada' }, undefined)
+  })
+
+  it('un error transitorio de red deja la operación pendiente, no la pierde', async () => {
+    m.actualizarCita.mockRejectedValue(new Error('sin red'))
+    await encolarOperacion({
+      id: 'reagendar-op-2', tipo: 'actualizar_cita', entidad: 'citas', entidadId: 'cita-existente',
+      payload: { id: 'cita-existente', cambios: { estado: 'en_consulta' } },
+      dependeDe: [], usuarioId: 'u1', creado_en: 1
+    })
+    await procesarColaOffline()
+    const pendientes = await listarOperacionesPendientes()
+    expect(pendientes).toHaveLength(1)
+    expect(pendientes[0].estado).toBe('error')
+  })
+})
+
 describe('agendar la próxima cita de un paciente NUEVO offline (dependiente)', () => {
   it('sube primero al paciente y luego la cita, resolviendo paciente_id', async () => {
     const paciente = await crearPacienteOffline({ nombre_completo: 'Con cita futura' }, { usuarioId: 'u1' })

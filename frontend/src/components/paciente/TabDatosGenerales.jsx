@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { actualizarPaciente } from '../../services/pacientes'
 import { calcularEdad } from '../../lib/fechas'
+import { useAuthStore } from '../../store/useAuthStore'
+import { useSucursalStore } from '../../store/useSucursalStore'
 import { toastExito, toastError } from '../../store/useToastStore'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
@@ -173,10 +175,19 @@ export function TabDatosGenerales({ paciente, alGuardar }) {
         estado_expediente: form.estado_expediente || 'activo',
         referido_por: form.referido_por || null,
       }
-      const actualizado = await actualizarPaciente(paciente.id, cambios, paciente.actualizado_en)
+      const perfil = useAuthStore.getState().perfil
+      const actualizado = await actualizarPaciente(paciente.id, cambios, paciente.actualizado_en, {
+        usuarioId: perfil?.id,
+        clinicaId: perfil?.clinica_id,
+        sucursalId: useSucursalStore.getState().sucursalActualId
+      })
       alGuardar?.(actualizado)
       setEditando(false)
-      toastExito('Datos del paciente actualizados.')
+      toastExito(
+        actualizado._pendiente
+          ? 'Cambios guardados en este equipo. Se subirán cuando vuelva la conexión.'
+          : 'Datos del paciente actualizados.'
+      )
     } catch (err) {
       if (err.message === 'CONFLICTO_CONCURRENCIA') {
         toastError('Otra persona ya modificó los datos de este paciente mientras tenías el formulario abierto. Recarga la página para ver los cambios más recientes antes de guardar los tuyos.')

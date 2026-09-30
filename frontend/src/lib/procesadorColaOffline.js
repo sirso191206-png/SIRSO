@@ -1,7 +1,7 @@
 import { supabase } from './supabase'
-import { crearNotaClinica, obtenerExpediente } from '../services/expedientes'
+import { crearNotaClinica, obtenerExpediente, actualizarExpedienteEnServidor } from '../services/expedientes'
 import { crearReceta } from '../services/recetas'
-import { crearTratamiento } from '../services/tratamientos'
+import { crearTratamiento, actualizarTratamiento, registrarSesionEnServidor } from '../services/tratamientos'
 import { agregarSignosVitales } from '../services/signosVitales'
 import { actualizarPiezaOdontograma, obtenerPiezaPorNumero } from '../services/odontograma'
 import {
@@ -11,7 +11,7 @@ import {
   obtenerSitioPeriodontalPorNombre
 } from '../services/periodontograma'
 import { actualizarCita, crearCita } from '../services/citas'
-import { crearPacienteEnServidor } from '../services/pacientes'
+import { crearPacienteEnServidor, actualizarPacienteEnServidor } from '../services/pacientes'
 import { listarOperacionesPendientes, quitarOperacion, marcarIntentoFallido, marcarSincronizando, operacionEsDe } from './colaOffline'
 import { ordenarPorDependencias, estadoDeDependencias } from './dependenciasCola'
 import { esIdOffline, resolverId, guardarMapeoId } from './mapeoIdsOffline'
@@ -41,8 +41,13 @@ const EJECUTORES = {
   // tiene dependencias propias — cualquier otra operación que dependa
   // de él lo referencia por su id local (offline-...) en `dependeDe`.
   crear_paciente: (payload) => crearPacienteEnServidor(payload),
+  actualizar_paciente: (payload) => actualizarPacienteEnServidor(payload.id, payload.cambios, payload.actualizadoEnEsperado),
   crear_nota_clinica: (payload) => crearNotaClinica(payload),
+  actualizar_expediente: (payload) => actualizarExpedienteEnServidor(payload.expedienteId, payload.cambios, payload.actualizadoEnEsperado),
   crear_tratamiento: (payload) => crearTratamiento(payload),
+  actualizar_tratamiento: (payload) => actualizarTratamiento(payload.id, payload.cambios),
+  // No recibe el cálculo ya hecho a propósito — ver registrarSesionEnServidor.
+  registrar_sesion_tratamiento: (payload) => registrarSesionEnServidor(payload.tratamientoId),
   crear_signos_vitales: (payload) => agregarSignosVitales(payload),
   // Misma seguridad que crear_nota_clinica: insert nuevo, id generado
   // en el navegador, upsert del lado del servicio — reintentar nunca
@@ -52,6 +57,7 @@ const EJECUTORES = {
   // que va aparte más abajo) — mismo patrón de upsert idempotente,
   // paciente_id se resuelve genérico igual que en recetas/tratamientos.
   crear_cita: (payload) => crearCita(payload),
+  actualizar_cita: (payload) => actualizarCita(payload.id, payload.cambios, payload.actualizadoEnEsperado),
   actualizar_pieza_odontograma: (payload) => actualizarPiezaOdontograma(payload.piezaId, payload.cambios),
   actualizar_pieza_periodontal: (payload) => actualizarPiezaPeriodontal(payload.piezaId, payload.cambios),
   actualizar_sitio_periodontal: (payload) => actualizarSitioPeriodontal(payload.sitioId, payload.cambios),

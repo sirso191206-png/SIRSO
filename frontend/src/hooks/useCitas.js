@@ -70,6 +70,28 @@ export function useCitas({ dentistaId, estado, desde, hasta, sucursalId }) {
   const reagendar = async (id, cambios) => {
     setError(null)
     try {
+      // Mismo criterio que agendar(): un paciente offline siempre
+      // encola, pero aquí no aplica — una cita ya agendada siempre
+      // referencia a un paciente que ya existe en el servidor. Lo que
+      // sí puede faltar es conexión.
+      if (!navigator.onLine) {
+        const idOp = crypto.randomUUID()
+        const perfil = useAuthStore.getState().perfil
+        await encolarOperacion({
+          id: idOp,
+          tipo: 'actualizar_cita',
+          entidad: 'citas',
+          entidadId: id,
+          payload: { id, cambios },
+          creado_en: Date.now(),
+          usuarioId: perfil?.id ?? null,
+          clinicaId: perfil?.clinica_id ?? null,
+          sucursalId: useSucursalStore.getState().sucursalActualId,
+          claveIdempotencia: idOp
+        })
+        await recargar()
+        return
+      }
       await actualizarCita(id, cambios)
       await recargar()
     } catch (err) {

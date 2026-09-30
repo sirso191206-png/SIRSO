@@ -132,6 +132,48 @@ export function useConsultaForm(citaId) {
   const handleGuardarBorrador = async () => {
     setGuardandoBorrador(true)
     try {
+      if (!navigator.onLine) {
+        if (!expediente) throw new Error('El expediente todavía está cargando, espera un momento e intenta de nuevo.')
+
+        // Solo se encola la nota — el motivo de la cita se guarda de
+        // verdad hasta que se finalice la consulta (handleFinalizar lo
+        // manda siempre, con el valor más reciente de `motivo`, esté
+        // en memoria desde antes o se haya escrito apenas ahora). No
+        // se pierde nada: guardar un borrador no completa la consulta,
+        // así que el motivo sigue disponible en este mismo formulario
+        // hasta que sí se finalice.
+        const id = crypto.randomUUID()
+        const notaClinica = {
+          id,
+          expediente_id: expediente.id,
+          cita_id: cita.id,
+          usuario_id: perfil.id,
+          contenido: notaContenido || '(sin nota)',
+          tipo: 'consulta',
+          diagnostico: diagnostico || null,
+          diagnostico_cie10_codigo: diagnosticoCie10Codigo || null,
+          diagnostico_cie10_descripcion: diagnosticoCie10Descripcion || null,
+          interrogatorio_sistemas: Object.keys(interrogatorioSistemas).length > 0 ? interrogatorioSistemas : null,
+          exploracion_fisica: Object.keys(exploracionFisica).length > 0 ? exploracionFisica : null,
+          accion_salud_bucal: Object.keys(accionSaludBucal).length > 0 ? accionSaludBucal : null,
+          hallazgos: hallazgos || null,
+          creado_en: new Date().toISOString()
+        }
+        await encolarOperacion({
+          id,
+          tipo: 'crear_nota_clinica',
+          entidad: 'notas_clinicas',
+          entidadId: id,
+          payload: notaClinica,
+          creado_en: Date.now(),
+          usuarioId: perfil?.id ?? null,
+          clinicaId: perfil?.clinica_id ?? null,
+          sucursalId: useSucursalStore.getState().sucursalActualId,
+          claveIdempotencia: id
+        })
+        toastExito('Borrador guardado sin conexión — se subirá solo cuando vuelva la señal.')
+        return
+      }
       await guardarNotaYMotivo()
       toastExito('Borrador guardado. La cita sigue en consulta.')
     } catch (err) {

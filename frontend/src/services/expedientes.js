@@ -1,5 +1,7 @@
 import { supabase } from '../lib/supabase'
-import { conCacheDeLectura } from '../lib/cacheLectura'
+import { conCacheDeLectura, actualizarCacheDeLectura } from '../lib/cacheLectura'
+import { encolarOperacion } from '../lib/colaOffline'
+import { verificarConexionReal } from '../lib/conectividadReal'
 
 export async function obtenerExpediente(pacienteId) {
   const { datos } = await conCacheDeLectura(`expediente:${pacienteId}`, async () => {
@@ -22,7 +24,7 @@ export async function obtenerExpediente(pacienteId) {
 // expediente desde que se abrió el formulario, la condición no
 // encuentra ninguna fila, y .single() lanza PGRST116 en vez de guardar
 // encima de datos ya desactualizados.
-export async function actualizarExpediente(expedienteId, cambios, actualizadoEnEsperado) {
+export async function actualizarExpedienteEnServidor(expedienteId, cambios, actualizadoEnEsperado) {
   let query = supabase.from('expedientes').update(cambios).eq('id', expedienteId)
   if (actualizadoEnEsperado) {
     query = query.eq('actualizado_en', actualizadoEnEsperado)
@@ -35,6 +37,40 @@ export async function actualizarExpediente(expedienteId, cambios, actualizadoEnE
     throw error
   }
   return data
+}
+
+// El ejecutor de la cola llama a actualizarExpedienteEnServidor()
+// directo — esta versión exportada es la que usa la pantalla de
+// antecedentes, y decide sola si hay que encolar. `pacienteId` es
+// solo para poder actualizar la caché de lectura optimista (la
+// caché de expediente se guarda por paciente, no por expediente_id).
+export async function actualizarExpediente(expedienteId, cambios, actualizadoEnEsperado, pacienteId, { usuarioId, clinicaId, sucursalId } = {}) {
+  const conexionReal = await verificarConexionReal(supabase)
+  if (!conexionReal) {
+    const id_op = `actualizar_expediente_${expedienteId}`
+    await encolarOperacion({
+      id: id_op,
+      tipo: 'actualizar_expediente',
+      entidad: 'expedientes',
+      entidadId: expedienteId,
+      payload: { expedienteId, cambios, actualizadoEnEsperado },
+      creado_en: Date.now(),
+      usuarioId: usuarioId ?? null,
+      clinicaId: clinicaId ?? null,
+      sucursalId: sucursalId ?? null,
+      claveIdempotencia: id_op
+    })
+    if (pacienteId) {
+      // obtenerExpediente ya hace su propia caída a caché si no hay
+      // red — no hace falta envolverla otra vez aquí.
+      const actual = await obtenerExpediente(pacienteId)
+      const optimista = { ...actual, ...cambios, _pendiente: true }
+      await actualizarCacheDeLectura(`expediente:${pacienteId}`, optimista)
+      return optimista
+    }
+    return { id: expedienteId, ...cambios, _pendiente: true }
+  }
+  return actualizarExpedienteEnServidor(expedienteId, cambios, actualizadoEnEsperado)
 }
 
 export async function obtenerNotasClinicas(expedienteId) {

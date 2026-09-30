@@ -6,6 +6,8 @@ import { operacionEsDescartable, resumenOperacion } from '../../lib/descarteOper
 
 // Nombres legibles para lo que hay en la cola.
 const NOMBRE_ENTIDAD = {
+  pacientes: 'pacientes (nuevos o editados)',
+  expedientes: 'antecedentes del expediente',
   notas_clinicas: 'notas clínicas',
   recetas: 'recetas',
   odontograma_piezas: 'cambios de odontograma',

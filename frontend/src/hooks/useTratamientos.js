@@ -78,22 +78,90 @@ export function useTratamientos(pacienteId) {
     return nuevo
   }
 
+  // Compartida por cambiarEstado/cancelar/actualizar: las tres son, en
+  // el fondo, un UPDATE con distintos `cambios` ya resueltos — una
+  // clave estable por tratamiento hace que la más reciente reemplace a
+  // la anterior en la cola (p. ej. cancelar después de haber cambiado
+  // el estado dos minutos antes, sin conexión, deja solo "cancelado",
+  // que es lo correcto).
+  const encolarActualizacionTratamiento = async (id, cambios) => {
+    const idOp = `actualizar_tratamiento_${id}`
+    const perfil = useAuthStore.getState().perfil
+    await encolarOperacion({
+      id: idOp,
+      tipo: 'actualizar_tratamiento',
+      entidad: 'tratamientos',
+      entidadId: id,
+      payload: { id, cambios },
+      dependeDe: [],
+      creado_en: Date.now(),
+      usuarioId: perfil?.id ?? null,
+      clinicaId: perfil?.clinica_id ?? null,
+      sucursalId: useSucursalStore.getState().sucursalActualId,
+      claveIdempotencia: idOp
+    })
+    await recargar()
+  }
+
   const cambiarEstado = async (id, estado) => {
+    if (!navigator.onLine) {
+      const cambios = { estado }
+      if (estado === 'completado') cambios.completado_en = new Date().toISOString()
+      return encolarActualizacionTratamiento(id, cambios)
+    }
     await cambiarEstadoTratamiento(id, estado)
     await recargar()
   }
 
   const cancelar = async (id, datos) => {
+    if (!navigator.onLine) {
+      return encolarActualizacionTratamiento(id, {
+        estado: 'cancelado',
+        motivo_cancelacion: datos?.motivo || null,
+        cancelado_por: datos?.usuarioId ?? null
+      })
+    }
     await cancelarTratamiento(id, datos)
     await recargar()
   }
 
   const actualizar = async (id, cambios) => {
+    if (!navigator.onLine) {
+      return encolarActualizacionTratamiento(id, cambios)
+    }
     await actualizarTratamiento(id, cambios)
     await recargar()
   }
 
   const sumarSesion = async (tratamiento) => {
+    if (!navigator.onLine) {
+      // A diferencia de las tres de arriba, cada "sumar sesión" es un
+      // evento distinto (pasó una consulta más) — nunca se reemplaza
+      // por el siguiente: un id nuevo cada vez, para que dos sesiones
+      // registradas offline antes de reconectar cuenten como dos. El
+      // ejecutor de la cola vuelve a leer el tratamiento justo antes
+      // de sumar (ver registrarSesionEnServidor en el servicio), así
+      // que aquí no se manda ningún número ya calculado — sería
+      // incorrecto confiar en esta instantánea para cuando de verdad
+      // se suba.
+      const idOp = crypto.randomUUID()
+      const perfil = useAuthStore.getState().perfil
+      await encolarOperacion({
+        id: idOp,
+        tipo: 'registrar_sesion_tratamiento',
+        entidad: 'tratamientos',
+        entidadId: tratamiento.id,
+        payload: { tratamientoId: tratamiento.id },
+        dependeDe: [],
+        creado_en: Date.now(),
+        usuarioId: perfil?.id ?? null,
+        clinicaId: perfil?.clinica_id ?? null,
+        sucursalId: useSucursalStore.getState().sucursalActualId,
+        claveIdempotencia: idOp
+      })
+      await recargar()
+      return
+    }
     await registrarSesion(tratamiento)
     await recargar()
   }

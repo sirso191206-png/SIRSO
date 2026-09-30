@@ -16,10 +16,23 @@ let registro
 let respuesta
 beforeEach(() => {
   globalThis.indexedDB = new IDBFactory()
+  // actualizarPaciente/actualizarExpediente ahora comprueban conexión
+  // real antes de decidir si actualizan directo o encolan (ver
+  // lib/conectividadReal.js) — esta batería prueba el camino ONLINE
+  // específicamente (las condiciones exactas del UPDATE), así que
+  // navigator.onLine se fija explícito en vez de depender del valor
+  // por defecto del entorno de pruebas.
+  Object.defineProperty(globalThis.navigator, 'onLine', { value: true, configurable: true })
   registro = []
   respuesta = ok({ id: 'x' })
   supabaseMock.from.mockReset()
-  supabaseMock.from.mockImplementation((t) => crearQueryMock(t, () => respuesta, registro))
+  // 'usuarios' es solo el heartbeat de conectividad real (ver
+  // lib/conectividadReal.js) — siempre responde bien, independiente de
+  // `respuesta`, que simula la tabla que cada prueba está ejercitando
+  // (incluido el caso de conflicto, que si tocara también al
+  // heartbeat, haría que el código nunca llegara a intentar el UPDATE
+  // real que la prueba quiere observar).
+  supabaseMock.from.mockImplementation((t) => crearQueryMock(t, () => (t === 'usuarios' ? ok([{ id: 'x' }]) : respuesta), registro))
 })
 
 // PGRST116 = "0 filas coinciden" — lo que devuelve PostgREST cuando el

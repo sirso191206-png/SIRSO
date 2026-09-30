@@ -117,7 +117,12 @@ export function useExpediente(pacienteId) {
       throw new Error('Este paciente todavía no se ha sincronizado. Los antecedentes se podrán editar en cuanto vuelva la conexión.')
     }
     try {
-      await actualizarExpediente(expediente.id, cambios, expediente.actualizado_en)
+      const perfil = useAuthStore.getState().perfil
+      await actualizarExpediente(expediente.id, cambios, expediente.actualizado_en, pacienteId, {
+        usuarioId: perfil?.id,
+        clinicaId: perfil?.clinica_id,
+        sucursalId: useSucursalStore.getState().sucursalActualId
+      })
     } catch (err) {
       // Si alguien más ya lo modificó, se recarga igual — así quien
       // vuelva a intentar guardar ya parte de los datos frescos, no de

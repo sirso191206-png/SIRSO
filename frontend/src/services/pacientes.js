@@ -1,8 +1,9 @@
 import { supabase } from '../lib/supabase'
 import { sanitizarTerminoBusqueda } from '../lib/texto'
-import { conCacheDeLectura } from '../lib/cacheLectura'
+import { conCacheDeLectura, actualizarCacheDeLectura } from '../lib/cacheLectura'
 import { indexarPaciente, buscarEnIndiceLocal } from '../lib/indicePacientesOffline'
 import { crearPacienteOffline, obtenerPacienteOfflineLocal } from '../lib/pacientesOffline'
+import { encolarOperacion } from '../lib/colaOffline'
 import { esIdOffline, resolverId } from '../lib/mapeoIdsOffline'
 import { verificarConexionReal } from '../lib/conectividadReal'
 
@@ -158,7 +159,7 @@ export async function crearPacienteEnServidor(paciente) {
 // modificó este paciente desde que se abrió el formulario, la
 // condición no encuentra ninguna fila que coincida, y .single() lanza
 // PGRST116 en vez de guardar encima de datos ya desactualizados.
-export async function actualizarPaciente(id, cambios, actualizadoEnEsperado) {
+export async function actualizarPacienteEnServidor(id, cambios, actualizadoEnEsperado) {
   let query = supabase.from('pacientes').update(cambios).eq('id', id)
   if (actualizadoEnEsperado) {
     query = query.eq('actualizado_en', actualizadoEnEsperado)
@@ -170,7 +171,52 @@ export async function actualizarPaciente(id, cambios, actualizadoEnEsperado) {
     }
     throw error
   }
+  indexarPaciente({
+    id: data.id,
+    nombre_completo: data.nombre_completo,
+    telefono: data.telefono ?? null,
+    numero_expediente: data.numero_expediente ?? null,
+    offline: false,
+    actualizado_en: Date.now()
+  }).catch(() => {})
   return data
+}
+
+// El ejecutor de la cola llama a actualizarPacienteEnServidor()
+// directo (ya sabe que hay conexión, está sincronizando) — esta
+// versión exportada es la que usa la pantalla de edición, y decide
+// sola si hay que encolar.
+export async function actualizarPaciente(id, cambios, actualizadoEnEsperado, { usuarioId, clinicaId, sucursalId } = {}) {
+  const conexionReal = await verificarConexionReal(supabase)
+  if (!conexionReal) {
+    // Clave estable por paciente: editar la misma ficha varias veces
+    // antes de reconectar reemplaza el cambio anterior en la cola —
+    // solo importa el último estado, no cada paso intermedio. El
+    // candado de concurrencia (actualizadoEnEsperado) sigue apuntando
+    // al mismo valor porque el registro optimista de abajo nunca lo
+    // toca — todavía no hay ningún cambio real aplicado en el servidor.
+    const id_op = `actualizar_paciente_${id}`
+    await encolarOperacion({
+      id: id_op,
+      tipo: 'actualizar_paciente',
+      entidad: 'pacientes',
+      entidadId: id,
+      payload: { id, cambios, actualizadoEnEsperado },
+      creado_en: Date.now(),
+      usuarioId: usuarioId ?? null,
+      clinicaId: clinicaId ?? null,
+      sucursalId: sucursalId ?? null,
+      claveIdempotencia: id_op
+    })
+    // El paciente ya se vio antes (así llegó a esta pantalla), así que
+    // esto siempre encuentra algo con qué mezclar el cambio — nunca
+    // inventa datos que no estaban.
+    const actual = await obtenerPaciente(id)
+    const optimista = { ...actual, ...cambios, _pendiente: true }
+    await actualizarCacheDeLectura(`paciente:${id}`, optimista)
+    return optimista
+  }
+  return actualizarPacienteEnServidor(id, cambios, actualizadoEnEsperado)
 }
 
 // Reasignación de odontólogo responsable — separada de

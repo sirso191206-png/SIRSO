@@ -73,6 +73,17 @@ export async function leerMetadato(clave) {
   return registro?.datos ?? null
 }
 
+// Única excepción a "esto es de solo lectura": cuando una edición se
+// encola sin conexión (ver services/pacientes.js / services/expedientes.js),
+// esto deja la caché mostrando el cambio de inmediato — si no, la
+// pantalla volvería a ver los datos viejos hasta que la edición
+// terminara de subirse, aunque ya esté guardada de forma segura en la
+// cola. Nunca lo usa una lectura por sí sola, solo un camino de
+// escritura que ya decidió encolar algo.
+export async function actualizarCacheDeLectura(clave, datos) {
+  await guardarEnCache(clave, datos)
+}
+
 // clave: identifica QUÉ se está pidiendo (p. ej. `paciente:${id}`) —
 // debe ser estable para el mismo dato, distinta entre datos distintos.
 // funcionReal: la consulta real a Supabase, tal cual ya existía.

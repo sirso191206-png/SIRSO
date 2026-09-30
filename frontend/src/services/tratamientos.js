@@ -69,6 +69,26 @@ export async function actualizarTratamiento(id, cambios) {
   return data
 }
 
+// Solo la usa el ejecutor de la cola (ver lib/procesadorColaOffline.js)
+// para sumar una sesión SIN CONEXIÓN: a diferencia de las demás
+// operaciones encoladas, esta NO puede mandar el valor final ya
+// calculado — `sesiones_completadas + 1` capturado en el momento del
+// click podría quedar desactualizado para cuando la operación por fin
+// se suba (pudo agregarse otra sesión mientras tanto). Por eso vuelve
+// a leer el tratamiento justo antes de sumar, en vez de confiar en una
+// instantánea vieja — así, dos sesiones registradas offline antes de
+// reconectar cuentan como dos, no como una, y ninguna retrocede un
+// avance que ya haya llegado al servidor por otro lado.
+export async function registrarSesionEnServidor(tratamientoId) {
+  const { data: actual, error } = await supabase
+    .from('tratamientos')
+    .select('id, sesiones_completadas, numero_sesiones')
+    .eq('id', tratamientoId)
+    .single()
+  if (error) throw error
+  return registrarSesion(actual)
+}
+
 // Suma una sesión completada; si llega al total de sesiones, marca el
 // tratamiento como completado automáticamente.
 export async function registrarSesion(tratamiento) {
