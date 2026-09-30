@@ -5,6 +5,12 @@ import {
   actualizarSitioPeriodontal
 } from '../services/periodontograma'
 import { encolarOperacion, listarOperacionesPendientes } from '../lib/colaOffline'
+import { esIdOffline } from '../lib/mapeoIdsOffline'
+import {
+  piezasPeriodontalesOfflineIniciales,
+  numeroDePiezaPeriodontalOffline,
+  datosDeSitioOffline
+} from '../lib/periodontogramaOffline'
 import { useAuthStore } from '../store/useAuthStore'
 import { useSucursalStore } from '../store/useSucursalStore'
 
@@ -32,6 +38,35 @@ export function usePeriodontograma(pacienteId) {
 
   const recargar = useCallback(async () => {
     setCargando(true)
+
+    if (esIdOffline(pacienteId)) {
+      // Igual que el odontograma (ver hooks/useOdontograma.js): las 32
+      // piezas y sus 192 sitios los crea un trigger cuando el paciente
+      // existe en el servidor. Se muestra un periodontograma "en
+      // blanco" (mismos valores que crearía ese trigger) con los
+      // cambios ya encolados encima.
+      const pendientes = await listarOperacionesPendientes().catch(() => [])
+      const piezasPendientes = pendientes.filter((op) => op.tipo === 'actualizar_pieza_periodontal' && op.payload.pacienteIdOffline === pacienteId)
+      const sitiosPendientes = pendientes.filter((op) => op.tipo === 'actualizar_sitio_periodontal' && op.payload.pacienteIdOffline === pacienteId)
+
+      const base = piezasPeriodontalesOfflineIniciales()
+      const conPendientes = base.map((pieza) => {
+        const piezaPendiente = piezasPendientes.find((op) => op.payload.numeroPieza === pieza.numero_pieza)
+        const sitiosConPendientes = pieza.sitios.map((sitio) => {
+          const sitioPendiente = sitiosPendientes.find((op) => op.payload.numeroPieza === pieza.numero_pieza && op.payload.sitio === sitio.sitio)
+          return sitioPendiente ? { ...sitio, ...quitarCamposDeControl(sitioPendiente.payload.cambios), _pendiente: true } : sitio
+        })
+        return {
+          ...pieza,
+          ...(piezaPendiente ? { ...quitarCamposDeControl(piezaPendiente.payload.cambios), _pendiente: true } : {}),
+          sitios: sitiosConPendientes
+        }
+      })
+      setPiezas(conPendientes)
+      setCargando(false)
+      return
+    }
+
     const data = await obtenerPeriodontogramaCompleto(pacienteId)
     const pendientes = await listarOperacionesPendientes().catch(() => [])
 
@@ -58,6 +93,27 @@ export function usePeriodontograma(pacienteId) {
   }, [pacienteId, recargar])
 
   const cambiarPieza = async (piezaId, cambios) => {
+    const numeroPiezaOffline = numeroDePiezaPeriodontalOffline(piezaId)
+    if (numeroPiezaOffline) {
+      const id = `actualizar_pieza_periodontal_offline_${pacienteId}_${numeroPiezaOffline}`
+      // El candado de concurrencia no aplica: la pieza todavía no
+      // existe en ningún lado, nadie más pudo haberla tocado antes.
+      const { actualizadoEnEsperado: _sinUsar, ...cambiosSinCandado } = cambios
+      await encolarOperacion({
+        id,
+        tipo: 'actualizar_pieza_periodontal',
+        entidad: 'periodontograma_piezas',
+        entidadId: id,
+        payload: { pacienteIdOffline: pacienteId, numeroPieza: numeroPiezaOffline, cambios: cambiosSinCandado },
+        dependeDe: [pacienteId],
+        creado_en: Date.now(),
+        ...datosOperador(),
+        claveIdempotencia: id
+      })
+      await recargar()
+      return
+    }
+
     if (!navigator.onLine) {
       const id = `actualizar_pieza_periodontal_${piezaId}`
       await encolarOperacion({
@@ -78,6 +134,25 @@ export function usePeriodontograma(pacienteId) {
   }
 
   const cambiarSitio = async (sitioId, cambios) => {
+    const datosOffline = datosDeSitioOffline(sitioId)
+    if (datosOffline) {
+      const id = `actualizar_sitio_periodontal_offline_${pacienteId}_${datosOffline.numeroPieza}_${datosOffline.sitio}`
+      const { actualizadoEnEsperado: _sinUsar, ...cambiosSinCandado } = cambios
+      await encolarOperacion({
+        id,
+        tipo: 'actualizar_sitio_periodontal',
+        entidad: 'periodontograma_sitios',
+        entidadId: id,
+        payload: { pacienteIdOffline: pacienteId, numeroPieza: datosOffline.numeroPieza, sitio: datosOffline.sitio, cambios: cambiosSinCandado },
+        dependeDe: [pacienteId],
+        creado_en: Date.now(),
+        ...datosOperador(),
+        claveIdempotencia: id
+      })
+      await recargar()
+      return
+    }
+
     if (!navigator.onLine) {
       const id = `actualizar_sitio_periodontal_${sitioId}`
       await encolarOperacion({

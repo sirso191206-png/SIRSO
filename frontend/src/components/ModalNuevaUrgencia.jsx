@@ -4,6 +4,7 @@ import { buscarPosiblesDuplicados, crearPaciente } from '../services/pacientes'
 import { crearCitaUrgencia } from '../services/citas'
 import { usePacientes } from '../hooks/usePacientes'
 import { useAuthStore } from '../store/useAuthStore'
+import { useSucursalStore } from '../store/useSucursalStore'
 import { Icon } from './ui/Icon'
 import { toastExito, toastError } from '../store/useToastStore'
 import { Modal } from './ui/Modal'
@@ -64,7 +65,15 @@ export function ModalNuevaUrgencia({ abierto, onCerrar, onCreada }) {
       toastError('Nombre y teléfono son obligatorios.')
       return
     }
-    const posibles = await buscarPosiblesDuplicados({ nombre_completo: nombre, telefono })
+    // Sin conexión no hay forma real de preguntarle al servidor si ya
+    // existe un posible duplicado — se salta el aviso en vez de
+    // bloquear el registro de una urgencia real.
+    let posibles = []
+    try {
+      posibles = await buscarPosiblesDuplicados({ nombre_completo: nombre, telefono })
+    } catch {
+      posibles = []
+    }
     if (posibles.length > 0) {
       setPosiblesDuplicados(posibles)
     } else {
@@ -76,9 +85,13 @@ export function ModalNuevaUrgencia({ abierto, onCerrar, onCreada }) {
     setGuardando(true)
     try {
       let pacienteId = pacienteExistente?.id
+      const sucursalId = useSucursalStore.getState().sucursalActualId
 
       if (!pacienteId) {
-        const nuevo = await crearPaciente({ nombre_completo: nombre.trim(), telefono: telefono.trim() })
+        const nuevo = await crearPaciente(
+          { nombre_completo: nombre.trim(), telefono: telefono.trim() },
+          { usuarioId: perfil.id, clinicaId: perfil.clinica_id, sucursalId }
+        )
         pacienteId = nuevo.id
       }
 
@@ -88,16 +101,26 @@ export function ModalNuevaUrgencia({ abierto, onCerrar, onCreada }) {
         pacienteId,
         dentistaId,
         motivo,
-        prioridad
+        prioridad,
+        usuarioId: perfil.id,
+        clinicaId: perfil.clinica_id,
+        sucursalId
       })
 
-      toastExito('Urgencia registrada y agregada a la cola de espera.')
+      toastExito(
+        cita._offline
+          ? 'Urgencia guardada en este equipo. Se creará en el servidor en cuanto vuelva la conexión.'
+          : 'Urgencia registrada y agregada a la cola de espera.'
+      )
       onCreada?.()
       cerrar()
 
       // Si quien registra es el propio dentista, lo mandamos directo a
-      // atenderla — para consultorios donde trabaja solo, sin recepción.
-      if (dentistaId) {
+      // atenderla — para consultorios donde trabaja solo, sin
+      // recepción. Si la cita quedó encolada (sin conexión, o el
+      // paciente todavía no se sincroniza), todavía no existe de
+      // verdad en el servidor: no hay a dónde navegar todavía.
+      if (dentistaId && !cita._offline) {
         navigate(`/consulta/${cita.id}`)
       }
     } catch (err) {

@@ -15,6 +15,7 @@ import { VistaMes } from '../components/agenda/VistaMes'
 import { PanelCita } from '../components/agenda/PanelCita'
 import { ModalNuevaCita } from '../components/agenda/ModalNuevaCita'
 import { ModalNuevaUrgencia } from '../components/ModalNuevaUrgencia'
+import { AvisoDatosGuardados } from '../components/layout/AvisoDatosGuardados'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
@@ -53,7 +54,7 @@ export function Agenda() {
   const [modalListaEspera, setModalListaEspera] = useState(false)
 
   useEffect(() => {
-    listarDentistas().then(setDentistas)
+    listarDentistas().then(setDentistas).catch(() => {})
   }, [])
 
   // Rango visible según la vista activa
@@ -98,7 +99,7 @@ export function Agenda() {
     }
   }, [vista, fechaBase])
 
-  const { citas, error, agendar, reagendar, cambiarEstado, desagendar, recargar } = useCitas({
+  const { citas, error, deCache, guardadoEn, agendar, reagendar, cambiarEstado, desagendar, recargar } = useCitas({
     dentistaId: filtroDentista || undefined,
     estado: filtroEstado || undefined,
     desde,
@@ -230,6 +231,7 @@ export function Agenda() {
           </div>
         </div>
 
+        <AvisoDatosGuardados deCache={deCache} guardadoEn={guardadoEn} />
         {error && <p className="mb-3 text-sm text-clinico-rojo">{error}</p>}
 
         {vista === 'mes' ? (

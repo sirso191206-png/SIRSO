@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useAuthStore } from '../store/useAuthStore'
+import { useSucursalStore } from '../store/useSucursalStore'
 import { sincronizarMiDia, obtenerUltimaSincronizacion } from '../services/sincronizacionDia'
 import { toastError } from '../store/useToastStore'
 import { Modal } from './ui/Modal'
@@ -14,6 +15,7 @@ function formatearFechaHora(iso) {
 
 export function ModalSincronizarDia({ abierto, onCerrar }) {
   const perfil = useAuthStore((s) => s.perfil)
+  const sucursalActualId = useSucursalStore((s) => s.sucursalActualId)
   const [sincronizando, setSincronizando] = useState(false)
   const [resultado, setResultado] = useState(null)
   const [ultima, setUltima] = useState(null)
@@ -32,7 +34,7 @@ export function ModalSincronizarDia({ abierto, onCerrar }) {
       // de toda la clínica, ya que suelen necesitar ver a todos los
       // pacientes del día, no solo los de un dentista en particular.
       const dentistaId = perfil?.rol === 'dentista' ? perfil.id : undefined
-      const datos = await sincronizarMiDia({ dentistaId })
+      const datos = await sincronizarMiDia({ dentistaId, perfil, sucursalId: sucursalActualId || undefined })
       setResultado(datos)
       setUltima(datos)
     } catch (err) {

@@ -6,12 +6,29 @@ import {
   contarCitasPendientesConfirmar
 } from './dashboard'
 import { obtenerSaldo } from './pacientes'
+import { conCacheDeLectura } from '../lib/cacheLectura'
 
 const ESTADOS_FINALES = ['completada', 'cancelada', 'no_asistio']
 const ESTADOS_EN_COLA = ['pendiente_confirmar', 'agendada', 'confirmada', 'en_espera']
 const ROLES_CON_ALERTAS = ['owner', 'dentista']
 
+function fechaLocalISO() {
+  const h = new Date()
+  const p = (n) => String(n).padStart(2, '0')
+  return `${h.getFullYear()}-${p(h.getMonth() + 1)}-${p(h.getDate())}`
+}
+
+// Mi día completo se guarda como una sola lectura, por usuario Y por día
+// local: sin conexión solo se sirve lo de HOY de esta misma cuenta, nunca
+// el día anterior presentado como actual. Se añaden `deCache` y
+// `guardadoEn` al resultado (campos nuevos; la forma existente no cambia).
 export async function obtenerMiDia(perfil) {
+  const clave = `mi-dia:${perfil.id}:${fechaLocalISO()}`
+  const { datos, deCache, guardadoEn } = await conCacheDeLectura(clave, () => _obtenerMiDiaReal(perfil))
+  return { ...datos, deCache, guardadoEn }
+}
+
+async function _obtenerMiDiaReal(perfil) {
   const esDentista = perfil.rol === 'dentista'
   const dentistaId = esDentista ? perfil.id : undefined
   const puedeVerAlertas = ROLES_CON_ALERTAS.includes(perfil.rol)

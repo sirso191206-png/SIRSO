@@ -1,85 +1,245 @@
 # SIRO — Modo offline: guía técnica y de pruebas
 
 > **Estado honesto:** el modo offline está **parcialmente implementado y NO debe describirse como "100% offline"**.
-> Este documento dice qué funciona, qué no, y cómo comprobarlo con tus propios ojos. Las pruebas automáticas
-> validan la *lógica*; solo la prueba manual (sección 5) valida el comportamiento en un navegador real.
+> Este documento dice qué funciona, qué no, y cómo comprobarlo. Las pruebas automáticas validan la *lógica*;
+> solo la prueba manual (sección 6) valida el comportamiento en un navegador real.
 
 ---
 
 ## 1. Qué se guarda en el navegador (y qué NO)
 
-**Ningún dato local está cifrado.** IndexedDB no cifra nada por sí sola, y SIRO no agrega cifrado propio.
+**Ningún dato clínico local está cifrado.** IndexedDB no cifra nada por sí sola y SIRO no agrega cifrado propio.
 Cualquiera con acceso al perfil del navegador puede leerlo desde DevTools.
 
-| Dónde | Nombre | Qué contiene | Expira |
+| Dónde | Nombre | Qué contiene | Expira / se borra |
 |---|---|---|---|
-| IndexedDB | `siro-auth-cache` | Fila completa de `usuarios` del usuario (nombre, rol, clínica, cédula, RFC, **imagen de su firma**), nombre y estado de la clínica, fecha de sincronización | Se **ignora** pasadas 24 h (el registro no se borra) |
-| IndexedDB | `siro-cache-lectura` | Resultado de cada lectura ya hecha: lista de pacientes por filtro, paciente, expediente, notas clínicas, odontograma, periodontograma, cita, tratamientos, recetas, signos vitales, diagnósticos frecuentes; y fechas de "última sincronización" | **No expira** |
-| IndexedDB | `siro-cola-offline` | Operaciones pendientes de subir, con su contenido completo (notas, recetas, cambios de odontograma…), usuario, clínica y sucursal | No expira; se borra al subirse |
-| Cache Storage | `siro-shell-<build>` | Solo archivos estáticos de la app (HTML, JS, CSS, imágenes, modelo 3D) | Se conserva la build actual + la anterior |
-| localStorage | (de Supabase) | Sesión de Supabase Auth — la maneja la librería, no SIRO | Según Supabase |
+| IndexedDB | `siro-auth-cache` | Fila de `usuarios` del usuario (nombre, rol, clínica, cédula, RFC, imagen de firma), datos de la clínica | Se ignora pasadas 24 h. **Se borra al cerrar sesión** |
+| IndexedDB | `siro-cache-lectura` | Lecturas ya hechas (pacientes, expediente, notas, odontograma, periodontograma, cita, tratamientos, recetas, signos vitales, **Mi día del día actual, citas por rango de Agenda, horarios bloqueados, lista de espera, dentistas**…) y fechas de "última sincronización" | No expira. **Se borra al cerrar sesión** y cuando entra un usuario distinto al dueño de la caché |
+| IndexedDB | `siro-cola-offline` | Operaciones pendientes con su contenido completo, usuario, clínica y sucursal | Se borra solo al subirse. **El cierre de sesión NUNCA la toca** |
+| IndexedDB | `siro-pacientes-offline` | Pacientes creados sin conexión, completos, con su id local y su `idFuturo` (uuid real que tendrán en el servidor) | Se conserva incluso después de sincronizado (historial). **El cierre de sesión NUNCA la toca** |
+| IndexedDB | `siro-mapeo-ids-offline` | Relación id local → id real, uno por paciente ya sincronizado | **El cierre de sesión NUNCA la toca** (lo necesitan operaciones que aún dependan de ese paciente) |
+| IndexedDB | `siro-indice-pacientes` | Índice de búsqueda offline: solo id, nombre, teléfono y folio de cada paciente visto o creado en este equipo — nunca el expediente completo | No expira. **El cierre de sesión NUNCA lo toca** (si no, la búsqueda offline quedaría vacía justo después de haber estado trabajando) |
+| IndexedDB | `siro-pin-offline` | **Sal + hash PBKDF2 del PIN** (600 000 iteraciones), contadores de intentos, expiración. Una sola ranura por dispositivo | Según la duración elegida; se revoca al cerrar sesión, al cambiar de usuario o tras 10 fallos |
+| Cache Storage | `siro-shell-<build>` | Solo archivos estáticos de la app | Se conservan la build actual y la anterior |
+| localStorage | (de Supabase) | Sesión de Supabase Auth (la maneja la librería) | Según Supabase |
 
-**Nunca se guarda:** contraseñas, `service_role`, ni tokens propios. El service worker **jamás** cachea llamadas a Supabase.
+**Nunca se guarda:** contraseñas, `service_role`, tokens propios, ni el PIN en claro. El service worker **jamás** cachea llamadas a Supabase.
 
 ---
 
 ## 2. Arquitectura
 
-1. **Service worker** (`public/sw.js`): precachea el App Shell. Un plugin de Vite (`vite-plugin-precache-manifest.js`) lista los archivos reales de cada build y **sella la versión dentro de `sw.js`** — sin eso el navegador nunca detectaría una actualización.
-2. **Arranque** (`useAuthStore.cargarPerfil` + `lib/cacheAuth.js`): si Supabase no responde, usa el último perfil guardado (≤ 24 h) y marca `connectionStatus: 'offline'`.
-3. **Lectura** (`lib/cacheLectura.js`): cada servicio clínico guarda su última lectura exitosa y la devuelve si la red falla. "Sincronizar mi día" (`services/sincronizacionDia.js`) precarga las citas de hoy y todo lo de sus pacientes.
-4. **Escritura** (`lib/colaOffline.js` + `lib/procesadorColaOffline.js`): sin conexión, las acciones se encolan; al volver la red se suben **en orden de creación**.
+1. **Service worker** (`public/sw.js`): precachea el App Shell; el plugin `vite-plugin-precache-manifest.js` lista los archivos reales y **sella la versión dentro de `sw.js`** (sin eso el navegador nunca detectaría actualizaciones).
+2. **Arranque** (`useAuthStore`): con red usa Supabase Auth. Si falla por red, usa el perfil guardado (≤ 24 h) y, si existe un PIN válido, ofrece desbloqueo offline.
+3. **Lectura** (`lib/cacheLectura.js`): cada servicio clínico guarda su última lectura exitosa. "Sincronizar mi día" precarga citas de hoy y todo lo de sus pacientes.
+4. **Escritura** (`lib/colaOffline.js` + `lib/procesadorColaOffline.js`): sin conexión se encolan; al volver la red se suben en orden de creación. Solo se procesan las operaciones **del usuario de la sesión**.
 5. **Indicador** (`BannerSinConexion` + `useEstadoConexion`): OFFLINE · RECONNECTING · SYNC_ERROR · SYNCING · SYNC_PENDING · ONLINE.
+6. **PIN y cierre seguro** (`lib/pinOffline.js`, `lib/cierreSesion.js`, `lib/errorDeRed.js`): ver §3 y §5.
 
 ---
 
-## 3. Qué funciona sin internet y qué no
+## 3. PIN para trabajar sin conexión
 
-**Funciona sin internet** (siempre que se haya visto/sincronizado antes, ver limitaciones):
-- Abrir la app en cualquier ruta.
-- Consultar paciente, expediente, notas, odontograma, periodontograma, cita, tratamientos, recetas, signos vitales.
-- Crear nota clínica · crear receta · modificar pieza de odontograma · modificar pieza/sitio de periodontograma · **finalizar consulta** (nota + cita completada + seguimiento opcional).
+**Qué es:** un PIN local que permite **reabrir una sesión offline de alguien que ya se autenticó antes con Supabase**, cuando el token venció y no hay red. Reemplaza la idea de alargar el JWT.
 
-**Requiere internet (bloqueado a propósito):**
-- **Pagos.** Decisión deliberada: técnicamente serían un insert como cualquier otro, pero un pago perdido o retrasado descuadra el corte de caja sin que nadie lo note, y quien crea que "no se guardó" lo captura de nuevo. La app muestra *"Los pagos requieren conexión a internet."*
-- Iniciar sesión, cambiar contraseña, administración de usuarios/clínicas, legal/ARCO, y todo lo no listado arriba.
+**Qué NO es:** no sustituye a Supabase Auth. Con conexión, la app siempre valida contra Supabase. Una sesión desbloqueada con PIN **no tiene token**: `session = { offline: true, user: { id } }`. Al volver la red intenta `refreshSession()`:
+- Éxito → sesión normal.
+- Rechazo definitivo del servidor → se revoca el PIN, se cierra la sesión local y se avisa.
+- Falla de red → sigue en modo offline.
 
-**NO funciona sin internet todavía** (ver §7): Mi día, Agenda, **"Guardar borrador" de la consulta** (solo "Finalizar" funciona offline), registrar signos vitales, crear/editar tratamientos, editar datos del paciente, indicaciones.
+**Reglas**
+| Regla | Valor |
+|---|---|
+| Formato | 6 a 10 dígitos; se rechazan patrones predecibles (111111, 123456, 121212…) |
+| Derivación | PBKDF2-SHA256, 600 000 iteraciones, sal aleatoria por PIN, comparación en tiempo constante |
+| Intentos | 5 fallos → bloqueo de 15 min · 10 fallos → PIN revocado (hay que entrar con contraseña) |
+| Expiración | Configurable: 8 h, 24 h, 72 h (por defecto) o 7 días. Se **renueva** cada vez que hay validación online real |
+| Activar / cambiar / revocar | **Solo con sesión real y con conexión.** Cambiar exige el PIN actual. Revocar no lo exige (ya hay sesión real) |
+| Alcance | Una ranura por dispositivo; si entra otro usuario, el PIN anterior se elimina |
+
+**Modelo de amenaza — qué protege y qué no**
+- ✅ Protege contra alguien que **adivine el PIN en pantalla** (límite de intentos + bloqueo).
+- ✅ Un PIN robado por observación **no sirve online** (Supabase exige contraseña) ni en otro dispositivo.
+- ❌ **No** protege contra quien abra DevTools/IndexedDB: los datos clínicos locales no están cifrados.
+- ❌ **No** protege contra manipular el reloj del equipo para saltarse la expiración.
+- ❌ **No** resiste un ataque de fuerza bruta *offline* sobre el hash si copian la base (un PIN de 6 dígitos tiene solo 10⁶ combinaciones; PBKDF2 solo lo encarece).
+- Conclusión: el PIN es una **barrera de conveniencia para el equipo del consultorio**, no cifrado. Para cifrar de verdad los datos locales haría falta derivar una clave del PIN y cifrar IndexedDB (no implementado).
 
 ---
 
-## 4. Sincronización, duplicados y conflictos
+## 4. Paciente nuevo sin conexión (walk-in no agendado)
 
-- **Orden:** por fecha de creación. Antes de subir, se verifica que la sesión siga viva; si expiró, no se sube nada y se avisa (la cola queda intacta).
-- **Nunca se vacía la cola antes de confirmar éxito.** Una operación pasa por `pendiente → sincronizando → (borrada | error)`. Si falla, se conserva con su mensaje de error y contador de intentos, y se reintenta.
-- **Sin duplicados:** los registros nuevos (notas, recetas, citas de seguimiento) llevan un `id` generado en el navegador y se guardan con `upsert`, así que un reintento tras una respuesta perdida pisa la misma fila. Las ediciones usan una clave estable por registro: editar dos veces lo mismo sin conexión deja **una** operación, con lo último.
-- **Conflictos:** cada tabla editable tiene `actualizado_en` mantenida por un *trigger* (no por el navegador). El UPDATE lleva la condición `actualizado_en = <lo que viste al abrir>`; si otra persona cambió el registro, no se sobrescribe. Offline, ese cambio **se descarta y se avisa cuál** (reintentar nunca funcionaría); hay que revisarlo y rehacerlo sobre los datos actuales. En "finalizar consulta", si el primer paso choca, **no se ejecuta ninguno de los siguientes** (sin nota huérfana).
+El caso que de verdad importa: se va el internet y llega un paciente que
+no está en la agenda — puede existir ya en SIRO o ser alguien
+completamente nuevo.
+
+**Paciente existente, no agendado.** Buscarlo usa el mismo cuadro de
+búsqueda de siempre. Sin conexión, la búsqueda cae a un **índice
+local** (`siro-indice-pacientes`) con solo nombre/teléfono/folio — NO es
+una copia de la clínica completa, es lo que ya se vio o se creó en este
+equipo. Cada resultado indica si su expediente está disponible para
+abrir sin conexión (`_disponibleOffline`): si nunca se abrió antes en
+este equipo, se avisa que hace falta internet — nunca se inventa un
+expediente vacío.
+
+**Paciente nuevo.** "+ Nuevo paciente" y "Nueva urgencia" siguen
+funcionando igual sin conexión — es el escenario más importante del
+pliego: llega alguien sin avisar, puede ser un paciente que se acaba de
+crear en el mismo formulario. `crearCitaUrgencia()` (usada por "Nueva
+urgencia") es consciente de conectividad igual que `crearPaciente()`:
+si no hay conexión real, o el paciente es uno recién creado offline,
+encola la cita de urgencia en vez de intentarla directo — con
+`dependeDe` cuando corresponde. Si quien registra es el propio
+dentista, normalmente se le manda directo a `/consulta/:id`; mientras
+la cita esté encolada (sin conexión, o el paciente sin sincronizar)
+eso no existe todavía, así que se queda en la pantalla con un aviso en
+vez de navegar a una consulta que no es real. La verificación de CURP duplicada y de posibles duplicados
+por nombre/teléfono son consultas al servidor — sin internet se saltan
+(no se puede saber de verdad) y se avisa que no se pudieron verificar,
+en vez de bloquear el registro de un paciente real que llegó sin avisar.
+El paciente se guarda de inmediato en `siro-pacientes-offline` con un id
+local (`offline-<uuid>`) y aparece en SIRO al instante, con su propio
+`idFuturo` — un UUID real generado ahí mismo que viajará como `id`
+explícito al crearlo en el servidor (igual que ya se hacía con notas y
+recetas): si la subida se reintenta, un **upsert** con ese mismo id
+nunca duplica el paciente.
+
+**Consulta clínica con ese paciente, sin conexión.** Conectadas a este
+flujo: **notas clínicas**, **odontograma** (piezas generales — estado,
+diagnóstico, corona, ausencia), **periodontograma** (movilidad/furcación
+por pieza, y los 6 sitios de sondaje/recesión/sangrado/placa/cálculo por
+pieza) **recetas**, **tratamientos**, **agendar la próxima cita** y
+**signos vitales**. Estas cuatro comparten la misma forma simple: sus
+tablas referencian al paciente directo (`paciente_id`), sin ningún
+trigger que cree filas por adelantado — el mismo mecanismo genérico que
+resuelve `paciente_id` cubre las cuatro sin lógica adicional en
+`resolverReferenciasOffline()`. "Indicaciones" no es una entidad
+aparte: es un campo dentro de la propia receta (`indicaciones`,
+`indicaciones_generales`), ya cubierto por lo anterior. **Tratamientos,
+"Nueva cita" y signos vitales no tenían NINGÚN soporte offline antes de
+esto — ni siquiera para un paciente ya existente**; se agregaron desde
+cero: `crearTratamiento()`/`crearCita()` (esta última ya usaba upsert
+por el flujo de seguimiento de `finalizar_consulta`)/`agregarSignosVitales()`
+generan su id en el navegador, y
+`useTratamientos.js`/`useCitas.js`/`useSignosVitales.js` ahora encolan
+igual que notas/recetas. Cambiar estado, cancelar, actualizar o sumar
+una sesión a un tratamiento, y reagendar/cancelar una cita ya agendada,
+siguen siendo solo online — ver límite #4. Los signos vitales, como las
+notas clínicas, solo se registran (nunca se editan), así que no tienen
+ese límite extra. Odontograma y periodontograma sí comparten una vuelta extra que las recetas no tienen:
+sus piezas (32) y, en el caso del periodontograma, también sus sitios
+(32×6=192) no se "crean", ya existen — las genera un trigger del
+servidor en cuanto el paciente se sube (notación FDI, migraciones
+002_fase2_odontograma.sql y 018_sirso_periodontograma.sql), así que
+antes de eso no hay ningún id real al que apuntar. Mientras el paciente
+no se sincroniza, esas pantallas muestran un tablero local "en blanco"
+(igual a como lo crearía el trigger) con ids temporales
+(`offline-pieza-<número>`, `offline-pieza-perio-<número>`,
+`offline-sitio-<número>-<sitio>`); al sincronizar, cada pieza se
+resuelve por su número y cada sitio por (pieza, nombre del sitio) — un
+sitio nunca depende de que la operación hermana de su pieza haya
+corrido, solo de que el paciente ya se haya sincronizado (ambas filas
+las crea el mismo trigger, al mismo tiempo). El resto del flujo clínico
+completo (tratamiento, receta, indicaciones, próxima cita, pago)
+**todavía no está conectado** para un paciente que aún no existe en el
+servidor — ver límite #4 más abajo. Archivar, restaurar e "iniciar consulta desde una
+cita" tampoco aplican todavía a un paciente sin sincronizar; la app lo
+avisa con un mensaje claro en vez de un error críptico.
+
+**Estrategia de IDs y dependencias.** El mismo mecanismo sirve para las
+cuatro entidades, con una diferencia de fondo: una nota se CREA (id
+generado en el navegador, upsert); una pieza de odontograma, una pieza
+periodontal o un sitio periodontal se ACTUALIZAN (ya existen, solo hace
+falta encontrar su id real una vez sincronizado el paciente) — ver
+`lib/odontogramaOffline.js`, `lib/periodontogramaOffline.js`, y las
+funciones `obtenerPiezaPorNumero` / `obtenerPiezaPeriodontalPorNumero` /
+`obtenerSitioPeriodontalPorNombre` en sus respectivos servicios. La
+resolución de un sitio periodontal es la más profunda: dos búsquedas
+encadenadas (paciente → pieza por número → sitio por nombre), todas
+dentro de `resolverReferenciasOffline()` en
+`lib/procesadorColaOffline.js`. Cada operación de la cola puede
+declarar `dependeDe: [otroOperationId]`. `lib/dependenciasCola.js`
+ordena la cola respetando esas dependencias (el padre siempre se sube
+antes) y decide, operación por operación, si está `lista`, si debe
+`esperar` (el padre sigue pendiente) o si quedó `bloqueada` (el padre se
+perdió para siempre por un conflicto — entonces el hijo tampoco puede
+completarse y se descarta con él, nunca queda huérfano reintentando
+sin sentido). Una nota clínica de un paciente offline no puede llevar
+`expediente_id` todavía (ese registro lo crea un trigger en el servidor
+al crear el paciente) — se encola con `pacienteIdOffline` en su lugar;
+`lib/procesadorColaOffline.js`, ya con el paciente sincronizado, resuelve
+el id real (`lib/mapeoIdsOffline.js`) y CONSULTA el expediente recién
+creado para completar `expediente_id` antes de subir la nota. El mapeo
+offlineId → id real, igual que la cola, **nunca se borra al cerrar
+sesión**.
+
+**Sincronización.** Ya no depende de pulsar "Sincronizar mi día": desde
+antes, la cola se sube sola al detectar conexión (`useColaOffline`);
+ahora, además, ese disparo espera una comprobación real contra el
+servidor (`lib/conectividadReal.js`, con límite de tiempo) en vez de
+confiar solo en `navigator.onLine` — una wifi conectada sin salida a
+internet ya no dispara intentos de sincronización que solo generarían
+errores confusos. "Sincronizar mi día"/"Sincronizar ahora" siguen
+existiendo como respaldo manual.
+
+## 5. Cerrar sesión
+
+| Situación | Comportamiento |
+|---|---|
+| Con conexión y **sin** pendientes | Cierra: `signOut()` + borra caché de lectura, caché de perfil y PIN. Cola intacta |
+| Con conexión y **con** pendientes | **Bloquea.** Muestra la cantidad, el desglose por tipo y "Sincronizar ahora". Si al sincronizar quedan 0, permite cerrar |
+| **Sin conexión** (con o sin pendientes) | **Bloquea siempre.** Mensaje claro; la cola no se toca |
+| No se puede leer la cola (`COLA_ILEGIBLE`) | Bloquea por seguridad |
+| Operaciones con error permanente | Cuentan como pendientes y bloquean, salvo que se **descarten** (ver abajo) |
+
+- `PERMITIR_CIERRE_LOCAL_SIN_CONEXION = false` (en `lib/cierreSesion.js`): si algún día se quiere permitir cierre local offline con cola vacía, es un cambio de una línea.
+- El logout **siempre** intenta `signOut()` y, pase lo que pase, limpia el estado local (caché + PIN). La cola **nunca** se borra por logout.
+- "Cerrar todas mis sesiones" (Seguridad) pasa por la misma verificación.
+- **Descartar un cambio atascado.** Una operación en estado `error` con **3 o más intentos fallidos** puede descartarse desde el mismo modal de cierre de sesión: se descarga automáticamente una copia en `.json` con el contenido completo, se registra en la tabla `auditoria` (`accion: 'cola_offline_descartada'`, con `entidad`, `entidad_id` y el último error — el `usuario_id` lo pone el servidor, nunca el navegador) y **solo entonces** se borra de la cola. Requiere **confirmación explícita** (dos pasos: pedir → confirmar) y **conexión** — si el registro de auditoría falla o no hay red, no se borra nada: se prefiere seguir bloqueado a perder el rastro de qué se descartó. Una operación que aún no se intentó, o que falló pocas veces, no se puede descartar (podría ser un bache de red, no un error real).
+- **Multiusuario en un equipo:** si otro usuario inicia sesión, la caché del anterior se vacía (`usuario_dueno_de_la_cache`), y solo se suben operaciones cuyo `usuarioId` coincide con la sesión; las ajenas se dejan intactas con aviso.
 
 ---
 
-## 5. Prueba manual obligatoria (paso a paso)
+## 6. Qué funciona sin internet y qué no
 
-Usa Chrome. DevTools → pestaña **Application** para inspeccionar.
+**Funciona** (si se vio/sincronizó antes): abrir la app en cualquier ruta; **ver Mi día (solo el de HOY, de tu cuenta) y la Agenda (solo rangos ya vistos o sincronizados, con sus horarios bloqueados y lista de espera)**, siempre con un aviso ámbar *"Mostrando información guardada…"*; consultar paciente, expediente, notas, odontograma, periodontograma, cita, tratamientos, recetas, signos vitales; crear paciente, nota clínica, receta, tratamiento, registro de signos vitales y agendar una cita (incluida "Nueva urgencia" completa); modificar pieza de odontograma; modificar pieza/sitio de periodontograma; **finalizar consulta**.
 
-**Preparación (con internet)**
-1. Abre SIRO e inicia sesión. Navega un poco (Mi día, un paciente).
-2. Application → *Service Workers*: debe decir **activated and running**. Application → *Cache Storage* → `siro-shell-build-…` con ~9 archivos.
-3. En Mi día pulsa **Sincronizar mi día**; debe mostrar el resumen con checks.
-4. Abre un paciente y recorre: expediente, odontograma, periodontograma. Abre su cita.
+**Requiere internet (a propósito):** pagos ("Los pagos requieren conexión a internet." — excluidos de toda la cola, para cualquier paciente, por el riesgo de duplicar el corte de caja si alguien reintenta un cobro creyendo que falló), iniciar sesión con contraseña, cambiar contraseña, **gestionar el PIN**, administración de usuarios/clínicas, legal/ARCO.
 
-**Sin internet**
-5. Desconecta la red **de verdad** (apaga el wifi). *(El checkbox "Offline" de DevTools sirve, pero el apagado real es más fiel.)*
-6. Recarga la página **estando dentro de un paciente** (no en la raíz). **Debe abrir.** Aparece el banner "Sin conexión".
-7. Entra al paciente sincronizado y a su expediente, odontograma y periodontograma. **Deben verse.**
-8. Modifica una pieza del odontograma. Aparece "Cambio sin subir".
-9. Crea una receta → etiqueta **Sin subir**. Abre la cita y **finaliza la consulta**.
-10. Intenta registrar un pago → botón deshabilitado con el aviso de conexión.
-11. Application → IndexedDB → `siro-cola-offline` → *operaciones*: deben verse las operaciones con `estado: "pendiente"`.
-12. **Cierra el navegador por completo. Ábrelo de nuevo sin internet.** Recarga: la cola debe seguir ahí y la app abrir.
+**Requiere internet aunque haya cola:** descartar un cambio atascado (necesita registrar la auditoría en el servidor); imprimir una receta (el membrete trae nombre/dirección/logo de la clínica desde el servidor — límite preexistente, no específico de pacientes offline).
 
-**Volver a internet**
-13. Conecta la red. Debe verse "Reconectando…", luego "Sincronizando…", y por último desaparecer el banner. Las operaciones de la cola desaparecen.
-14. En el SQL Editor de Supabase, busca duplicados (deben devolver **0 filas**):
+**No funciona sin internet todavía:** reagendar / mover / cancelar una cita ya agendada, cambiar estado / cancelar / actualizar / sumar una sesión a un tratamiento ya existente, editar antecedentes del expediente, editar datos ya existentes del paciente, iniciar consulta desde Mi día (cambiar estado de una cita), la lista de espera (agregar/marcar), bloquear horarios, "Guardar borrador" de la consulta. Ninguno de estos es específico de un paciente nuevo offline: es el mismo límite para cualquier paciente.
+
+---
+
+## 7. Prueba manual obligatoria (paso a paso)
+
+Chrome, DevTools → **Application**.
+
+**A. Preparación (con internet)**
+1. Inicia sesión y navega un poco.
+2. Service Workers: *activated and running*; Cache Storage: `siro-shell-build-…`.
+3. En Mi día pulsa **Sincronizar mi día**. Abre un paciente: expediente, odontograma, periodontograma y su cita.
+4. Configuración → Seguridad → **Activar PIN offline** (elige duración). Verifica en IndexedDB `siro-pin-offline` que hay hash y sal, **sin el PIN en claro**.
+
+**B. Sin internet**
+5. Apaga el wifi. Recarga dentro de un paciente: debe abrir con banner "Sin conexión".
+6. Modifica una pieza, crea una receta, finaliza una consulta. Deben aparecer como "Sin subir". Pagos: deshabilitado.
+7. `siro-cola-offline` muestra operaciones `pendiente`. Cierra el navegador por completo, ábrelo sin red: la cola sigue.
+
+**C. Cierre bloqueado**
+8. Sin red, pulsa **Cerrar sesión** → debe bloquear con mensaje de "sin conexión". Verifica que la cola sigue intacta.
+9. Vuelve la red, pulsa Cerrar sesión con pendientes → modal con la cantidad y **Sincronizar ahora**. Tras sincronizar permite cerrar.
+
+**D. PIN (simulación de token vencido)**
+10. Con red cortada, en Application → Local Storage edita la clave `sb-…-auth-token` y pon `expires_at` en un valor pasado. Recarga.
+11. Debe aparecer la **pantalla de PIN**. Prueba un PIN incorrecto (mensaje con intentos restantes) y luego el correcto → entra en modo offline (sin token).
+12. Falla 5 veces → bloqueo de 15 min. (Para el paso de 10 fallos, revisa que exija contraseña.)
+13. Con sesión desbloqueada por PIN: Seguridad → los controles del PIN deben estar **deshabilitados**.
+
+**E. Reconexión**
+14. Conecta la red: "Reconectando…" → sesión normal → sincroniza la cola. Verifica que el PIN sigue vigente y su expiración se renovó.
+15. Duplicados (deben dar 0 filas):
 ```sql
 select expediente_id, contenido, count(*) from notas_clinicas
  where creado_en > now() - interval '1 day' group by 1,2 having count(*) > 1;
@@ -88,42 +248,92 @@ select paciente_id, creado_en, count(*) from recetas
 select paciente_id, inicio, count(*) from citas
  where creado_en > now() - interval '1 day' group by 1,2 having count(*) > 1;
 ```
-15. **Prueba de conflicto:** con la red cortada, edita una pieza; desde otro navegador (con internet) edita esa **misma** pieza; reconecta el primero → debe avisar que otra persona ya la modificó, sin sobrescribir.
-16. **Prueba del límite de sesión:** con la red cortada, espera más de **1 hora** (o el valor de *JWT expiry* de tu proyecto) y recarga → **se espera que te mande al login** (ver §7, límite #1). Si esto ocurre, es el comportamiento conocido, no un fallo nuevo.
 
-**Actualización del service worker**
-17. Haz un deploy nuevo. Abre SIRO con internet, recarga una vez. Application → Service Workers debe mostrar la build nueva y `Cache Storage` conservar solo la nueva y la anterior.
+**F. Conflicto**
+16. Sin red edita una pieza; desde otro navegador edita la **misma**; reconecta el primero → avisa y no sobrescribe.
+
+**G. Cuenta revocada**
+17. Con PIN activo y sesión offline, desde el panel de Supabase deshabilita/borra al usuario; reconecta → la app debe revocar el PIN, cerrar la sesión local y avisar.
+
+**H. Paciente nuevo sin conexión**
+- Con la red apagada, usa "Nueva urgencia" → "Paciente nuevo": llena nombre y motivo, guarda. Debe avisar que se guardó localmente, sin navegar a ninguna consulta.
+- Registra signos vitales del mismo paciente offline. Debe quedar como pendiente.
+- Con el mismo paciente offline del paso anterior, abre su odontograma: deben verse las 32 piezas en blanco. Marca una como "caries" o "ausente" — debe quedar como pendiente.
+- Abre su periodontograma: 32 piezas en blanco, cada una con sus 6 sitios en cero. Cambia la movilidad de una pieza y marca sangrado en uno de sus sitios — ambos deben quedar como pendientes.
+- Agrégale una receta. Debe aparecer marcada "Pendiente de sincronizar".
+- Reconecta: todo debe subirse solo. En Supabase, confirma que la pieza de odontograma correcta (por su número) quedó con el estado nuevo, que la pieza periodontal correcta quedó con la movilidad nueva, que el sitio correcto (pieza + nombre de sitio) quedó con el sangrado marcado, y que la receta quedó ligada al `paciente_id` real — nunca una pieza, sitio o receta equivocados, y nunca duplicados.
+- Apaga la red. En Pacientes, "+ Nuevo paciente" → llena el formulario y guarda. Debe avisar que no se pudo verificar duplicados y guardarlo igual; debe aparecer de inmediato en la lista.
+- Ábrelo: debe mostrar sus datos (Resumen/Datos generales). Ve a "Notas clínicas" (si la pantalla lo permite en este paciente) y agrega una nota — debe quedar marcada como pendiente.
+- Recarga la página (sigue sin red): el paciente y la nota pendiente deben seguir ahí (`siro-pacientes-offline`/`siro-cola-offline`).
+- Reconecta: debe subirse solo, sin pulsar nada. En Supabase, confirma UN SOLO paciente nuevo (no duplicado) y que la nota quedó ligada al expediente real que el trigger le creó.
+- Repite buscando ese mismo paciente por nombre ANTES de reconectar, desde el buscador general — debe aparecer marcado como disponible offline.
+
+**I. Mi día y Agenda offline**
+- Con red: en Mi día pulsa **Sincronizar mi día** (debe decir sincronizado; si lo pulsas sin red debe **fallar** con "Sin conexión", no fingir éxito).
+- Apaga la red y recarga Mi día: se ve, con el aviso ámbar y la hora de lo guardado. Abre Agenda en la misma vista (día, mismo dentista/sucursal): se ven citas, bloqueos y lista de espera.
+- Cambia a otro día/semana que no viste: debe dar error, **no** mostrar datos de otro rango.
+- Al día siguiente, sin red y sin haber sincronizado, Mi día **no** debe mostrar el de ayer.
+- Con red de nuevo, el aviso desaparece.
+
+**J. Descartar un cambio atascado**
+- Crea una cita, desconecta la red y cambia su estado de forma que el servidor la rechace de verdad (p. ej. edítala desde otro navegador para que choque por concurrencia, o provoca un error de validación). Reconecta y deja que falle 3 veces (o edita directo en `siro-cola-offline` el campo `intentos` a 3 y `estado` a `error`, para no esperar).
+- Intenta cerrar sesión: en el modal debe aparecer listada como descartable, con el botón **Descartar**.
+- Pulsa Descartar → pide confirmación. Confirma → debe descargarse un `.json` con el contenido completo y la operación debe desaparecer de la cola.
+- En Supabase, tabla `auditoria`, confirma una fila con `accion = 'cola_offline_descartada'` y el `usuario_id` correcto.
+- Repite sin conexión: el botón debe fallar con un mensaje claro y la operación debe seguir en la cola.
+
+**K. Actualización del service worker**
+18. Deploy nuevo; recarga una vez; deben quedar solo la build nueva y la anterior.
 
 ---
 
-## 6. Qué cubren las pruebas automáticas (y qué no)
+## 8. Qué cubren las pruebas automáticas (y qué no)
 
-`npx vitest run` → 63 archivos, 492 pruebas. Las de esta capa están en `src/components/ui/__tests__/offline/`.
-Usan `fake-indexeddb` (dependencia **solo de desarrollo**) y cargan el `sw.js` real en un entorno simulado.
-Cada bloque se validó con **pruebas de mutación** (romper el código a propósito y comprobar que fallan).
+`npx vitest run` → 77 archivos, 707 pruebas, en `src/components/ui/__tests__/offline/`. Usan `fake-indexeddb` (**solo desarrollo**) y cargan el `sw.js` real. Cada bloque se validó con **mutación** (romper el código a propósito y comprobar que las pruebas fallan): 10 mutaciones en `pinOffline.js`, 14 en `useAuthStore.js`/`cierreSesion.js`, más las del SW y la cola.
 
-| # | Escenario pedido | Cobertura |
-|---|---|---|
-| 1 | Abrir offline tras visita online | 🟡 Lógica del SW sí (incl. rutas profundas); navegador real → manual |
-| 2 | Sesión offline | 🟡 Perfil, expiración 24 h y arranque sí; **límite del token de Supabase no** (§7) |
-| 3–7 | Paciente, expediente, odontograma, periodontograma, cita offline | ✅ |
-| 8–12 | Crear nota, modificar odonto/perio, receta, finalizar consulta | 🟡 Procesador y servicios sí; **los hooks de React no** (no hay renderizador) |
-| 13–14 | Cerrar y reabrir con cola pendiente | ✅ (IndexedDB simulado) |
-| 15 | Recuperar internet | 🟡 Procesador sí; el disparo por el evento `online` no |
-| 16–19 | Sincronizar, reintentar, duplicados, conflicto | ✅ |
-| 20 | Actualización del SW | 🟡 Lógica y sellado por build sí; la actualización real en navegador → manual |
-
-**11 completas, 9 parciales.** Lo "parcial" se cierra con la prueba manual de la sección 5.
+| Área | Cobertura |
+|---|---|
+| Lecturas offline (paciente, expediente, odontograma, periodontograma, cita) | ✅ |
+| Cola: persistencia, orden, reintento, duplicados, conflicto | ✅ |
+| Aislamiento multiusuario de cola y caché | ✅ |
+| PIN: formato, derivación, intentos, bloqueo, revocación, expiración, cambio, concurrencia de intentos | ✅ |
+| Mi día / Agenda offline: claves por usuario, día y filtros; sin mezclar rangos; "Sincronizar" no da éxito falso; bloqueos/lista de espera/dentistas | ✅ (16 mutaciones, todas atrapadas) |
+| Descartar un cambio atascado: umbral de intentos, exige conexión, no borra si falla la auditoría, exporta el contenido completo | ✅ (19 mutaciones, todas atrapadas) |
+| Paciente nuevo offline: creación con id local, upsert idempotente, índice de búsqueda local, redirección tras sincronizar | ✅ (14 mutaciones, todas atrapadas) |
+| Odontograma de paciente nuevo offline: 32 piezas sintéticas, resolución por número tras sincronizar | ✅ (5 mutaciones, todas atrapadas) |
+| Periodontograma de paciente nuevo offline: 32 piezas + 192 sitios sintéticos, resolución encadenada (pieza → sitio) | ✅ (9 mutaciones, todas atrapadas) |
+| Recetas de paciente nuevo offline: resolución de `paciente_id`, ya cubierta por la batería de creación de paciente (sin código de motor nuevo) | ✅ (reutiliza las pruebas de creación de paciente) |
+| Tratamientos: creación offline para paciente existente (capacidad nueva, upsert idempotente) y para paciente nuevo offline (dependiente) | ✅ (2 mutaciones, todas atrapadas) |
+| Agendar cita: creación offline para paciente existente (capacidad nueva) y para paciente nuevo offline (dependiente) | ✅ (1 mutación, atrapada) |
+| "Nueva urgencia" completa (paciente existente y paciente nuevo, ambos sin conexión) | ✅ (3 mutaciones, todas atrapadas) |
+| Signos vitales: creación offline para paciente existente (capacidad nueva, upsert idempotente) y para paciente nuevo offline (dependiente) | ✅ (2 mutaciones, todas atrapadas) |
+| Cola con dependencias: orden topológico, "esperar" vs "bloqueada", resolución de `paciente_id`/`expediente_id`, ciclos | ✅ (21 mutaciones, todas atrapadas) |
+| Conectividad real (heartbeat con timeout, no solo `navigator.onLine`) | ✅ (mutado y atrapado) |
+| Cierre de sesión: bloqueo por pendientes / sin red / cola ilegible, limpieza, cola intacta | ✅ |
+| Store de auth: desbloqueo, `reanudarSesionOnline` (éxito / rechazo / red), SIGNED_OUT ignorado en modo offline | ✅ |
+| Service worker: precache, rollback, actualización, 503 explícito | 🟡 Lógica sí; navegador real → manual |
+| **Componentes React ni hooks** (`AvisoDatosGuardados`, `Agenda`, `MiDia`, `useExpediente`, `usePacienteDetalle`, `useColaOffline`, `PantallaDesbloqueoPin`, `ModalCierreSesionBloqueado`, `SeccionPinOffline`, banner, `ProtectedRoute`) | ❌ **No se renderizan en pruebas** (no hay renderizador): dependen de la prueba manual |
+| Evento `online` real del navegador | ❌ manual |
 
 ---
 
-## 7. Limitaciones conocidas — léelas antes de confiar en esto
+## 9. Limitaciones conocidas — léelas antes de confiar en esto
 
-1. **El arranque offline dura lo que dure el token de Supabase.** Verificado en el código de `auth-js` 2.112.4: si el token de acceso ya venció y no se puede renovar por falta de red, `getSession()` devuelve `null` y la app manda al login, donde no se puede entrar sin internet. Por defecto un token dura **1 hora** (ajuste *JWT expiry* de tu proyecto). Recargar sin red pasado ese tiempo **no funciona**. Resolverlo exige un mecanismo de sesión local propio (p. ej. PIN) — es una decisión de seguridad que no he tomado.
-2. **Cerrar sesión NO borra los datos locales.** Verificado: no existe ninguna función que limpie las bases de IndexedDB. Los datos clínicos quedan en el equipo tras el logout, sin cifrar, y las claves de la caché de lectura no distinguen usuarios (`paciente:<id>`): si otra persona inicia sesión en el mismo navegador y cae la red, la caché podría servirle datos de otro usuario (offline no aplica RLS). **En un equipo compartido esto es un riesgo real.** Falta decidir qué hacer con los cambios sin subir al cerrar sesión (¿bloquear el logout? ¿advertir?).
-3. **La caché de lectura no expira** (la sección 19 del documento pide expiración). Solo el perfil expira (24 h).
-4. **"Mi día" y la Agenda no cargan sin internet.** `obtenerCitasRango`, `miDia.js` y `dashboard.js` no están cacheados; solo `obtenerCitaPorId` lo está. Se puede llegar a un paciente por URL directa o por una búsqueda ya hecha, pero no navegar desde la agenda.
-5. **No se encolan:** "Guardar borrador" de la consulta (hoy falla sin red con un error; hay que usar "Finalizar"), registrar signos vitales, crear/editar tratamientos, editar datos del paciente, editar expediente, indicaciones. Los servicios de expediente/paciente ya tienen el candado de concurrencia, pero no están conectados a la cola.
-6. **"Última sincronización" en el panel del banner** solo se actualiza cuando la cola tenía algo que subir; si nunca hubo cambios pendientes, dirá "Nunca en este dispositivo" aunque el equipo sí esté al día.
-7. **Firma del dentista y de la paciente:** viajan dentro de la cola y del perfil guardado (imágenes en base64, sin cifrar).
-8. Las pruebas de hooks/UI de React y del navegador real **no existen**; dependen de la sección 5.
+1. **Mi día y Agenda offline son de SOLO LECTURA y de "lo último que viste".** Solo aparece lo que se cargó o sincronizó antes con esos mismos filtros (rango, dentista, estado, sucursal). Cualquier otra vista falla en vez de mostrar datos ajenos. La información puede estar desactualizada (otra persona pudo agendar o cambiar citas): por eso el aviso ámbar. Consecuencia: **una cita que finalizas sin conexión sigue viéndose con su estado anterior** en Mi día hasta volver a sincronizar (la operación sí está en la cola).
+   - Los widgets de `dashboard.js` (ingresos, gráficas, pagos recientes, etc.) siguen sin caché, a propósito (financieros).
+   - Cada rango visto se guarda con su propia clave y no expira ni se poda (crece con el uso hasta cerrar sesión).
+   - La caché de lectura cae a lo guardado ante **cualquier** error de la consulta, no solo por falta de red (comportamiento previo, no nuevo): un error de permisos también serviría datos guardados con el aviso.
+2. **El PIN no cifra datos** (ver modelo de amenaza, §3). Los datos clínicos locales están en claro y un PIN de 6 dígitos es débil frente a ataque offline sobre el hash.
+3. **Un solo PIN por dispositivo.** Si dos personas comparten equipo, el PIN de la primera se elimina cuando la segunda inicia sesión.
+4. **El flujo de paciente nuevo offline llega hasta notas clínicas, odontograma (piezas generales), periodontograma (piezas y sitios), recetas, tratamientos (crear), agendar la próxima cita (crear) y signos vitales.** Solo **pago** NO está conectado todavía a un paciente que aún no existe en el servidor — y de forma deliberada: pagos está excluido de TODA la cola offline, para cualquier paciente, por el riesgo de duplicar el corte de caja (ver §6). Tampoco están conectadas las **caras/superficies** del odontograma (`cambiarEstadoCara`) ni la vista 3D detallada — solo el estado general de la pieza. De tratamientos y citas específicamente, solo **crear** está encolado: cambiar estado, cancelar, actualizar, sumar una sesión a un tratamiento, o reagendar/cancelar una cita ya agendada siguen siendo solo online, para cualquier paciente (existente o nuevo — no es una limitación específica de pacientes offline). Una cita agendada offline tampoco aparece todavía en la vista de Agenda hasta que se sincroniza (a diferencia de notas/recetas/tratamientos, que sí se muestran como pendientes dentro de la ficha de SU paciente): fusionar citas pendientes en una lista por rango de fechas/dentista/estado es más riesgoso de hacer bien sin poder probar el renderizado, así que se dejó fuera a propósito — la cita sí se crea y sincroniza correctamente, solo no se ve en la lista mientras tanto.
+5. **"Nueva urgencia" ya funciona completa sin conexión** (paciente existente o nuevo). Lo único que cambia offline: si quien registra es el dentista, normalmente se le manda directo a atenderla — mientras la cita esté encolada eso no es posible todavía (no existe un id real de consulta), así que se queda en la pantalla en vez de navegar.
+6. **Archivar, restaurar e "iniciar consulta desde una cita agendada"** avisan con un mensaje claro en vez de intentarlo cuando el paciente todavía no se sincronizó, pero no ofrecen una alternativa offline para esas acciones específicas.
+7. **La búsqueda offline por CURP no existe** — solo nombre, teléfono y folio. Si dos personas sin red registran el mismo paciente por separado en dos equipos, se van a crear dos pacientes; se reconcilian manualmente al ver los duplicados en la lista después.
+8. **Descartar un cambio requiere conexión**, aunque el motivo de bloqueo original haya sido "sin conexión": si la cola tiene una operación atascada Y no hay red, hay que esperar a recuperar la conexión antes de poder descartarla (el registro de auditoría no puede diferirse — ver §5).
+9. **El umbral de 3 intentos es fijo** (`UMBRAL_INTENTOS_PARA_DESCARTAR` en `lib/descarteOperaciones.js`) y no distingue el tipo de error: un error de validación real y un error de red que por coincidencia falló 3 veces se ven igual de "descartables". La persona decide, viendo el mensaje del último error.
+10. **Cierre forzado** (sesión rechazada por el servidor): se limpia caché y PIN, pero la cola queda sin subir hasta que la **misma cuenta** vuelva a iniciar sesión en ese equipo.
+11. **La caché de lectura no expira** (solo el perfil, 24 h, y el PIN según su duración).
+12. **No se encolan todavía:** "Guardar borrador" de la consulta, y EDITAR datos ya existentes del paciente o del expediente (antecedentes, alergias). Los servicios ya tienen candado de concurrencia, pero no están conectados a la cola. (Crear — paciente, nota, tratamiento, receta, cita, signos vitales, piezas de odontograma/periodontograma — sí está cubierto; ver §4.)
+13. **"Última sincronización"** del banner solo se actualiza cuando la cola tenía algo que subir.
+14. **Firmas** (dentista/paciente) viajan sin cifrar dentro de cola y perfil guardado.
+15. El PIN depende del reloj del dispositivo.

@@ -58,10 +58,11 @@ export async function guardarPerfilOffline({ userId, perfil, clinicaNombre, clin
 }
 
 // Devuelve null si no hay nada guardado para este usuario, O si lo
-// guardado ya pasó la ventana de 24 horas — en ambos casos, quien
+// guardado ya pasó la ventana de vigencia — en ambos casos, quien
 // llama debe tratarlo como "hace falta reconectar", nunca inventar un
-// perfil.
-export async function leerPerfilOffline(userId) {
+// perfil. La ventana por defecto es de 24 horas; el desbloqueo con PIN
+// (pinOffline.js) usa la vigencia que el propio usuario eligió.
+export async function leerPerfilOffline(userId, { maxEdadMs = EXPIRACION_MS } = {}) {
   try {
     const db = await abrirDB()
     const registro = await new Promise((resolve, reject) => {
@@ -71,9 +72,21 @@ export async function leerPerfilOffline(userId) {
       peticion.onerror = () => reject(peticion.error)
     })
     if (!registro) return null
-    const expirado = Date.now() - registro.lastSyncedAt > EXPIRACION_MS
+    const expirado = Date.now() - registro.lastSyncedAt > maxEdadMs
     return expirado ? null : registro
   } catch {
     return null
   }
+}
+
+// Borra el perfil guardado — al cerrar sesión, para que no quede el
+// nombre, rol, cédula y firma de quien salió en un equipo compartido.
+export async function vaciarCacheAuth() {
+  const db = await abrirDB()
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(ALMACEN, 'readwrite')
+    tx.objectStore(ALMACEN).clear()
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error)
+  })
 }

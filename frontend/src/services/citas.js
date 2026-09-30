@@ -1,5 +1,8 @@
 import { supabase } from '../lib/supabase'
 import { conCacheDeLectura } from '../lib/cacheLectura'
+import { encolarOperacion } from '../lib/colaOffline'
+import { esIdOffline } from '../lib/mapeoIdsOffline'
+import { verificarConexionReal } from '../lib/conectividadReal'
 
 export async function obtenerCitaPorId(id) {
   const { datos } = await conCacheDeLectura(`cita:${id}`, async () => {
@@ -14,7 +17,21 @@ export async function obtenerCitaPorId(id) {
   return datos
 }
 
-export async function obtenerCitasRango({ dentistaId, estado, desde, hasta, sucursalId }) {
+// Devuelve { datos, deCache, guardadoEn }: la Agenda necesita saber si lo
+// que muestra viene de la última lectura guardada (sin conexión) para
+// avisarlo. La clave incluye TODOS los filtros: un rango/dentista/sucursal
+// distinto es otra lectura y nunca debe servirse en lugar de ésta.
+export async function obtenerCitasRangoConEstado({ dentistaId, estado, desde, hasta, sucursalId }) {
+  const clave = `citas-rango:${JSON.stringify({ dentistaId: dentistaId ?? null, estado: estado ?? null, desde, hasta, sucursalId: sucursalId ?? null })}`
+  return conCacheDeLectura(clave, () => _obtenerCitasRangoReal({ dentistaId, estado, desde, hasta, sucursalId }))
+}
+
+export async function obtenerCitasRango(filtros) {
+  const { datos } = await obtenerCitasRangoConEstado(filtros)
+  return datos
+}
+
+async function _obtenerCitasRangoReal({ dentistaId, estado, desde, hasta, sucursalId }) {
   let query = supabase
     .from('citas')
     .select('*, paciente:pacientes(nombre_completo, telefono), dentista:usuarios(nombre)')
@@ -87,11 +104,15 @@ export async function obtenerColaDeEspera({ dentistaId } = {}) {
   return data.sort((a, b) => (pesoPrioridad[a.prioridad] ?? 2) - (pesoPrioridad[b.prioridad] ?? 2))
 }
 
-export async function crearCitaUrgencia({ pacienteId, dentistaId, motivo, prioridad, duracionMinutos = 30 }) {
+// Consciente de conectividad y de pacientes offline, igual que
+// crearPaciente() en services/pacientes.js: un walk-in de urgencia es
+// exactamente el escenario que más importa cubrir bien sin conexión
+// (llega alguien sin avisar, puede ser un paciente que se acaba de
+// crear en este mismo formulario, todavía sin subir).
+export async function crearCitaUrgencia({ pacienteId, dentistaId, motivo, prioridad, duracionMinutos = 30, usuarioId, clinicaId, sucursalId } = {}) {
   const inicio = new Date()
   const fin = new Date(inicio.getTime() + duracionMinutos * 60000)
-
-  return crearCita({
+  const cita = {
     paciente_id: pacienteId,
     dentista_id: dentistaId ?? null,
     inicio: inicio.toISOString(),
@@ -100,7 +121,34 @@ export async function crearCitaUrgencia({ pacienteId, dentistaId, motivo, priori
     estado: 'en_espera',
     es_urgencia: true,
     prioridad: prioridad || 'urgente'
-  })
+  }
+
+  const pacienteEsOffline = esIdOffline(pacienteId)
+  const conexionReal = pacienteEsOffline ? false : await verificarConexionReal(supabase)
+  if (!conexionReal) {
+    // Id generado en el navegador, upsert-safe (crearCita ya usa
+    // upsert) — reintentar la subida nunca duplica. Si el paciente
+    // también es offline, esta cita depende de que él se sincronice
+    // primero (lib/procesadorColaOffline.js resuelve paciente_id).
+    const id = crypto.randomUUID()
+    const citaCompleta = { ...cita, id }
+    await encolarOperacion({
+      id,
+      tipo: 'crear_cita',
+      entidad: 'citas',
+      entidadId: id,
+      payload: citaCompleta,
+      dependeDe: pacienteEsOffline ? [pacienteId] : [],
+      creado_en: Date.now(),
+      usuarioId: usuarioId ?? null,
+      clinicaId: clinicaId ?? null,
+      sucursalId: sucursalId ?? null,
+      claveIdempotencia: id
+    })
+    return { ...citaCompleta, _offline: true }
+  }
+
+  return crearCita(cita)
 }
 // Si cita.id viene definido (lo genera el navegador con
 // crypto.randomUUID() para las citas de seguimiento creadas sin

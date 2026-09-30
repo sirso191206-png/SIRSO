@@ -106,3 +106,12 @@ export async function marcarIntentoFallido(operacion, mensajeError) {
     ultimoError: mensajeError ?? null
   })
 }
+
+// ¿Esta operación es de esta persona? Las hechas antes de que se
+// guardara `usuarioId` (versiones anteriores) no traen dueño y se tratan
+// como de quien esté usando el equipo. Las que SÍ traen dueño distinto
+// nunca se suben ni se cuentan con otra sesión: subir cambios clínicos
+// bajo la cuenta de otra persona sería falsificar quién los hizo.
+export function operacionEsDe(operacion, userId) {
+  return !operacion.usuarioId || operacion.usuarioId === userId
+}

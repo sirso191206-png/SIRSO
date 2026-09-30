@@ -1,16 +1,30 @@
 import { useCallback, useEffect, useState } from 'react'
-import { obtenerCitasRango, crearCita, actualizarCita, eliminarCita } from '../services/citas'
+import { obtenerCitasRangoConEstado, crearCita, actualizarCita, eliminarCita } from '../services/citas'
+import { encolarOperacion } from '../lib/colaOffline'
+import { esIdOffline } from '../lib/mapeoIdsOffline'
+import { useAuthStore } from '../store/useAuthStore'
+import { useSucursalStore } from '../store/useSucursalStore'
 
 export function useCitas({ dentistaId, estado, desde, hasta, sucursalId }) {
   const [citas, setCitas] = useState([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState(null)
+  const [deCache, setDeCache] = useState(false)
+  const [guardadoEn, setGuardadoEn] = useState(null)
 
   const recargar = useCallback(async () => {
     setCargando(true)
-    const data = await obtenerCitasRango({ dentistaId, estado, desde, hasta, sucursalId })
-    setCitas(data)
-    setCargando(false)
+    try {
+      const r = await obtenerCitasRangoConEstado({ dentistaId, estado, desde, hasta, sucursalId })
+      setCitas(r.datos)
+      setDeCache(r.deCache)
+      setGuardadoEn(r.guardadoEn)
+    } catch (err) {
+      // Antes una falla dejaba `cargando` en true para siempre.
+      setError(err.message)
+    } finally {
+      setCargando(false)
+    }
   }, [dentistaId, estado, desde, hasta, sucursalId])
 
   useEffect(() => {
@@ -20,6 +34,31 @@ export function useCitas({ dentistaId, estado, desde, hasta, sucursalId }) {
   const agendar = async (cita) => {
     setError(null)
     try {
+      // Un paciente offline SIEMPRE se encola, incluso si en este
+      // instante hay internet — su fila todavía no existe en el
+      // servidor, así que crear la cita ahí directo fallaría igual.
+      if (!navigator.onLine || esIdOffline(cita.paciente_id)) {
+        // Id generado en el navegador, upsert-safe — mismo patrón que
+        // notas/recetas/tratamientos: reintentar nunca duplica.
+        const id = crypto.randomUUID()
+        const citaCompleta = { ...cita, id }
+        const perfil = useAuthStore.getState().perfil
+        await encolarOperacion({
+          id,
+          tipo: 'crear_cita',
+          entidad: 'citas',
+          entidadId: id,
+          payload: citaCompleta,
+          dependeDe: esIdOffline(cita.paciente_id) ? [cita.paciente_id] : [],
+          creado_en: Date.now(),
+          usuarioId: perfil?.id ?? null,
+          clinicaId: perfil?.clinica_id ?? null,
+          sucursalId: useSucursalStore.getState().sucursalActualId,
+          claveIdempotencia: id
+        })
+        await recargar()
+        return
+      }
       await crearCita(cita)
       await recargar()
     } catch (err) {
@@ -57,5 +96,5 @@ export function useCitas({ dentistaId, estado, desde, hasta, sucursalId }) {
     }
   }
 
-  return { citas, cargando, error, agendar, reagendar, cambiarEstado, cancelar, desagendar, recargar }
+  return { citas, cargando, error, deCache, guardadoEn, agendar, reagendar, cambiarEstado, cancelar, desagendar, recargar }
 }

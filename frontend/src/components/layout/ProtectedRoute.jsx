@@ -2,10 +2,14 @@ import { useEffect } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../../store/useAuthStore'
 import { useEscucharCierreSesion } from '../../hooks/useEscucharCierreSesion'
+import { useConexion } from '../../hooks/useConexion'
+import { toastError } from '../../store/useToastStore'
+import { PantallaDesbloqueoPin } from '../auth/PantallaDesbloqueoPin'
 import { Sidebar } from './Sidebar'
 
 export function ProtectedRoute({ children }) {
-  const { session, perfil, clinicaEstado, cargando, logout, refrescarEstadoClinica, sesionActualId } = useAuthStore()
+  const { session, perfil, clinicaEstado, cargando, logout, refrescarEstadoClinica, sesionActualId, modoOffline, desbloqueoOffline, reanudarSesionOnline } = useAuthStore()
+  const conectado = useConexion()
   const location = useLocation()
 
   // Si otro dispositivo cierra esta misma sesión (p. ej. "Cerrar todas
@@ -24,11 +28,31 @@ export function ProtectedRoute({ children }) {
     if (session) refrescarEstadoClinica()
   }, [location.pathname, session, refrescarEstadoClinica])
 
+  // Sesión offline (desbloqueada con PIN) y ya volvió internet: se renueva
+  // contra Supabase Auth. Si el servidor la rechaza, se avisa y la ruta
+  // cae a /login (el PIN ya quedó revocado; la cola de cambios se conserva).
+  useEffect(() => {
+    if (!modoOffline || !conectado) return
+    const intentar = () => reanudarSesionOnline().then((r) => {
+      if (r.motivo === 'SESION_INVALIDA') {
+        toastError('Tu sesión ya no es válida. Inicia sesión con tu contraseña; tus cambios sin subir se conservan.')
+      }
+    })
+    intentar()
+    // navigator.onLine puede decir "conectado" con un wifi que aún no sale
+    // a internet: mientras siga el modo offline se reintenta cada 30 s.
+    const id = setInterval(intentar, 30_000)
+    return () => clearInterval(id)
+  }, [modoOffline, conectado, reanudarSesionOnline])
+
   if (cargando) {
     return <div className="flex h-screen items-center justify-center text-slate-400">Cargando…</div>
   }
 
   if (!session) {
+    // Sin internet y con un PIN vigente: se ofrece desbloquear la sesión
+    // offline en vez de mandar a un login que no podría completarse.
+    if (desbloqueoOffline) return <PantallaDesbloqueoPin />
     return <Navigate to="/login" replace />
   }
 

@@ -24,6 +24,33 @@ export async function obtenerPeriodontogramaCompleto(pacienteId) {
   return datos
 }
 
+// Las siguientes dos las usa solo el procesador de la cola (ver
+// lib/procesadorColaOffline.js) para averiguar qué ids reales le
+// tocaron a una pieza/sitio de un paciente que acaba de terminar de
+// sincronizarse — el trigger del servidor ya los creó a todos en ese
+// momento, pero el navegador todavía no sabe sus ids.
+export async function obtenerPiezaPeriodontalPorNumero(pacienteId, numeroPieza) {
+  const { data, error } = await supabase
+    .from('periodontograma_piezas')
+    .select('id')
+    .eq('paciente_id', pacienteId)
+    .eq('numero_pieza', numeroPieza)
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function obtenerSitioPeriodontalPorNombre(piezaId, sitio) {
+  const { data, error } = await supabase
+    .from('periodontograma_sitios')
+    .select('id')
+    .eq('pieza_id', piezaId)
+    .eq('sitio', sitio)
+    .single()
+  if (error) throw error
+  return data
+}
+
 export async function actualizarPiezaPeriodontal(piezaId, { movilidad, furcacion, usuarioId, actualizadoEnEsperado }) {
   let query = supabase
     .from('periodontograma_piezas')

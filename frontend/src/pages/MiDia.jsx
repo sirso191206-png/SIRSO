@@ -7,6 +7,7 @@ import { capitalizarPrimeraLetra } from '../lib/texto'
 import { ColaDeEspera } from '../components/ColaDeEspera'
 import { ModalNuevaUrgencia } from '../components/ModalNuevaUrgencia'
 import { ModalSincronizarDia } from '../components/ModalSincronizarDia'
+import { AvisoDatosGuardados } from '../components/layout/AvisoDatosGuardados'
 import { Button } from '../components/ui/Button'
 import { Icon } from '../components/ui/Icon'
 import { formatearMoneda } from '../lib/formato'
@@ -56,6 +57,7 @@ export function MiDia() {
 
   return (
     <div className="space-y-6">
+      <AvisoDatosGuardados deCache={datos.deCache} guardadoEn={datos.guardadoEn} />
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-800">

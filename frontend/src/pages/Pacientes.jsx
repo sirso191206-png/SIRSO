@@ -4,6 +4,8 @@ import { usePacientesLista } from '../hooks/usePacientesLista'
 import { crearPaciente, buscarPosiblesDuplicados, buscarPacientePorCurp } from '../services/pacientes'
 import { validarEstructuraCurp, parsearCurp } from '../lib/curp'
 import { calcularEdad } from '../lib/fechas'
+import { useAuthStore } from '../store/useAuthStore'
+import { useSucursalStore } from '../store/useSucursalStore'
 import { toastExito, toastError } from '../store/useToastStore'
 import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
@@ -238,8 +240,14 @@ function ModalNuevoPaciente({ abierto, onCerrar }) {
 
     setVerificandoCurp(true)
     try {
+      // Sin conexión esto no se puede saber de verdad — se deja
+      // avanzar (no bloquear la creación) en vez de fingir una
+      // respuesta. buscarPosiblesDuplicados en el envío hace el mismo
+      // tipo de verificación best-effort más abajo.
       const existente = await buscarPacientePorCurp(valor)
       setPacienteExistente(existente)
+    } catch {
+      setPacienteExistente(null)
     } finally {
       setVerificandoCurp(false)
     }
@@ -251,7 +259,16 @@ function ModalNuevoPaciente({ abierto, onCerrar }) {
 
     setGuardando(true)
     try {
-      const posibles = await buscarPosiblesDuplicados(form)
+      // Sin conexión no hay forma real de preguntarle al servidor si
+      // ya existe un posible duplicado — se salta el aviso (mejor
+      // dejar crear y revisar después que bloquear la atención de un
+      // paciente real que llegó sin avisar).
+      let posibles = []
+      try {
+        posibles = await buscarPosiblesDuplicados(form)
+      } catch {
+        posibles = []
+      }
       if (posibles.length > 0 && duplicados.length === 0) {
         setDuplicados(posibles) // primera vuelta: solo advertir
         setGuardando(false)
@@ -264,8 +281,17 @@ function ModalNuevoPaciente({ abierto, onCerrar }) {
         primer_apellido: form.primer_apellido || null,
         segundo_apellido: form.segundo_apellido || null
       }
-      const paciente = await crearPaciente(payload)
-      toastExito('Paciente creado.')
+      const perfil = useAuthStore.getState().perfil
+      const paciente = await crearPaciente(payload, {
+        usuarioId: perfil?.id ?? null,
+        clinicaId: perfil?.clinica_id ?? null,
+        sucursalId: useSucursalStore.getState().sucursalActualId
+      })
+      toastExito(
+        paciente._offline
+          ? 'Paciente guardado en este equipo. Se creará en el servidor en cuanto vuelva la conexión (no se pudo verificar duplicados sin internet).'
+          : 'Paciente creado.'
+      )
       onCerrar()
       navigate(`/pacientes/${paciente.id}`)
     } catch (err) {

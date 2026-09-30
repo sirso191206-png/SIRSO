@@ -2,7 +2,10 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { obtenerPaciente, archivarPaciente, restaurarPaciente } from '../services/pacientes'
 import { actualizarCita, buscarCitaIniciableHoy } from '../services/citas'
+import { esIdOffline } from '../lib/mapeoIdsOffline'
 import { toastExito, toastError } from '../store/useToastStore'
+
+const AUN_NO_SINCRONIZADO = 'Este paciente todavía no se ha sincronizado. Esta acción estará disponible en cuanto vuelva la conexión.'
 
 // Extraído de PacienteDetalle.jsx (corte 2B): agrupa el estado y los
 // handlers de la ficha de paciente, dejando el componente como un
@@ -21,6 +24,7 @@ export function usePacienteDetalle(id) {
   }, [id])
 
   const handleArchivar = async () => {
+    if (esIdOffline(id)) { toastError(AUN_NO_SINCRONIZADO); return }
     setProcesando(true)
     try {
       await archivarPaciente(id)
@@ -34,6 +38,7 @@ export function usePacienteDetalle(id) {
   }
 
   const handleRestaurar = async () => {
+    if (esIdOffline(id)) { toastError(AUN_NO_SINCRONIZADO); return }
     setProcesando(true)
     try {
       await restaurarPaciente(id)
@@ -47,6 +52,14 @@ export function usePacienteDetalle(id) {
   }
 
   const handleIniciarConsulta = async () => {
+    if (esIdOffline(id)) {
+      // Un paciente offline no puede tener una cita real ese mismo día
+      // (las citas son otra entidad, todavía no wireada a la cola de
+      // dependencias) — se documenta como límite conocido, no se
+      // intenta fingir que funciona.
+      toastError('Este paciente todavía no se ha sincronizado y no tiene citas. Registra la consulta desde sus notas clínicas mientras tanto.')
+      return
+    }
     setIniciandoConsulta(true)
     try {
       const citaIniciable = await buscarCitaIniciableHoy(id)

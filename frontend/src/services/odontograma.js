@@ -20,6 +20,22 @@ export async function obtenerOdontogramaCompleto(pacienteId) {
 // reales — se exporta para que la actualización optimista local (cola
 // offline, useOdontograma.js) use exactamente esta misma conversión en
 // vez de duplicarla, y nunca se desincronicen.
+// Solo la usa el procesador de la cola (ver lib/procesadorColaOffline.js)
+// para averiguar qué id real le tocó a una pieza de un paciente que
+// acaba de terminar de sincronizarse — el trigger del servidor ya creó
+// las 32 piezas para ese momento, pero el navegador todavía no sabe sus
+// ids reales.
+export async function obtenerPiezaPorNumero(pacienteId, numeroPieza) {
+  const { data, error } = await supabase
+    .from('odontograma_piezas')
+    .select('id')
+    .eq('paciente_id', pacienteId)
+    .eq('numero_pieza', numeroPieza)
+    .single()
+  if (error) throw error
+  return data
+}
+
 export function construirCambiosPieza({ estado, diagnostico, tratamientoId, notas, materialCorona, tipoIncrustacion, tipoAusencia }) {
   const cambios = {}
   if (estado !== undefined) cambios.estado = estado

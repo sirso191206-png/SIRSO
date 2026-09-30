@@ -5,6 +5,7 @@ import { toastExito, toastError } from '../../store/useToastStore'
 import { actualizarMiPerfilProfesional } from '../../services/usuarios'
 import { SelectorSucursal } from '../sucursales/SelectorSucursal'
 import { useColaOffline } from '../../hooks/useColaOffline'
+import { useCierreSesionSeguro } from '../../hooks/useCierreSesionSeguro'
 import { PadFirma } from '../PadFirma'
 import { Modal } from '../ui/Modal'
 import { Input } from '../ui/Input'
@@ -123,7 +124,9 @@ function ItemNav({ to, icon, children, end = false, tonoAmbar = false }) {
 }
 
 export function Sidebar() {
-  const { perfil, clinicaNombre, logout } = useAuthStore()
+  const { perfil, clinicaNombre, cerrarSesionSegura } = useAuthStore()
+  // Cerrar sesión se bloquea si hay cambios sin subir o no hay conexión.
+  const { solicitarCierre, modalCierre } = useCierreSesionSeguro()
   const [modalAbierto, setModalAbierto] = useState(false)
   const [modalPerfilAbierto, setModalPerfilAbierto] = useState(false)
   const [menuUsuarioAbierto, setMenuUsuarioAbierto] = useState(false)
@@ -150,6 +153,7 @@ export function Sidebar() {
   }, [menuUsuarioAbierto])
 
   return (
+    <>
     <aside className="flex h-screen w-60 flex-col justify-between border-r border-slate-200/80 bg-white p-4">
       <div className="overflow-y-auto">
         <div className="flex h-[72px] items-center justify-center">
@@ -223,7 +227,7 @@ export function Sidebar() {
               </NavLink>
               <div className="my-1 border-t border-slate-100" />
               <button
-                onClick={logout}
+                onClick={() => { setMenuUsuarioAbierto(false); solicitarCierre(cerrarSesionSegura) }}
                 className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-clinico-rojo transition-colors duration-150 hover:bg-red-50"
               >
                 <Icon.logOut />
@@ -266,6 +270,8 @@ export function Sidebar() {
       <ModalCambiarPassword abierto={modalAbierto} onCerrar={() => setModalAbierto(false)} />
       <ModalPerfilProfesional abierto={modalPerfilAbierto} onCerrar={() => setModalPerfilAbierto(false)} />
     </aside>
+    {modalCierre}
+    </>
   )
 }
 

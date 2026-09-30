@@ -46,6 +46,20 @@ async function leerDeCache(clave) {
   })
 }
 
+// Borra TODO lo guardado (lecturas y metadatos). Se usa al cerrar sesión:
+// sin esto, los datos clínicos de quien salió quedarían en el equipo.
+// Se vacía el almacén (clear) en vez de borrar la base de datos: las
+// conexiones abiertas de este módulo bloquearían un deleteDatabase().
+export async function vaciarCacheLectura() {
+  const db = await abrirDB()
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(ALMACEN, 'readwrite')
+    tx.objectStore(ALMACEN).clear()
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error)
+  })
+}
+
 // Metadatos simples (no el resultado de una consulta real) — se
 // reutiliza el mismo almacén en vez de abrir una base de datos aparte
 // solo para esto. Hoy sirve para "Sincronizar mi día" (guardar cuándo

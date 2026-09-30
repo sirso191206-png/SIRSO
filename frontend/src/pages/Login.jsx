@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { useAuthStore } from '../store/useAuthStore'
 import { HeaderPublico } from '../components/layout/HeaderPublico'
 import { ModalOlvidePassword } from '../components/ModalOlvidePassword'
+import { PantallaDesbloqueoPin } from '../components/auth/PantallaDesbloqueoPin'
 
 const CLAVE_USUARIO_RECORDADO = 'siro_usuario_recordado'
 
@@ -15,6 +16,7 @@ export function Login() {
   const [cargando, setCargando] = useState(false)
   const [modalOlvideAbierto, setModalOlvideAbierto] = useState(false)
   const login = useAuthStore((s) => s.login)
+  const desbloqueoOffline = useAuthStore((s) => s.desbloqueoOffline)
   const navigate = useNavigate()
 
   // Recordar usuario: si ya se guardó antes, se rellena solo. Nunca se
@@ -51,6 +53,10 @@ export function Login() {
       setCargando(false)
     }
   }
+
+  // Sin internet y con un PIN vigente: se ofrece desbloquear la sesión
+  // offline en vez de un formulario que no podría completarse.
+  if (desbloqueoOffline) return <PantallaDesbloqueoPin onDesbloqueado={() => navigate('/')} />
 
   return (
     <div className="flex min-h-screen flex-col bg-white">

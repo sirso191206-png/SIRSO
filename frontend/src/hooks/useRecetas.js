@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { obtenerRecetas, crearReceta } from '../services/recetas'
 import { encolarOperacion, listarOperacionesPendientes } from '../lib/colaOffline'
+import { esIdOffline } from '../lib/mapeoIdsOffline'
 import { useAuthStore } from '../store/useAuthStore'
 import { useSucursalStore } from '../store/useSucursalStore'
 
@@ -14,6 +15,20 @@ export function useRecetas(pacienteId) {
 
   const recargar = useCallback(async () => {
     setCargando(true)
+
+    if (esIdOffline(pacienteId)) {
+      // Un paciente que todavía no existe en el servidor no puede
+      // tener recetas reales que pedirle — solo las que ya se
+      // encolaron para él.
+      const pendientes = await listarOperacionesPendientes().catch(() => [])
+      const recetasPendientes = pendientes
+        .filter((op) => op.tipo === 'crear_receta' && op.payload.paciente_id === pacienteId)
+        .map((op) => ({ ...op.payload, estado_sync: op.estado === 'error' ? 'ERROR_SYNC' : 'PENDIENTE_SYNC' }))
+      setRecetas(recetasPendientes)
+      setCargando(false)
+      return
+    }
+
     const data = await obtenerRecetas(pacienteId)
     // Recetas creadas sin conexión y todavía no subidas: se agregan
     // encima para que no desaparezcan de la vista, marcadas según el
@@ -35,7 +50,10 @@ export function useRecetas(pacienteId) {
   }, [pacienteId, recargar])
 
   const agregar = async (receta) => {
-    if (!navigator.onLine) {
+    // Un paciente offline SIEMPRE se encola, incluso si en este
+    // instante hay internet — su fila todavía no existe en el
+    // servidor, así que crearla ahí directo fallaría de cualquier forma.
+    if (!navigator.onLine || esIdOffline(pacienteId)) {
       // Mismo patrón que las notas clínicas: id generado en el
       // navegador, upsert-safe — reintentar la subida nunca duplica.
       const id = crypto.randomUUID()
@@ -47,6 +65,7 @@ export function useRecetas(pacienteId) {
         entidad: 'recetas',
         entidadId: id,
         payload: recetaCompleta,
+        dependeDe: esIdOffline(pacienteId) ? [pacienteId] : [],
         creado_en: Date.now(),
         usuarioId: perfil?.id ?? null,
         clinicaId: perfil?.clinica_id ?? null,

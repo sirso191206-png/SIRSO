@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useConexion } from './useConexion'
 import { useColaOffline } from './useColaOffline'
 import { supabase } from '../lib/supabase'
+import { verificarConexionReal } from '../lib/conectividadReal'
 
 // Combina la señal del navegador con la cola offline en un solo
 // estado para el banner/indicador (secciones 13-14):
@@ -33,9 +34,7 @@ export function useEstadoConexion() {
 
     let cancelado = false
     setVerificando(true)
-    supabase.from('usuarios').select('id').limit(1)
-      .then(() => { if (!cancelado) setVerificando(false) })
-      .catch(() => { if (!cancelado) setVerificando(false) })
+    verificarConexionReal(supabase).finally(() => { if (!cancelado) setVerificando(false) })
     return () => { cancelado = true }
   }, [conectadoNavegador])
 

@@ -34,6 +34,12 @@ export function ModalPiezaPeriodontal({ pieza, onCerrar, onGuardarPieza, onGuard
   const [cargandoHistorial, setCargandoHistorial] = useState(false)
 
   const handleVerHistorial = async () => {
+    if (pieza._offline) {
+      // Una pieza sintética de un paciente sin sincronizar no tiene
+      // historial real que pedir — nunca existió en el servidor.
+      setHistorial([])
+      return
+    }
     setCargandoHistorial(true)
     const data = await obtenerHistorialPeriodontal(pieza.id)
     setHistorial(data)

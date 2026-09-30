@@ -1,6 +1,10 @@
 import { supabase } from '../lib/supabase'
 import { sanitizarTerminoBusqueda } from '../lib/texto'
 import { conCacheDeLectura } from '../lib/cacheLectura'
+import { indexarPaciente, buscarEnIndiceLocal } from '../lib/indicePacientesOffline'
+import { crearPacienteOffline, obtenerPacienteOfflineLocal } from '../lib/pacientesOffline'
+import { esIdOffline, resolverId } from '../lib/mapeoIdsOffline'
+import { verificarConexionReal } from '../lib/conectividadReal'
 
 // Si ya existe un paciente con esa CURP en la clínica, lo regresa (para
 // no crear un expediente duplicado) — si no, regresa null.
@@ -15,6 +19,21 @@ export async function buscarPacientePorCurp(curp) {
 }
 
 export async function buscarPacientes(termino, { incluirArchivados = false } = {}) {
+  const conexionReal = await verificarConexionReal(supabase)
+  if (!conexionReal) {
+    // Sin conexión: el índice local es lo único disponible — solo
+    // nombre/teléfono/folio de quien ya se vio o se creó en este
+    // equipo, nunca la clínica completa (ver lib/indicePacientesOffline.js).
+    // `_disponibleOffline` avisa si además el expediente completo ya
+    // está cacheado (se puede abrir) o no (habría que esperar a tener
+    // internet) — nunca se inventa uno ni el otro.
+    const resultados = await buscarEnIndiceLocal(termino)
+    return Promise.all(resultados.map(async (r) => ({
+      ...r,
+      _disponibleOffline: r.offline || (await hayExpedienteCacheado(r.id))
+    })))
+  }
+
   let query = supabase
     .from('v_pacientes_seguro')
     .select('id, nombre_completo, telefono, correo, fecha_nacimiento, archivado_en')
@@ -38,6 +57,22 @@ export async function buscarPacientes(termino, { incluirArchivados = false } = {
 }
 
 export async function obtenerPaciente(id) {
+  if (esIdOffline(id)) {
+    // ¿Ya se sincronizó mientras tanto? Si sí, lo correcto es seguir
+    // por el id REAL de aquí en adelante (es lo que exista en el
+    // servidor) — se marca `_redirigidoA` para que quien llamó (la
+    // pantalla del paciente) pueda actualizar la URL, en vez de seguir
+    // usando un id que ya quedó obsoleto.
+    const serverId = await resolverId(id)
+    if (serverId !== id) {
+      const real = await obtenerPaciente(serverId)
+      return { ...real, _redirigidoA: serverId }
+    }
+    const local = await obtenerPacienteOfflineLocal(id)
+    if (!local) throw new Error('Paciente no encontrado.')
+    return { ...local, _offline: true }
+  }
+
   const { datos } = await conCacheDeLectura(`paciente:${id}`, async () => {
     const { data, error } = await supabase
       .from('v_pacientes_seguro')
@@ -47,10 +82,28 @@ export async function obtenerPaciente(id) {
     if (error) throw error
     return data
   })
+  indexarPaciente({
+    id: datos.id,
+    nombre_completo: datos.nombre_completo,
+    telefono: datos.telefono ?? null,
+    numero_expediente: datos.numero_expediente ?? null,
+    offline: false,
+    actualizado_en: Date.now()
+  }).catch(() => {})
   return datos
 }
 
-export async function crearPaciente(paciente) {
+// Sin conexión REAL (no solo navigator.onLine — ver lib/conectividadReal.js)
+// crea el paciente localmente con un id temporal y lo encola; nunca
+// intenta el insert directo, que solo generaría un error de red más.
+// El resto del formulario (validación de CURP, duplicados) ya se
+// evalúa aparte, antes de llegar aquí — ver pages/Pacientes.jsx.
+export async function crearPaciente(paciente, { usuarioId, clinicaId, sucursalId } = {}) {
+  const conexionReal = await verificarConexionReal(supabase)
+  if (!conexionReal) {
+    return crearPacienteOffline(paciente, { usuarioId, clinicaId, sucursalId })
+  }
+
   const { data, error } = await supabase
     .from('pacientes')
     .insert(paciente)
@@ -61,6 +114,42 @@ export async function crearPaciente(paciente) {
   // El expediente vacío y el odontograma se crean solos, vía triggers en
   // la BD — no hace falta insertarlos aquí.
 
+  indexarPaciente({
+    id: data.id,
+    nombre_completo: data.nombre_completo,
+    telefono: data.telefono ?? null,
+    numero_expediente: data.numero_expediente ?? null,
+    offline: false,
+    actualizado_en: Date.now()
+  }).catch(() => {})
+
+  return data
+}
+
+// La versión SIN comprobación de conectividad — la usa el ejecutor de
+// la cola (lib/procesadorColaOffline.js) para subir un paciente creado
+// offline: ahí ya se SABE que hay conexión (se está sincronizando), y
+// llamar a crearPaciente() otra vez reintentaría el heartbeat sin
+// necesidad.
+export async function crearPacienteEnServidor(paciente) {
+  // upsert (no insert) por diseño: `paciente.id` ya viene fijado desde
+  // que se creó offline (lib/pacientesOffline.js) precisamente para
+  // que reintentar esto — por ejemplo si la respuesta se perdió pero
+  // el insert sí se aplicó — nunca cree un paciente duplicado.
+  const { data, error } = await supabase
+    .from('pacientes')
+    .upsert(paciente)
+    .select()
+    .single()
+  if (error) throw error
+  indexarPaciente({
+    id: data.id,
+    nombre_completo: data.nombre_completo,
+    telefono: data.telefono ?? null,
+    numero_expediente: data.numero_expediente ?? null,
+    offline: false,
+    actualizado_en: Date.now()
+  }).catch(() => {})
   return data
 }
 
@@ -90,6 +179,15 @@ export async function actualizarPaciente(id, cambios, actualizadoEnEsperado) {
 // quien lo hace no es owner, aunque el resto de la fila sí se pudiera
 // editar. Tener una función aparte deja claro en el código que esta
 // acción tiene una regla de permisos distinta al resto del formulario.
+async function hayExpedienteCacheado(id) {
+  try {
+    await obtenerPaciente(id)
+    return true
+  } catch {
+    return false
+  }
+}
+
 export async function reasignarPaciente(id, dentistaResponsableId) {
   const { data, error } = await supabase
     .from('pacientes')

@@ -248,3 +248,46 @@ describe('Finalizar consulta sin conexión (prueba #12)', () => {
     expect(await listarOperacionesPendientes()).toEqual([])
   })
 })
+
+describe('Cada cuenta sube solo lo suyo (equipo compartido)', () => {
+  const sesionDe = (id) => m.refreshSession.mockResolvedValue({ data: { session: { access_token: 'x', user: { id } } }, error: null })
+
+  it('con la sesión de u1: sube lo de u1 y deja INTACTO lo de u2 (no lo marca, no lo cuenta como intento)', async () => {
+    sesionDe('u1')
+    await encolarOperacion({ ...op('mia', 'crear_nota_clinica', { id: 'mia' }, 1), usuarioId: 'u1' })
+    await encolarOperacion({ ...op('ajena', 'crear_nota_clinica', { id: 'ajena' }, 2), usuarioId: 'u2' })
+
+    await procesarColaOffline()
+
+    expect(m.crearNotaClinica).toHaveBeenCalledTimes(1)
+    expect(m.crearNotaClinica).toHaveBeenCalledWith({ id: 'mia' })
+    const [restante] = await listarOperacionesPendientes()
+    expect(restante).toMatchObject({ id: 'ajena', estado: 'pendiente', intentos: 0, ultimoError: null })
+  })
+
+  it('avisa que hay cambios de otra cuenta que no se subirán con esta sesión', async () => {
+    sesionDe('u1')
+    await encolarOperacion({ ...op('ajena', 'crear_nota_clinica', { id: 'ajena' }), usuarioId: 'u2' })
+    await procesarColaOffline()
+    expect(m.toastError).toHaveBeenCalledWith(expect.stringContaining('otra cuenta'))
+  })
+
+  it('cuando la dueña inicia sesión, sus cambios sí se suben', async () => {
+    await encolarOperacion({ ...op('ajena', 'crear_nota_clinica', { id: 'ajena' }), usuarioId: 'u2' })
+    sesionDe('u1')
+    await procesarColaOffline()
+    expect(m.crearNotaClinica).not.toHaveBeenCalled()
+
+    sesionDe('u2')
+    await procesarColaOffline()
+    expect(m.crearNotaClinica).toHaveBeenCalledWith({ id: 'ajena' })
+    expect(await listarOperacionesPendientes()).toEqual([])
+  })
+
+  it('las operaciones hechas antes de guardarse el dueño (sin usuarioId) se siguen subiendo con cualquier sesión', async () => {
+    sesionDe('u1')
+    await encolarOperacion(op('vieja', 'crear_nota_clinica', { id: 'vieja' }))
+    await procesarColaOffline()
+    expect(m.crearNotaClinica).toHaveBeenCalledWith({ id: 'vieja' })
+  })
+})

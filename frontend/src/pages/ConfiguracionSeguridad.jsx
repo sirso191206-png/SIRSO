@@ -3,10 +3,15 @@ import { useAuthStore } from '../store/useAuthStore'
 import { toastExito, toastError } from '../store/useToastStore'
 import { listarMisSesiones, marcarSesionFinalizada, cerrarTodasLasSesiones, obtenerMiLimiteSesiones } from '../services/sesiones'
 import { Button } from '../components/ui/Button'
+import { SeccionPinOffline } from '../components/seguridad/SeccionPinOffline'
+import { useCierreSesionSeguro } from '../hooks/useCierreSesionSeguro'
+import { limpiarDatosLocalesDeSesion } from '../lib/cierreSesion'
 
 export function ConfiguracionSeguridad() {
   const perfil = useAuthStore((s) => s.perfil)
   const sesionActualId = useAuthStore((s) => s.sesionActualId)
+  const evaluarCierreSesion = useAuthStore((s) => s.evaluarCierreSesion)
+  const { solicitarCierre, modalCierre } = useCierreSesionSeguro()
   const [sesiones, setSesiones] = useState([])
   const [limite, setLimite] = useState(undefined) // undefined = aún no se consultó
   const [cargando, setCargando] = useState(true)
@@ -42,10 +47,19 @@ export function ConfiguracionSeguridad() {
   const handleCerrarTodas = async () => {
     setProcesando(true)
     try {
-      await cerrarTodasLasSesiones(perfil.id)
-      toastExito('Se cerraron todas tus sesiones. Vuelve a iniciar sesión.')
+      // También cierra ESTE equipo, así que pasa por la misma regla que
+      // "Cerrar sesión": no con cambios sin subir, ni sin conexión.
+      await solicitarCierre(async () => {
+        const evaluacion = await evaluarCierreSesion()
+        if (!evaluacion.permitido) return { ok: false, evaluacion }
+        await cerrarTodasLasSesiones(perfil.id)
+        await limpiarDatosLocalesDeSesion()
+        toastExito('Se cerraron todas tus sesiones. Vuelve a iniciar sesión.')
+        return { ok: true }
+      })
     } catch (err) {
       toastError(err.message)
+    } finally {
       setProcesando(false)
     }
   }
@@ -103,6 +117,9 @@ export function ConfiguracionSeguridad() {
       <Button variante="peligro" onClick={handleCerrarTodas} disabled={procesando} className="mt-4">
         {procesando ? 'Cerrando…' : 'Cerrar todas mis sesiones'}
       </Button>
+
+      <SeccionPinOffline />
+      {modalCierre}
     </div>
   )
 }

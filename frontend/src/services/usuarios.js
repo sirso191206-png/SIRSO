@@ -1,4 +1,5 @@
 import { supabase, invocarFuncionAutenticada } from '../lib/supabase'
+import { conCacheDeLectura } from '../lib/cacheLectura'
 
 export async function listarUsuarios() {
   const { data, error } = await supabase
@@ -10,14 +11,17 @@ export async function listarUsuarios() {
 }
 
 export async function listarDentistas() {
-  const { data, error } = await supabase
-    .from('usuarios')
-    .select('id, nombre')
-    .eq('rol', 'dentista')
-    .eq('activo', true)
-    .order('nombre')
-  if (error) throw error
-  return data
+  const { datos } = await conCacheDeLectura('dentistas-activos', async () => {
+    const { data, error } = await supabase
+      .from('usuarios')
+      .select('id, nombre')
+      .eq('rol', 'dentista')
+      .eq('activo', true)
+      .order('nombre')
+    if (error) throw error
+    return data
+  })
+  return datos
 }
 
 // Llama a la Edge Function `crear-usuario` con el access_token vigente

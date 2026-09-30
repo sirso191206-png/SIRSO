@@ -14,10 +14,14 @@ export async function obtenerTratamientos(pacienteId) {
   return datos
 }
 
+// upsert (no insert) a propósito: si se llama sin conexión (ver
+// hooks/useTratamientos.js), `tratamiento.id` ya viene fijado desde el
+// navegador — así, si la subida se reintenta, nunca crea un tratamiento
+// duplicado. Llamado online (sin id) se comporta como un insert normal.
 export async function crearTratamiento(tratamiento) {
   const { data, error } = await supabase
     .from('tratamientos')
-    .insert(tratamiento)
+    .upsert(tratamiento)
     .select()
     .single()
   if (error) throw error
