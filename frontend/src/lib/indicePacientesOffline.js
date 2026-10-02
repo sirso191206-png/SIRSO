@@ -41,6 +41,22 @@ export async function indexarPaciente(resumen) {
   })
 }
 
+// Se usa al cambiar de usuario en el mismo equipo (ver
+// lib/cierreSesion.js): sin esto, el índice de búsqueda —
+// nombre/teléfono de pacientes de la clínica anterior— seguiría
+// respondiendo búsquedas sin conexión para la cuenta nueva, aunque sea
+// de OTRA clínica. RLS no aplica offline; este índice es la única
+// defensa.
+export async function vaciarIndicePacientesOffline() {
+  const db = await abrirDB()
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(ALMACEN, 'readwrite')
+    tx.objectStore(ALMACEN).clear()
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error)
+  })
+}
+
 function normalizar(texto) {
   return (texto ?? '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { usePagos } from '../../hooks/usePagos'
 import { useAuthStore } from '../../store/useAuthStore'
 import { toastExito, toastError } from '../../store/useToastStore'
@@ -15,13 +15,15 @@ import { useConexion } from '../../hooks/useConexion'
 // para no tener demasiadas pestañas. La funcionalidad es la misma que
 // antes tenía su propia pestaña, solo se movió de lugar.
 export function SeccionPagos({ pacienteId, paciente }) {
-  const { pagos, saldo, cargando, agregar, anular } = usePagos(pacienteId)
+  const { pagos, saldo, cargando, agregar, anular, eliminar, corregir } = usePagos(pacienteId)
   const conectado = useConexion()
   const [monto, setMonto] = useState('')
   const [metodo, setMetodo] = useState('efectivo')
   const [guardando, setGuardando] = useState(false)
   const [imprimiendoId, setImprimiendoId] = useState(null)
   const [pagoAAnular, setPagoAAnular] = useState(null)
+  const [pagoAEliminar, setPagoAEliminar] = useState(null)
+  const [pagoAEditar, setPagoAEditar] = useState(null)
   const perfil = useAuthStore((s) => s.perfil)
 
   if (cargando) return null
@@ -42,7 +44,18 @@ export function SeccionPagos({ pacienteId, paciente }) {
       <h3 className="mb-3 text-sm font-semibold text-slate-700">Pagos</h3>
 
       <div className="mb-3 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
-        Total tratamientos: ${formatearMoneda(saldo.total_tratamientos)} · Pagado: ${formatearMoneda(saldo.total_pagado)} · Pendiente: ${formatearMoneda(saldo.saldo)}
+        Total tratamientos: ${formatearMoneda(saldo.total_tratamientos)} · Pagado: ${formatearMoneda(saldo.total_pagado)} · Pendiente: ${formatearMoneda(Math.max(saldo.saldo, 0))}
+        {saldo.saldo < 0 && (
+          // Si se registró un pago mayor al costo de los tratamientos
+          // (p. ej. un monto capturado por error), el saldo queda
+          // negativo — mostrarlo tal cual ("Pendiente: $-500") es
+          // confuso. "Pendiente" nunca baja de $0; el excedente se
+          // muestra aparte, como saldo a favor del paciente. Si el
+          // monto se capturó mal, corrígelo con "Eliminar" en el pago
+          // de abajo y vuelve a registrarlo — eso sí mueve el saldo de
+          // verdad; esto solo cambia cómo se muestra.
+          <span className="ml-1 font-medium text-clinico-verde">· A favor del paciente: ${formatearMoneda(-saldo.saldo)}</span>
+        )}
       </div>
 
       <form
@@ -95,10 +108,18 @@ export function SeccionPagos({ pacienteId, paciente }) {
                 {imprimiendoId === p.id ? 'Generando…' : (<><Icon.printer /> Recibo</>)}
               </button>
               {!p.anulado_en && (
+                <button onClick={() => setPagoAEditar(p)} className="text-xs font-medium text-clinico-azul hover:underline">
+                  Editar
+                </button>
+              )}
+              {!p.anulado_en && (
                 <button onClick={() => setPagoAAnular(p)} className="text-xs font-medium text-clinico-rojo hover:underline">
                   Anular
                 </button>
               )}
+              <button onClick={() => setPagoAEliminar(p)} className="text-xs text-slate-400 hover:text-clinico-rojo hover:underline">
+                Eliminar
+              </button>
             </div>
           </div>
         ))}
@@ -108,6 +129,19 @@ export function SeccionPagos({ pacienteId, paciente }) {
         pago={pagoAAnular}
         onCerrar={() => setPagoAAnular(null)}
         onAnular={anular}
+        usuarioId={perfil.id}
+      />
+
+      <ModalEliminarPago
+        pago={pagoAEliminar}
+        onCerrar={() => setPagoAEliminar(null)}
+        onEliminar={eliminar}
+      />
+
+      <ModalEditarPago
+        pago={pagoAEditar}
+        onCerrar={() => setPagoAEditar(null)}
+        onCorregir={corregir}
         usuarioId={perfil.id}
       />
     </div>
@@ -146,6 +180,95 @@ function ModalAnularPago({ pago, onCerrar, onAnular, usuarioId }) {
         <Button variante="secundario" onClick={onCerrar} className="flex-1" disabled={procesando}>Cerrar</Button>
         <Button variante="peligro" onClick={handleConfirmar} className="flex-1" disabled={procesando}>
           {procesando ? 'Anulando…' : 'Anular pago'}
+        </Button>
+      </div>
+    </Modal>
+  )
+}
+
+function ModalEditarPago({ pago, onCerrar, onCorregir, usuarioId }) {
+  const [monto, setMonto] = useState('')
+  const [metodo, setMetodo] = useState('efectivo')
+  const [procesando, setProcesando] = useState(false)
+
+  // El formulario se precarga con los valores actuales cada vez que se
+  // abre para un pago distinto — useState no se reinicia solo porque
+  // cambie `pago`, así que se sincroniza explícito con sus datos.
+  useEffect(() => {
+    if (pago) {
+      setMonto(String(pago.monto))
+      setMetodo(pago.metodo)
+    }
+  }, [pago])
+
+  const handleConfirmar = async () => {
+    setProcesando(true)
+    try {
+      await onCorregir(pago, { monto: Number(monto), metodo }, { usuarioId })
+      toastExito('Pago corregido.')
+      onCerrar()
+    } catch (err) {
+      toastError('No se pudo corregir: ' + err.message)
+    } finally {
+      setProcesando(false)
+    }
+  }
+
+  return (
+    <Modal abierto={!!pago} onCerrar={onCerrar} titulo="Editar pago">
+      <p className="mb-4 text-sm text-slate-600">
+        El sistema no permite modificar un pago ya registrado directamente — por seguridad contable, esto anula el
+        pago original de <strong>${pago ? formatearMoneda(pago.monto) : ''}</strong> y registra uno nuevo con los
+        valores corregidos, en un solo paso. El pago original queda en el historial, marcado como anulado, con un
+        folio de recibo nuevo para el corregido.
+      </p>
+      <div className="mb-4 flex gap-2">
+        <Input type="number" step="0.01" placeholder="Monto" value={monto} onChange={(e) => setMonto(e.target.value)} required className="w-32" />
+        <select value={metodo} onChange={(e) => setMetodo(e.target.value)} className="rounded-lg border border-slate-300 text-sm">
+          <option value="efectivo">Efectivo</option>
+          <option value="tarjeta">Tarjeta</option>
+          <option value="transferencia">Transferencia</option>
+          <option value="otro">Otro</option>
+        </select>
+      </div>
+      <div className="flex gap-2">
+        <Button variante="secundario" onClick={onCerrar} className="flex-1" disabled={procesando}>Cerrar</Button>
+        <Button onClick={handleConfirmar} className="flex-1" disabled={procesando || !monto}>
+          {procesando ? 'Corrigiendo…' : 'Guardar corrección'}
+        </Button>
+      </div>
+    </Modal>
+  )
+}
+
+function ModalEliminarPago({ pago, onCerrar, onEliminar }) {
+  const [procesando, setProcesando] = useState(false)
+
+  const handleConfirmar = async () => {
+    setProcesando(true)
+    try {
+      await onEliminar(pago.id)
+      toastExito('Pago eliminado.')
+      onCerrar()
+    } catch (err) {
+      toastError('No se pudo eliminar: ' + err.message)
+    } finally {
+      setProcesando(false)
+    }
+  }
+
+  return (
+    <Modal abierto={!!pago} onCerrar={onCerrar} titulo="Eliminar pago">
+      <p className="mb-4 text-sm text-slate-600">
+        Esto es distinto de anular: el pago de <strong>${pago ? formatearMoneda(pago.monto) : ''}</strong> se borra
+        por completo del historial del paciente y del corte de caja, no solo se marca como anulado. Si ya imprimiste
+        o cerraste un corte de caja que incluía este pago, ese corte ya impreso no va a cuadrar con uno nuevo que
+        generes después. No se puede deshacer desde aquí — usa esto solo para corregir un error de captura.
+      </p>
+      <div className="flex gap-2">
+        <Button variante="secundario" onClick={onCerrar} className="flex-1" disabled={procesando}>Cerrar</Button>
+        <Button variante="peligro" onClick={handleConfirmar} className="flex-1" disabled={procesando}>
+          {procesando ? 'Eliminando…' : 'Eliminar por completo'}
         </Button>
       </div>
     </Modal>

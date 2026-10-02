@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { obtenerPagos, registrarPago, anularPago } from '../services/pagos'
+import { obtenerPagos, registrarPago, anularPago, eliminarPago, corregirPago } from '../services/pagos'
 import { obtenerSaldo } from '../services/pacientes'
 
 export function usePagos(pacienteId) {
@@ -32,5 +32,16 @@ export function usePagos(pacienteId) {
     await recargar()
   }
 
-  return { pagos, saldo, cargando, agregar, anular }
+  const eliminar = async (id) => {
+    await eliminarPago(id)
+    await recargar()
+  }
+
+  const corregir = async (pagoOriginal, cambios, datos) => {
+    const nuevo = await corregirPago(pagoOriginal, cambios, datos)
+    await recargar()
+    return nuevo
+  }
+
+  return { pagos, saldo, cargando, agregar, anular, eliminar, corregir }
 }

@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { obtenerPaciente, archivarPaciente, restaurarPaciente } from '../services/pacientes'
 import { actualizarCita, buscarCitaIniciableHoy } from '../services/citas'
 import { esIdOffline } from '../lib/mapeoIdsOffline'
+import { useAuthStore } from '../store/useAuthStore'
+import { useSucursalStore } from '../store/useSucursalStore'
 import { toastExito, toastError } from '../store/useToastStore'
 
 const AUN_NO_SINCRONIZADO = 'Este paciente todavía no se ha sincronizado. Esta acción estará disponible en cuanto vuelva la conexión.'
@@ -27,7 +29,12 @@ export function usePacienteDetalle(id) {
     if (esIdOffline(id)) { toastError(AUN_NO_SINCRONIZADO); return }
     setProcesando(true)
     try {
-      await archivarPaciente(id)
+      const perfil = useAuthStore.getState().perfil
+      await archivarPaciente(id, {
+        usuarioId: perfil?.id,
+        clinicaId: perfil?.clinica_id,
+        sucursalId: useSucursalStore.getState().sucursalActualId
+      })
       toastExito('Paciente archivado. Su historial sigue intacto, solo se ocultó de la lista.')
       navigate('/pacientes')
     } catch (err) {
@@ -41,7 +48,12 @@ export function usePacienteDetalle(id) {
     if (esIdOffline(id)) { toastError(AUN_NO_SINCRONIZADO); return }
     setProcesando(true)
     try {
-      await restaurarPaciente(id)
+      const perfil = useAuthStore.getState().perfil
+      await restaurarPaciente(id, {
+        usuarioId: perfil?.id,
+        clinicaId: perfil?.clinica_id,
+        sucursalId: useSucursalStore.getState().sucursalActualId
+      })
       toastExito('Paciente restaurado.')
       await recargarPaciente()
     } catch (err) {

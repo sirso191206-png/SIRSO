@@ -5,7 +5,8 @@ import {
   cambiarEstadoTratamiento,
   cancelarTratamiento,
   actualizarTratamiento,
-  registrarSesion
+  registrarSesion,
+  eliminarTratamiento
 } from '../services/tratamientos'
 import { encolarOperacion, listarOperacionesPendientes } from '../lib/colaOffline'
 import { esIdOffline } from '../lib/mapeoIdsOffline'
@@ -166,5 +167,17 @@ export function useTratamientos(pacienteId) {
     await recargar()
   }
 
-  return { tratamientos, cargando, agregar, cambiarEstado, cancelar, actualizar, sumarSesion }
+  // Borrado real, a propósito solo online — a diferencia de crear/
+  // cambiar estado/cancelar, no se encola: es una acción administrativa
+  // de corrección, no algo que un walk-in sin conexión necesite poder
+  // hacer, y encolar un DELETE que podría chocar con otra operación
+  // pendiente (p. ej. un pago referenciando este mismo tratamiento,
+  // todavía sin subir) añadiría una clase de conflicto que no vale la
+  // pena para esta acción.
+  const eliminar = async (id) => {
+    await eliminarTratamiento(id)
+    await recargar()
+  }
+
+  return { tratamientos, cargando, agregar, cambiarEstado, cancelar, actualizar, sumarSesion, eliminar }
 }

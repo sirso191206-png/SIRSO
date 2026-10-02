@@ -3,6 +3,8 @@ import { conCacheDeLectura } from '../lib/cacheLectura'
 import { encolarOperacion } from '../lib/colaOffline'
 import { esIdOffline } from '../lib/mapeoIdsOffline'
 import { verificarConexionReal } from '../lib/conectividadReal'
+import { buscarEnReplicaCitas, huboSincronizacionCompleta } from '../lib/citasReplica'
+import { ventanaDeAgenda } from '../lib/clinicDataSync'
 
 export async function obtenerCitaPorId(id) {
   const { datos } = await conCacheDeLectura(`cita:${id}`, async () => {
@@ -23,7 +25,27 @@ export async function obtenerCitaPorId(id) {
 // distinto es otra lectura y nunca debe servirse en lugar de ésta.
 export async function obtenerCitasRangoConEstado({ dentistaId, estado, desde, hasta, sucursalId }) {
   const clave = `citas-rango:${JSON.stringify({ dentistaId: dentistaId ?? null, estado: estado ?? null, desde, hasta, sucursalId: sucursalId ?? null })}`
-  return conCacheDeLectura(clave, () => _obtenerCitasRangoReal({ dentistaId, estado, desde, hasta, sucursalId }))
+  try {
+    return await conCacheDeLectura(clave, () => _obtenerCitasRangoReal({ dentistaId, estado, desde, hasta, sucursalId }))
+  } catch (err) {
+    // Sin red y esta combinación EXACTA de filtros nunca se pidió
+    // antes: si el rango cae dentro de la ventana que ya replica
+    // useSincronizacionClinica (lib/clinicDataSync.js — pasado
+    // reciente + próximos días, ver GUIA_OFFLINE.md), se filtra ahí en
+    // vez de exigir haber consultado ese rango/dentista/estado exacto
+    // con anterioridad.
+    // Un array vacío de la réplica solo es confiable si de verdad ya
+    // se sincronizó esa ventana Y el rango pedido cae dentro de ella —
+    // si no, sería imposible distinguir "día sin citas" de "esta
+    // ventana nunca se sincronizó", y lo segundo NO debe mostrarse
+    // como lo primero.
+    const ventana = ventanaDeAgenda()
+    const dentroDeLaVentana = desde >= ventana.desde && hasta <= ventana.hasta
+    const yaSincronizada = dentroDeLaVentana && (await huboSincronizacionCompleta())
+    if (!yaSincronizada) throw err
+    const datos = await buscarEnReplicaCitas({ desde, hasta, dentistaId, estado, sucursalId })
+    return { datos, deCache: true, guardadoEn: null }
+  }
 }
 
 export async function obtenerCitasRango(filtros) {

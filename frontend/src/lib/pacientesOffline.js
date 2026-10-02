@@ -108,6 +108,22 @@ export async function crearPacienteOffline(datosFormulario, { usuarioId, clinica
 // de que ya está sincronizado, pero NO borra el registro: sirve de
 // historial y evita que una relectura accidental por el id viejo
 // muestre "no encontrado" de la nada.
+// Se usa al cambiar de usuario en el mismo equipo. A diferencia de la
+// cola (que NUNCA se toca), esto es solo la copia local "bonita" de un
+// paciente creado offline — si el de la cuenta anterior seguía sin
+// sincronizar, la operación real que lo sube sigue intacta en
+// siro-cola-offline; lo único que se pierde es esta copia de lectura,
+// no el dato en sí.
+export async function vaciarPacientesOffline() {
+  const db = await abrirDB()
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(ALMACEN, 'readwrite')
+    tx.objectStore(ALMACEN).clear()
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error)
+  })
+}
+
 export async function marcarPacienteOfflineSincronizado(id, serverId) {
   const actual = await obtenerPacienteOfflineLocal(id)
   if (!actual) return

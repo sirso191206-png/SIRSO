@@ -18,10 +18,14 @@ export async function obtenerHorariosBloqueados({ desde, hasta }) {
   return datos
 }
 
+// upsert (no insert) a propósito, mismo motivo que pacientes/citas/
+// tratamientos: si se llama sin conexión (ver hooks/useHorariosBloqueados.js),
+// `bloqueo.id` ya viene fijado desde el navegador — reintentar la
+// subida nunca duplica.
 export async function crearHorarioBloqueado(bloqueo) {
   const { data, error } = await supabase
     .from('horarios_bloqueados')
-    .insert(bloqueo)
+    .upsert(bloqueo)
     .select()
     .single()
   if (error) throw error

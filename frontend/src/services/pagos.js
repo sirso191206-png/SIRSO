@@ -75,6 +75,42 @@ export async function registrarPago(pago) {
 // trigger en la base de datos bloquea cualquier otro cambio. El pago
 // anulado ya no cuenta en el saldo del paciente (v_saldo_pacientes lo
 // excluye) ni en el corte de caja.
+// Borrado real (no anular) — la fila desaparece de `pagos`, pero el
+// trigger trg_auditoria_pagos ya guarda una copia completa en
+// `auditoria` antes de que se vaya (monto, método, quién lo registró,
+// fecha), así que nunca se pierde el rastro contable, solo sale del
+// saldo y del corte de caja activos. A diferencia de anular (pensado
+// para "este pago no debió contar, pero quedó registrado que pasó"),
+// esto es para corregir un error de captura — un pago que nunca debió
+// existir tal cual se guardó.
+export async function eliminarPago(id) {
+  const { error } = await supabase.from('pagos').delete().eq('id', id)
+  if (error) throw error
+}
+
+// "Editar" un pago, sin editarlo de verdad: la base de datos bloquea a
+// propósito cambiar monto/método/tipo de un pago ya registrado (ver
+// migración 062, trigger fn_solo_anulacion_pago) — "un pago mal
+// capturado se anula y se vuelve a registrar bien; nunca se corrige en
+// el mismo registro, eso perdería el rastro de qué pasó realmente".
+// Esto respeta esa regla: por dentro hace exactamente esa secuencia
+// seguro-permitida (anular el viejo, registrar uno nuevo con los
+// valores corregidos), pero como una sola acción guiada, para que
+// quien lo usa no tenga que hacerlo a mano en dos pasos. El pago nuevo
+// obtiene su propio folio (`numero_recibo`) — el recibo viejo, si ya
+// se imprimió, queda anulado, no reemplazado.
+export async function corregirPago(pagoOriginal, cambios, { usuarioId, motivo }) {
+  await anularPago(pagoOriginal.id, { usuarioId, motivo: motivo || 'Corrección de monto/método' })
+  return registrarPago({
+    paciente_id: pagoOriginal.paciente_id,
+    tratamiento_id: pagoOriginal.tratamiento_id,
+    tipo: pagoOriginal.tipo,
+    monto: cambios.monto,
+    metodo: cambios.metodo,
+    registrado_por: usuarioId
+  })
+}
+
 export async function anularPago(id, { usuarioId, motivo }) {
   const { data, error } = await supabase
     .from('pagos')

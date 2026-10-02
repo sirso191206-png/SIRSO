@@ -13,11 +13,12 @@ export const ESTADOS = [
   { value: 'completado', label: 'Completado' }
 ]
 
-export function FilaTratamiento({ tratamiento: t, onEditar, onCambiarEstado, onCancelar, onSumarSesion, usuarioId }) {
+export function FilaTratamiento({ tratamiento: t, onEditar, onCambiarEstado, onCancelar, onSumarSesion, onEliminar, usuarioId }) {
   const total = Number(t.costo) - Number(t.descuento ?? 0)
   const finalizado = t.estado === 'completado' || t.estado === 'cancelado'
   const [procesando, setProcesando] = useState(false)
   const [modalCancelar, setModalCancelar] = useState(false)
+  const [modalEliminar, setModalEliminar] = useState(false)
 
   const handleCambiarEstado = async (nuevoEstado) => {
     setProcesando(true)
@@ -93,12 +94,29 @@ export function FilaTratamiento({ tratamiento: t, onEditar, onCambiarEstado, onC
         </div>
       )}
 
+      {/* Eliminar siempre visible, aunque ya esté completado o cancelado
+          — es justo para esos casos (algo que ya no debió quedar
+          registrado tal cual) que existe, aparte de cancelar. */}
+      <div className="mt-2 flex justify-end">
+        <button onClick={() => setModalEliminar(true)} disabled={procesando} className="text-xs text-slate-400 hover:text-clinico-rojo hover:underline">
+          Eliminar
+        </button>
+      </div>
+
       <ModalCancelarTratamiento
         abierto={modalCancelar}
         onCerrar={() => setModalCancelar(false)}
         onCancelar={onCancelar}
         tratamientoId={t.id}
         usuarioId={usuarioId}
+      />
+
+      <ModalEliminarTratamiento
+        abierto={modalEliminar}
+        onCerrar={() => setModalEliminar(false)}
+        onEliminar={onEliminar}
+        tratamientoId={t.id}
+        descripcion={t.descripcion}
       />
     </div>
   )
@@ -136,6 +154,39 @@ function ModalCancelarTratamiento({ abierto, onCerrar, onCancelar, tratamientoId
         <Button variante="secundario" onClick={onCerrar} className="flex-1" disabled={procesando}>Cerrar</Button>
         <Button variante="peligro" onClick={handleConfirmar} className="flex-1" disabled={procesando}>
           {procesando ? 'Cancelando…' : 'Cancelar tratamiento'}
+        </Button>
+      </div>
+    </Modal>
+  )
+}
+
+function ModalEliminarTratamiento({ abierto, onCerrar, onEliminar, tratamientoId, descripcion }) {
+  const [procesando, setProcesando] = useState(false)
+
+  const handleConfirmar = async () => {
+    setProcesando(true)
+    try {
+      await onEliminar(tratamientoId)
+      toastExito('Tratamiento eliminado.')
+      onCerrar()
+    } catch (err) {
+      toastError('No se pudo eliminar: ' + err.message)
+    } finally {
+      setProcesando(false)
+    }
+  }
+
+  return (
+    <Modal abierto={abierto} onCerrar={onCerrar} titulo="Eliminar tratamiento">
+      <p className="mb-4 text-sm text-slate-600">
+        Esto es distinto de cancelar: <strong>"{descripcion}"</strong> se borra por completo de la lista del
+        paciente, no solo se marca como cancelado. No se puede deshacer desde aquí. Si tiene pagos o fotografías
+        asociadas, no se podrá eliminar — cancélalo en su lugar.
+      </p>
+      <div className="flex gap-2">
+        <Button variante="secundario" onClick={onCerrar} className="flex-1" disabled={procesando}>Cerrar</Button>
+        <Button variante="peligro" onClick={handleConfirmar} className="flex-1" disabled={procesando}>
+          {procesando ? 'Eliminando…' : 'Eliminar por completo'}
         </Button>
       </div>
     </Modal>

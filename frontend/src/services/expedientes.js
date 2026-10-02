@@ -2,18 +2,32 @@ import { supabase } from '../lib/supabase'
 import { conCacheDeLectura, actualizarCacheDeLectura } from '../lib/cacheLectura'
 import { encolarOperacion } from '../lib/colaOffline'
 import { verificarConexionReal } from '../lib/conectividadReal'
+import { obtenerExpedienteDeReplica } from '../lib/expedientesReplica'
 
 export async function obtenerExpediente(pacienteId) {
-  const { datos } = await conCacheDeLectura(`expediente:${pacienteId}`, async () => {
-    const { data, error } = await supabase
-      .from('expedientes')
-      .select('*')
-      .eq('paciente_id', pacienteId)
-      .single()
-    if (error) throw error
-    return data
-  })
-  return datos
+  try {
+    const { datos } = await conCacheDeLectura(`expediente:${pacienteId}`, async () => {
+      const { data, error } = await supabase
+        .from('expedientes')
+        .select('*')
+        .eq('paciente_id', pacienteId)
+        .single()
+      if (error) throw error
+      return data
+    })
+    return datos
+  } catch (err) {
+    // Sin red y este expediente nunca se abrió antes en este equipo:
+    // si ya está en la réplica ligera de la clínica
+    // (lib/expedientesReplica.js, lib/clinicDataSync.js), se usan esos
+    // datos — alergias, enfermedades, medicamentos, antecedentes
+    // familiares — aunque notas, odontograma, tratamientos y recetas
+    // sigan sin estar disponibles hasta tener internet. `_soloBasico`
+    // avisa de esa diferencia, igual que obtenerPaciente().
+    const basico = await obtenerExpedienteDeReplica(pacienteId).catch(() => null)
+    if (basico) return { ...basico, _soloBasico: true }
+    throw err
+  }
 }
 
 // actualizado_en ya no la pone el frontend a mano — la mantiene un

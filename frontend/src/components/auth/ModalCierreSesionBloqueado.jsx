@@ -8,6 +8,8 @@ import { operacionEsDescartable, resumenOperacion } from '../../lib/descarteOper
 const NOMBRE_ENTIDAD = {
   pacientes: 'pacientes (nuevos o editados)',
   expedientes: 'antecedentes del expediente',
+  lista_espera: 'lista de espera',
+  horarios_bloqueados: 'horarios bloqueados',
   notas_clinicas: 'notas clínicas',
   recetas: 'recetas',
   odontograma_piezas: 'cambios de odontograma',

@@ -45,6 +45,21 @@ export async function guardarMapeoId(offlineId, serverId) {
 // Si `id` es un id offline con mapeo ya resuelto, regresa el id real.
 // Cualquier otro caso (id real, o id offline TODAVÍA sin sincronizar)
 // regresa el mismo id sin tocar — nunca inventa un mapeo que no existe.
+// Se usa al cambiar de usuario en el mismo equipo. Este mapeo no
+// guarda datos clínicos (solo dos uuids), pero se vacía junto con
+// pacientesOffline/indicePacientesOffline por ser parte de la misma
+// vida útil: si el paciente local de la cuenta anterior ya no está,
+// tampoco tiene sentido conservar a qué se mapeaba.
+export async function vaciarMapeoIdsOffline() {
+  const db = await abrirDB()
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(ALMACEN, 'readwrite')
+    tx.objectStore(ALMACEN).clear()
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error)
+  })
+}
+
 export async function resolverId(id) {
   if (!esIdOffline(id)) return id
   const db = await abrirDB()

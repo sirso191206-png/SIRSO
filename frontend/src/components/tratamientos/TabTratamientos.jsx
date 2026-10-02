@@ -11,7 +11,7 @@ import { Button } from '../ui/Button'
 import { Icon } from '../ui/Icon'
 
 export function TabTratamientos({ pacienteId, paciente }) {
-  const { tratamientos, cargando, agregar, cambiarEstado, cancelar, actualizar, sumarSesion } = useTratamientos(pacienteId)
+  const { tratamientos, cargando, agregar, cambiarEstado, cancelar, actualizar, sumarSesion, eliminar } = useTratamientos(pacienteId)
   const { catalogo } = useCatalogoTratamientos()
   const perfil = useAuthStore((s) => s.perfil)
   const [modalNuevo, setModalNuevo] = useState(false)
@@ -42,6 +42,8 @@ export function TabTratamientos({ pacienteId, paciente }) {
         </Button>
       </div>
 
+      <SeccionPagos pacienteId={pacienteId} paciente={paciente} />
+
       <div className="space-y-2">
         {tratamientos.length === 0 && <p className="text-sm text-slate-400">Sin tratamientos registrados.</p>}
         {tratamientos.map((t) => (
@@ -52,6 +54,7 @@ export function TabTratamientos({ pacienteId, paciente }) {
             onCambiarEstado={cambiarEstado}
             onCancelar={cancelar}
             onSumarSesion={sumarSesion}
+            onEliminar={eliminar}
             usuarioId={perfil.id}
           />
         ))}
@@ -77,8 +80,6 @@ export function TabTratamientos({ pacienteId, paciente }) {
           valorInicial={tratamientoEditar}
         />
       )}
-
-      <SeccionPagos pacienteId={pacienteId} paciente={paciente} />
     </div>
   )
 }

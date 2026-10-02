@@ -5,6 +5,8 @@ import { toastExito, toastError } from '../../store/useToastStore'
 import { actualizarMiPerfilProfesional } from '../../services/usuarios'
 import { SelectorSucursal } from '../sucursales/SelectorSucursal'
 import { useColaOffline } from '../../hooks/useColaOffline'
+import { usePrecargaAutomaticaDelDia } from '../../hooks/usePrecargaAutomaticaDelDia'
+import { useSincronizacionClinica } from '../../hooks/useSincronizacionClinica'
 import { useCierreSesionSeguro } from '../../hooks/useCierreSesionSeguro'
 import { PadFirma } from '../PadFirma'
 import { Modal } from '../ui/Modal'
@@ -132,6 +134,8 @@ export function Sidebar() {
   const [menuUsuarioAbierto, setMenuUsuarioAbierto] = useState(false)
   const menuUsuarioRef = useRef(null)
   const { pendientes } = useColaOffline()
+  usePrecargaAutomaticaDelDia()
+  useSincronizacionClinica()
 
   // Cerrar el menú de usuario al hacer clic fuera o al presionar Escape.
   useEffect(() => {

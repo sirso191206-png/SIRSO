@@ -47,6 +47,23 @@ export async function cambiarEstadoTratamiento(id, estado) {
 // deja constancia de quién y por qué. El costo de un tratamiento
 // cancelado ya no cuenta en el saldo del paciente (v_saldo_pacientes
 // lo excluye desde siempre).
+// Borrado real (no cancelar) — la fila desaparece de `tratamientos`,
+// pero el trigger trg_auditoria_tratamientos ya guarda una copia
+// completa en `auditoria` antes de que se vaya, así que nunca se
+// pierde el rastro para fines contables/forenses, solo sale de la
+// vista activa. Si tiene pagos o fotografías asociadas, la base lo
+// rechaza (foreign key) — se traduce a un mensaje claro en vez del
+// error crudo de Postgres.
+export async function eliminarTratamiento(id) {
+  const { error } = await supabase.from('tratamientos').delete().eq('id', id)
+  if (error) {
+    if (error.code === '23503') {
+      throw new Error('No se puede eliminar: tiene pagos o fotografías asociadas. Puedes cancelarlo en su lugar.')
+    }
+    throw error
+  }
+}
+
 export async function cancelarTratamiento(id, { usuarioId, motivo }) {
   const { data, error } = await supabase
     .from('tratamientos')

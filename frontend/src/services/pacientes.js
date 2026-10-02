@@ -6,6 +6,7 @@ import { crearPacienteOffline, obtenerPacienteOfflineLocal } from '../lib/pacien
 import { encolarOperacion } from '../lib/colaOffline'
 import { esIdOffline, resolverId } from '../lib/mapeoIdsOffline'
 import { verificarConexionReal } from '../lib/conectividadReal'
+import { buscarEnReplicaClinica, obtenerPacienteDeReplica } from '../lib/pacientesReplica'
 
 // Si ya existe un paciente con esa CURP en la clínica, lo regresa (para
 // no crear un expediente duplicado) — si no, regresa null.
@@ -28,11 +29,23 @@ export async function buscarPacientes(termino, { incluirArchivados = false } = {
     // `_disponibleOffline` avisa si además el expediente completo ya
     // está cacheado (se puede abrir) o no (habría que esperar a tener
     // internet) — nunca se inventa uno ni el otro.
-    const resultados = await buscarEnIndiceLocal(termino)
-    return Promise.all(resultados.map(async (r) => ({
+    // La réplica de la clínica (si ya se sincronizó) cubre a
+    // cualquier paciente, se haya abierto antes o no; el índice ligero
+    // cubre además lo creado/visto en este equipo que la réplica
+    // todavía no tiene (p. ej. un paciente creado offline hace un
+    // momento, en esta misma sesión) — se combinan sin duplicar.
+    const [deLaReplica, delIndice] = await Promise.all([
+      buscarEnReplicaClinica(termino, { incluirArchivados }),
+      buscarEnIndiceLocal(termino)
+    ])
+    const idsEnReplica = new Set(deLaReplica.map((p) => p.id))
+    const soloEnIndice = delIndice.filter((p) => !idsEnReplica.has(p.id))
+    const basicosDeReplica = deLaReplica.map((p) => ({ ...p, _basicoDisponible: true }))
+    const delIndiceConDisponibilidad = await Promise.all(soloEnIndice.map(async (r) => ({
       ...r,
       _disponibleOffline: r.offline || (await hayExpedienteCacheado(r.id))
     })))
+    return [...basicosDeReplica, ...delIndiceConDisponibilidad]
   }
 
   let query = supabase
@@ -74,24 +87,37 @@ export async function obtenerPaciente(id) {
     return { ...local, _offline: true }
   }
 
-  const { datos } = await conCacheDeLectura(`paciente:${id}`, async () => {
-    const { data, error } = await supabase
-      .from('v_pacientes_seguro')
-      .select('*')
-      .eq('id', id)
-      .single()
-    if (error) throw error
-    return data
-  })
-  indexarPaciente({
-    id: datos.id,
-    nombre_completo: datos.nombre_completo,
-    telefono: datos.telefono ?? null,
-    numero_expediente: datos.numero_expediente ?? null,
-    offline: false,
-    actualizado_en: Date.now()
-  }).catch(() => {})
-  return datos
+  try {
+    const { datos } = await conCacheDeLectura(`paciente:${id}`, async () => {
+      const { data, error } = await supabase
+        .from('v_pacientes_seguro')
+        .select('*')
+        .eq('id', id)
+        .single()
+      if (error) throw error
+      return data
+    })
+    indexarPaciente({
+      id: datos.id,
+      nombre_completo: datos.nombre_completo,
+      telefono: datos.telefono ?? null,
+      numero_expediente: datos.numero_expediente ?? null,
+      offline: false,
+      actualizado_en: Date.now()
+    }).catch(() => {})
+    return datos
+  } catch (err) {
+    // Sin red y esta ficha nunca se abrió antes en este equipo (nada
+    // en conCacheDeLectura): si el paciente ya está en la réplica
+    // completa de la clínica (lib/pacientesReplica.js,
+    // lib/clinicDataSync.js), se usan esos datos básicos — nombre,
+    // teléfono, folio — aunque el resto del expediente (notas,
+    // tratamientos, odontograma…) siga sin estar disponible hasta
+    // tener internet. `_soloBasico` avisa de esa diferencia.
+    const basico = await obtenerPacienteDeReplica(id).catch(() => null)
+    if (basico) return { ...basico, _soloBasico: true }
+    throw err
+  }
 }
 
 // Sin conexión REAL (no solo navigator.onLine — ver lib/conectividadReal.js)
@@ -195,7 +221,7 @@ export async function actualizarPaciente(id, cambios, actualizadoEnEsperado, { u
     // candado de concurrencia (actualizadoEnEsperado) sigue apuntando
     // al mismo valor porque el registro optimista de abajo nunca lo
     // toca — todavía no hay ningún cambio real aplicado en el servidor.
-    const id_op = `actualizar_paciente_${id}`
+    const id_op = `actualizar_paciente_datos_${id}`
     await encolarOperacion({
       id: id_op,
       tipo: 'actualizar_paciente',
@@ -257,20 +283,57 @@ export async function obtenerSaldo(pacienteId) {
 
 // Baja lógica: el paciente y toda su historia clínica se quedan intactos,
 // solo se ocultan de las listas normales. Reversible con restaurarPaciente.
-export async function archivarPaciente(id) {
-  const { error } = await supabase
-    .from('pacientes')
-    .update({ archivado_en: new Date().toISOString() })
-    .eq('id', id)
+// Archivar y restaurar comparten UNA clave estable propia
+// (`archivar_restaurar_paciente_${id}`) — nunca la misma que usa
+// actualizarPaciente() para "datos generales" (`actualizar_paciente_datos_${id}`).
+// Si compartieran clave, archivar justo después de editar el nombre
+// sin conexión reemplazaría en la cola la instantánea completa del
+// formulario por solo `{archivado_en}`, perdiendo la edición. Archivar
+// y restaurar sí pueden compartir clave entre sí: uno después del otro
+// sin conexión converge al mismo resultado neto (archivado o no) sin
+// perder nada, archivarlos aparte sería un viaje de más.
+async function establecerArchivadoEnServidor(id, archivadoEn) {
+  const { error } = await supabase.from('pacientes').update({ archivado_en: archivadoEn }).eq('id', id)
   if (error) throw error
 }
 
-export async function restaurarPaciente(id) {
-  const { error } = await supabase
-    .from('pacientes')
-    .update({ archivado_en: null })
-    .eq('id', id)
-  if (error) throw error
+async function encolarArchivoPaciente(id, archivadoEn, { usuarioId, clinicaId, sucursalId } = {}) {
+  const idOp = `archivar_restaurar_paciente_${id}`
+  await encolarOperacion({
+    id: idOp,
+    tipo: 'actualizar_paciente',
+    entidad: 'pacientes',
+    entidadId: id,
+    payload: { id, cambios: { archivado_en: archivadoEn } },
+    dependeDe: [],
+    creado_en: Date.now(),
+    usuarioId: usuarioId ?? null,
+    clinicaId: clinicaId ?? null,
+    sucursalId: sucursalId ?? null,
+    claveIdempotencia: idOp
+  })
+  // El paciente ya se vio antes (así se llegó a su ficha) — se refleja
+  // el cambio en la caché de inmediato, igual que actualizarPaciente().
+  const actual = await obtenerPaciente(id)
+  await actualizarCacheDeLectura(`paciente:${id}`, { ...actual, archivado_en: archivadoEn, _pendiente: true })
+}
+
+export async function archivarPaciente(id, operador = {}) {
+  const conexionReal = await verificarConexionReal(supabase)
+  if (!conexionReal) {
+    await encolarArchivoPaciente(id, new Date().toISOString(), operador)
+    return
+  }
+  await establecerArchivadoEnServidor(id, new Date().toISOString())
+}
+
+export async function restaurarPaciente(id, operador = {}) {
+  const conexionReal = await verificarConexionReal(supabase)
+  if (!conexionReal) {
+    await encolarArchivoPaciente(id, null, operador)
+    return
+  }
+  await establecerArchivadoEnServidor(id, null)
 }
 
 // Alerta simple de posibles duplicados antes de guardar (fuzzy por nombre/telefono)

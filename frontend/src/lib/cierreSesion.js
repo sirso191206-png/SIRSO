@@ -2,6 +2,12 @@ import { listarOperacionesPendientes, operacionEsDe } from './colaOffline'
 import { vaciarCacheLectura, guardarMetadato, leerMetadato } from './cacheLectura'
 import { vaciarCacheAuth } from './cacheAuth'
 import { revocarPin } from './pinOffline'
+import { vaciarPacientesOffline } from './pacientesOffline'
+import { vaciarIndicePacientesOffline } from './indicePacientesOffline'
+import { vaciarMapeoIdsOffline } from './mapeoIdsOffline'
+import { vaciarReplicaPacientes } from './pacientesReplica'
+import { vaciarReplicaCitas } from './citasReplica'
+import { vaciarReplicaExpedientes } from './expedientesReplica'
 
 // ══ Cerrar sesión con cambios sin subir ══
 // Regla: mientras haya cambios pendientes de ESTA persona, no se puede
@@ -56,7 +62,17 @@ export async function evaluarCierreDeSesion({ userId, conectado }) {
 // conservan para subirse la próxima vez que esa misma cuenta inicie
 // sesión.
 export async function limpiarDatosLocalesDeSesion() {
-  await Promise.allSettled([vaciarCacheLectura(), vaciarCacheAuth(), revocarPin()])
+  await Promise.allSettled([
+    vaciarCacheLectura(),
+    vaciarCacheAuth(),
+    revocarPin(),
+    vaciarPacientesOffline(),
+    vaciarIndicePacientesOffline(),
+    vaciarMapeoIdsOffline(),
+    vaciarReplicaPacientes(),
+    vaciarReplicaCitas(),
+    vaciarReplicaExpedientes()
+  ])
 }
 
 // ══ Un equipo, varias personas ══
@@ -72,7 +88,22 @@ export async function asegurarCacheDeEsteUsuario(userId) {
   try {
     const dueno = await leerMetadato(CLAVE_DUENO_CACHE)
     if (dueno === userId) return
-    await vaciarCacheLectura()
+    // No solo la caché de lectura: el índice de búsqueda de pacientes
+    // y los pacientes creados offline son datos clínicos de la cuenta
+    // ANTERIOR (de otra clínica, probablemente) — RLS no aplica sin
+    // conexión, así que esto es la única barrera. La cola de
+    // operaciones (siro-cola-offline) nunca se toca aquí: si la cuenta
+    // anterior tenía algo sin subir, sigue intacto para cuando vuelva
+    // a iniciar sesión.
+    await Promise.allSettled([
+      vaciarCacheLectura(),
+      vaciarPacientesOffline(),
+      vaciarIndicePacientesOffline(),
+      vaciarMapeoIdsOffline(),
+      vaciarReplicaPacientes(),
+      vaciarReplicaCitas(),
+      vaciarReplicaExpedientes()
+    ])
     await guardarMetadato(CLAVE_DUENO_CACHE, userId)
   } catch {
     // Si IndexedDB falla no hay caché que proteger ni que ensuciar.

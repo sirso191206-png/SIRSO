@@ -14,10 +14,15 @@ export async function obtenerListaEspera() {
   return datos
 }
 
+// upsert (no insert) a propósito, mismo motivo que pacientes/citas/
+// tratamientos: si se llama sin conexión (ver hooks/useListaEspera.js),
+// `registro.id` ya viene fijado desde el navegador — reintentar la
+// subida nunca duplica. Llamado online (sin id) se comporta como un
+// insert normal.
 export async function agregarListaEspera(registro) {
   const { data, error } = await supabase
     .from('lista_espera')
-    .insert(registro)
+    .upsert(registro)
     .select()
     .single()
   if (error) throw error
