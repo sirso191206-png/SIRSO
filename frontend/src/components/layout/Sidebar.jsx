@@ -7,6 +7,9 @@ import { SelectorSucursal } from '../sucursales/SelectorSucursal'
 import { useColaOffline } from '../../hooks/useColaOffline'
 import { usePrecargaAutomaticaDelDia } from '../../hooks/usePrecargaAutomaticaDelDia'
 import { useSincronizacionClinica } from '../../hooks/useSincronizacionClinica'
+import { useDisponibilidad } from '../../hooks/useFuncionalidad'
+import { useSuscripcionAlDia } from '../../hooks/useSuscripcionAlDia'
+import { enlacesVisibles } from '../../lib/planes'
 import { useCierreSesionSeguro } from '../../hooks/useCierreSesionSeguro'
 import { PadFirma } from '../PadFirma'
 import { Modal } from '../ui/Modal'
@@ -40,7 +43,7 @@ const SECCIONES = [
   {
     titulo: 'Atención',
     enlaces: [
-      { to: '/agenda', label: 'Agenda', icon: 'calendar', roles: ['owner', 'dentista', 'recepcion', 'asistente'] },
+      { to: '/agenda', label: 'Agenda', icon: 'calendar', roles: ['owner', 'dentista', 'recepcion', 'asistente'], funcionalidad: 'agenda' },
       // Pacientes: la etiqueta cambia según el rol para que la
       // navegación refleje lo que RLS ya filtra en la base — no es
       // decorativo, "Mis pacientes" para un dentista son literalmente
@@ -56,9 +59,9 @@ const SECCIONES = [
   {
     titulo: 'Gestión',
     enlaces: [
-      { to: '/catalogo', label: 'Tratamientos', icon: 'sparkles', roles: ['owner', 'dentista'] },
-      { to: '/corte-de-caja', label: 'Corte de caja', icon: 'card', roles: ['owner', 'recepcion'] },
-      { to: '/reportes', label: 'Reportes', icon: 'chart', roles: ['owner'] }
+      { to: '/catalogo', label: 'Tratamientos', icon: 'sparkles', roles: ['owner', 'dentista'], funcionalidad: 'tratamientos' },
+      { to: '/corte-de-caja', label: 'Corte de caja', icon: 'card', roles: ['owner', 'recepcion'], funcionalidad: 'caja' },
+      { to: '/reportes', label: 'Reportes', icon: 'chart', roles: ['owner'], funcionalidad: 'estadisticas' }
     ]
   },
   {
@@ -129,6 +132,11 @@ export function Sidebar() {
   const { perfil, clinicaNombre, cerrarSesionSegura } = useAuthStore()
   // Cerrar sesión se bloquea si hay cambios sin subir o no hay conexión.
   const { solicitarCierre, modalCierre } = useCierreSesionSeguro()
+  // Plan de la clínica ACTUAL: se mantiene al día (al iniciar, al cambiar de
+  // cuenta/clínica, al volver la red o la pestaña) y solo sirve para ocultar menús.
+  // La base de datos es la que realmente aplica límites y funcionalidades.
+  const disponible = useDisponibilidad()
+  useSuscripcionAlDia()
   const [modalAbierto, setModalAbierto] = useState(false)
   const [modalPerfilAbierto, setModalPerfilAbierto] = useState(false)
   const [menuUsuarioAbierto, setMenuUsuarioAbierto] = useState(false)
@@ -165,7 +173,7 @@ export function Sidebar() {
         </div>
         <nav className="space-y-4">
           {SECCIONES.map((seccion, i) => {
-            const visibles = seccion.enlaces.filter((e) => e.roles.includes(perfil?.rol))
+            const visibles = enlacesVisibles(seccion.enlaces, perfil?.rol, disponible)
             if (visibles.length === 0) return null
             return (
               <div key={i}>
@@ -192,6 +200,7 @@ export function Sidebar() {
               </div>
               <div className="space-y-1">
                 <ItemNav to="/administracion" icon="briefcase" tonoAmbar>Clínicas</ItemNav>
+                <ItemNav to="/superadmin/planes" icon="card" tonoAmbar>Planes</ItemNav>
                 <ItemNav to="/admin/legal" icon="scale" tonoAmbar>Legal</ItemNav>
               </div>
             </div>

@@ -76,26 +76,11 @@ serve(async (req) => {
 
     // Límite de usuarios del plan: solo aplica al agregar usuarios a una
     // clínica EXISTENTE (no cuando se crea un owner con su clínica nueva).
-    if (rol !== 'owner') {
-      const { data: clinicaDestino } = await supabaseAdmin
-        .from('clinicas')
-        .select('limite_usuarios')
-        .eq('id', clinicaIdDestino)
-        .single()
-
-      if (clinicaDestino?.limite_usuarios != null) {
-        const { count } = await supabaseAdmin
-          .from('usuarios')
-          .select('id', { count: 'exact', head: true })
-          .eq('clinica_id', clinicaIdDestino)
-
-        if ((count ?? 0) >= clinicaDestino.limite_usuarios) {
-          throw new Error(
-            'Has alcanzado el límite de usuarios de tu plan. Contacta al administrador para ampliarlo.',
-          )
-        }
-      }
-    }
+    // El límite de usuarios del plan lo aplica la BASE DE DATOS (trigger
+    // trg_validar_limite_usuarios, migración 075) leyendo la suscripción de la
+    // clínica: es la autoridad final. Antes se contaba aquí contra una columna
+    // que puede no coincidir; si el insert de más abajo choca con el cupo, el
+    // error PT402 sube con su mensaje y se revierte el usuario de Auth.
 
     if (rol === 'owner') {
       // Un owner nuevo es dueño de SU PROPIA clínica, independiente de la

@@ -60,6 +60,14 @@ serve(async (req) => {
     const nombreClinica = (body?.nombreClinica ?? '').trim()
     const ownerNombre = (body?.ownerNombre ?? '').trim()
     const ownerCorreo = (body?.ownerCorreo ?? '').trim().toLowerCase()
+    // Plan: por compatibilidad con clientes anteriores al selector de plan,
+    // si no viene se usa 'esencial'/'mensual'. NO hay precios ni límites
+    // aquí: todo sale de la base de datos (planes_catalogo).
+    const planCodigo = (body?.planCodigo ?? 'esencial').toString().trim().toLowerCase()
+    const modalidad = (body?.modalidad ?? 'mensual').toString().trim().toLowerCase()
+    const precioContratado = body?.precioContratado ?? null      // opcional: convenio a la medida
+    const fechaFin = body?.fechaFin ?? null
+    const autoRenovacion = body?.autoRenovacion ?? true
 
     if (!nombreClinica) throw new Error('Falta el nombre de la clínica')
     if (!ownerNombre) throw new Error('Falta el nombre del dueño')
@@ -68,6 +76,21 @@ serve(async (req) => {
       throw new Error('El correo del dueño no es válido')
     }
 
+    if (!['mensual', 'anual'].includes(modalidad)) throw new Error('Modalidad inválida (mensual o anual)')
+    if (precioContratado !== null && (typeof precioContratado !== 'number' || precioContratado < 0)) {
+      throw new Error('Precio contratado inválido')
+    }
+    // Se valida el plan ANTES de crear nada: así un plan inexistente o
+    // desactivado no deja una clínica ni un usuario a medias.
+    const { data: planDb, error: planError } = await supabaseAdmin
+      .from('planes_catalogo')
+      .select('plan, activo')
+      .eq('plan', planCodigo)
+      .maybeSingle()
+    if (planError) throw planError
+    if (!planDb) throw new Error('El plan seleccionado no existe')
+    if (!planDb.activo) throw new Error('El plan seleccionado está desactivado')
+
     // 1) Crear la clínica.
     const { data: clinica, error: clinicaError } = await supabaseAdmin
       .from('clinicas')
@@ -75,6 +98,24 @@ serve(async (req) => {
       .select()
       .single()
     if (clinicaError) throw clinicaError
+
+    // 1b) Suscripción + snapshot de límites y funcionalidades CONTRATADOS
+    //     (fn_asignar_plan_interno, migración 075 — solo service_role). Va
+    //     antes del dueño para que el límite de usuarios del plan ya rija.
+    const { data: asignacion, error: asignarError } = await supabaseAdmin.rpc('fn_asignar_plan_interno', {
+      p_actor: user.id,
+      p_clinica: clinica.id,
+      p_plan: planCodigo,
+      p_modalidad: modalidad,
+      p_precio: precioContratado,
+      p_fecha_inicio: null,
+      p_fecha_fin: fechaFin,
+      p_auto_renovacion: autoRenovacion,
+    })
+    if (asignarError) {
+      await supabaseAdmin.from('clinicas').delete().eq('id', clinica.id)
+      throw asignarError
+    }
 
     // 2) Crear el usuario de Auth (dueño) con contraseña temporal.
     const passwordTemporal = crypto.randomUUID().slice(0, 12)
@@ -116,12 +157,14 @@ serve(async (req) => {
         nombreClinica: clinica.nombre,
         ownerCorreo,
         ownerNombre,
+        planCodigo,
+        modalidad,
         via: 'edge_function',
       },
     })
 
     return new Response(
-      JSON.stringify({ clinica, correo: ownerCorreo, passwordTemporal }),
+      JSON.stringify({ clinica, correo: ownerCorreo, passwordTemporal, suscripcion: asignacion }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     )
   } catch (err) {

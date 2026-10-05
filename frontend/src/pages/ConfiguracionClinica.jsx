@@ -4,6 +4,7 @@ import { useAuthStore } from '../store/useAuthStore'
 import { toastExito, toastError } from '../store/useToastStore'
 import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
+import { PlanActualClinica } from '../components/planes/PlanActualClinica'
 
 const TIPOS_ESTABLECIMIENTO = [
   'Consultorio dental',
@@ -84,6 +85,8 @@ export function ConfiguracionClinica() {
           Identificación del consultorio o clínica — aparece en recibos, recetas y documentos impresos.
         </p>
       </div>
+
+      <PlanActualClinica />
 
       <form onSubmit={handleSubmit} className="max-w-xl space-y-4 rounded-xl border border-slate-200 bg-white p-6">
         <div className="flex items-center gap-4 border-b border-slate-100 pb-4">

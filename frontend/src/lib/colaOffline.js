@@ -107,6 +107,22 @@ export async function marcarIntentoFallido(operacion, mensajeError) {
   })
 }
 
+// Un conflicto NO es un error transitorio: reintentarlo igual (como
+// si fuera una caída de red) nunca lo resolvería — p. ej. un CURP que
+// ya pertenece a OTRO paciente de la clínica. La operación se conserva
+// intacta (nada del trabajo clínico local se pierde), pero con su
+// propio estado: procesarColaOffline() ya no la reintenta sola, y
+// el mensaje guardado es el que la persona ve, no el error crudo de
+// la base de datos.
+export async function marcarConflicto(operacion, mensaje) {
+  await encolarOperacion({
+    ...operacion,
+    intentos: (operacion.intentos ?? 0) + 1,
+    estado: 'conflicto',
+    ultimoError: mensaje ?? null
+  })
+}
+
 // ¿Esta operación es de esta persona? Las hechas antes de que se
 // guardara `usuarioId` (versiones anteriores) no traen dueño y se tratan
 // como de quien esté usando el equipo. Las que SÍ traen dueño distinto

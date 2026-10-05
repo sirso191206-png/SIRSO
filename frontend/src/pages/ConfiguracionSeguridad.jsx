@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useAuthStore } from '../store/useAuthStore'
+import { useFuncionalidad } from '../hooks/useFuncionalidad'
 import { toastExito, toastError } from '../store/useToastStore'
 import { listarMisSesiones, marcarSesionFinalizada, cerrarTodasLasSesiones, obtenerMiLimiteSesiones } from '../services/sesiones'
 import { Button } from '../components/ui/Button'
@@ -9,6 +10,7 @@ import { limpiarDatosLocalesDeSesion } from '../lib/cierreSesion'
 
 export function ConfiguracionSeguridad() {
   const perfil = useAuthStore((s) => s.perfil)
+  const offlineIncluido = useFuncionalidad('offline') // PIN para trabajar sin conexión
   const sesionActualId = useAuthStore((s) => s.sesionActualId)
   const evaluarCierreSesion = useAuthStore((s) => s.evaluarCierreSesion)
   const { solicitarCierre, modalCierre } = useCierreSesionSeguro()
@@ -118,7 +120,7 @@ export function ConfiguracionSeguridad() {
         {procesando ? 'Cerrando…' : 'Cerrar todas mis sesiones'}
       </Button>
 
-      <SeccionPinOffline />
+      {offlineIncluido && <SeccionPinOffline />}
       {modalCierre}
     </div>
   )

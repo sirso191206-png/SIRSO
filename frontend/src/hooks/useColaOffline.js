@@ -28,10 +28,13 @@ export function useColaOffline() {
     }
   }, [userId])
 
-  const sincronizarAhora = useCallback(async () => {
+  // `manual: true` solo cuando la persona pulsa el botón — la
+  // sincronización automática nunca reintenta un conflicto por sí sola
+  // (ver procesarColaOffline).
+  const sincronizarAhora = useCallback(async (opciones) => {
     setSincronizandoActivo(true)
     try {
-      await procesarColaOffline()
+      await procesarColaOffline({ reintentarConflictos: opciones?.manual === true })
     } finally {
       setSincronizandoActivo(false)
       await actualizar()
@@ -55,7 +58,7 @@ export function useColaOffline() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conectado])
 
-  const errores = operaciones.filter((o) => o.estado === 'error')
+  const errores = operaciones.filter((o) => o.estado === 'error' || o.estado === 'conflicto')
   const pendientes = operaciones.length - errores.length
 
   return {

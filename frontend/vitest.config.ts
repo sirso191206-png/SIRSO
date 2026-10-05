@@ -5,6 +5,9 @@ import { defineConfig } from 'vitest/config'
 // (inspección estructural del SQL) — no necesitan DOM/WebGL, verifican
 // datos y texto, no renderizado.
 export default defineConfig({
+  // Solo para pruebas: permite importar componentes .jsx (runtime automático de JSX,
+  // igual que el plugin de React en el build). No afecta a `npm run build`.
+  esbuild: { jsx: 'automatic' },
   test: {
     environment: 'node',
     include: ['src/components/**/*.test.js'],

@@ -33,7 +33,7 @@ export function evaluarOperaciones({ operaciones, userId, conectado }) {
   }
   const base = {
     pendientes: propias.length,
-    errores: propias.filter((op) => op.estado === 'error').length,
+    errores: propias.filter((op) => op.estado === 'error' || op.estado === 'conflicto').length,
     porEntidad,
     conectado
   }

@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useConexion } from './useConexion'
+import { useFuncionalidad } from './useFuncionalidad'
 import { useAuthStore } from '../store/useAuthStore'
 import { syncClinica } from '../lib/clinicDataSync'
 
@@ -17,9 +18,12 @@ import { syncClinica } from '../lib/clinicDataSync'
 export function useSincronizacionClinica() {
   const conectado = useConexion()
   const perfil = useAuthStore((s) => s.perfil)
+  // Depende de la funcionalidad "sincronizacion" del plan (solo las réplicas de
+  // lectura; la cola de cambios pendientes se sube siempre).
+  const sincronizacionIncluida = useFuncionalidad('sincronizacion')
 
   useEffect(() => {
-    if (!conectado || !perfil) return
+    if (!conectado || !perfil || !sincronizacionIncluida) return
     // No hay estado local que limpiar al desmontar — syncClinica()
     // solo escribe en IndexedDB, nunca en el estado de este hook.
     syncClinica().catch(() => {
@@ -27,5 +31,5 @@ export function useSincronizacionClinica() {
       // conveniencia de fondo, no algo que la persona pidió.
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conectado, perfil?.id])
+  }, [conectado, perfil?.id, sincronizacionIncluida])
 }

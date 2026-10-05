@@ -8,6 +8,7 @@ import { useCatalogoTratamientos } from './useCatalogoTratamientos'
 import { useSignosVitales } from './useSignosVitales'
 import { useRecetas } from './useRecetas'
 import { useAuthStore } from '../store/useAuthStore'
+import { useFuncionalidad } from './useFuncionalidad'
 import { useSucursalStore } from '../store/useSucursalStore'
 import { toastExito, toastError } from '../store/useToastStore'
 import { encolarOperacion } from '../lib/colaOffline'
@@ -59,6 +60,10 @@ export function useConsultaForm(citaId) {
   const { tratamientos, agregar: agregarTratamiento } = useTratamientos(cita?.paciente_id)
   const { catalogo } = useCatalogoTratamientos()
   const { registros: signosVitales, agregar: agregarSignosVitales } = useSignosVitales(cita?.paciente_id)
+  // La nota clínica de la consulta necesita las funcionalidades "notas_clinicas" y
+  // "expediente_clinico" del plan (la base de datos rechaza escribirlas sin ellas).
+  // Sin ellas la consulta SE PUEDE cerrar igual: simplemente no se genera nota.
+  const notasIncluidas = useFuncionalidad('notas_clinicas') && useFuncionalidad('expediente_clinico')
   const { recetas, agregar: agregarReceta } = useRecetas(cita?.paciente_id)
 
   useEffect(() => {
@@ -111,8 +116,9 @@ export function useConsultaForm(citaId) {
   }
 
   const guardarNotaYMotivo = async () => {
-    if (!expediente) throw new Error('El expediente todavía está cargando, espera un momento e intenta de nuevo.')
+    if (notasIncluidas && !expediente) throw new Error('El expediente todavía está cargando, espera un momento e intenta de nuevo.')
     await actualizarCita(cita.id, { motivo_consulta: motivo || null })
+    if (!notasIncluidas) return
     await crearNotaClinica({
       expediente_id: expediente.id,
       cita_id: cita.id,
@@ -133,6 +139,11 @@ export function useConsultaForm(citaId) {
     setGuardandoBorrador(true)
     try {
       if (!navigator.onLine) {
+        if (!notasIncluidas) {
+          // Un borrador ES la nota; sin esa funcionalidad no hay dónde guardarlo.
+          toastExito('Tu plan no incluye notas clínicas: el motivo se guarda al finalizar la consulta.')
+          return
+        }
         if (!expediente) throw new Error('El expediente todavía está cargando, espera un momento e intenta de nuevo.')
 
         // Solo se encola la nota — el motivo de la cita se guarda de
@@ -196,11 +207,11 @@ export function useConsultaForm(citaId) {
     setGuardando(true)
     try {
       if (!navigator.onLine) {
-        if (!expediente) throw new Error('El expediente todavía está cargando, espera un momento e intenta de nuevo.')
+        if (notasIncluidas && !expediente) throw new Error('El expediente todavía está cargando, espera un momento e intenta de nuevo.')
 
         // Mismos ids generados en el navegador que ya usan las notas y
         // piezas encoladas — reintentar la subida nunca duplica nada.
-        const notaClinica = {
+        const notaClinica = !notasIncluidas ? null : {
           id: crypto.randomUUID(),
           expediente_id: expediente.id,
           cita_id: cita.id,

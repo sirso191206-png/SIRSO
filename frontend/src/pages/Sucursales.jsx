@@ -6,6 +6,7 @@ import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { DetalleSucursal } from '../components/sucursales/DetalleSucursal'
+import { mensajeErrorDePlan } from '../lib/planes'
 
 export function Sucursales() {
   const perfil = useAuthStore((s) => s.perfil)
@@ -22,7 +23,8 @@ export function Sucursales() {
       await cambiarActiva(s.id, !s.activa)
       toastExito(s.activa ? `${s.nombre} desactivada.` : `${s.nombre} reactivada.`)
     } catch (err) {
-      toastError(err.message)
+      // Reactivar también valida el límite de sucursales del plan (PT402/PT403).
+      toastError(mensajeErrorDePlan(err))
     }
   }
 
@@ -108,7 +110,7 @@ function ModalNuevaSucursal({ abierto, onCerrar, clinicaId, onCrear }) {
       setForm({ nombre: '', direccion: '', telefono: '', whatsapp: '', correo: '' })
       onCerrar()
     } catch (err) {
-      toastError('No se pudo crear la sucursal: ' + err.message)
+      toastError('No se pudo crear la sucursal: ' + mensajeErrorDePlan(err))
     } finally {
       setGuardando(false)
     }

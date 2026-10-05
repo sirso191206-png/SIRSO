@@ -67,7 +67,7 @@ export function BannerSinConexion() {
             )}
             <Button
               variante="secundario"
-              onClick={info.sincronizarAhora}
+              onClick={() => info.sincronizarAhora({ manual: true })}
               disabled={info.sincronizando || info.estado === 'OFFLINE'}
               className="inline-flex w-full items-center justify-center gap-1.5"
             >

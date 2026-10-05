@@ -14,12 +14,13 @@ import {
 } from '../services/periodontograma'
 import { actualizarCita, crearCita } from '../services/citas'
 import { crearPacienteEnServidor, actualizarPacienteEnServidor } from '../services/pacientes'
-import { listarOperacionesPendientes, quitarOperacion, marcarIntentoFallido, marcarSincronizando, operacionEsDe } from './colaOffline'
+import { listarOperacionesPendientes, quitarOperacion, marcarIntentoFallido, marcarConflicto, marcarSincronizando, operacionEsDe } from './colaOffline'
 import { ordenarPorDependencias, estadoDeDependencias } from './dependenciasCola'
 import { esIdOffline, resolverId, guardarMapeoId } from './mapeoIdsOffline'
 import { marcarPacienteOfflineSincronizado } from './pacientesOffline'
 import { guardarMetadato, leerMetadato } from './cacheLectura'
 import { toastExito, toastError } from '../store/useToastStore'
+import { esErrorDePlan, mensajeErrorDePlan } from './planes'
 
 const CLAVE_ULTIMA_SINCRONIZACION_COLA = 'ultima_sincronizacion_cola'
 
@@ -77,7 +78,9 @@ const EJECUTORES = {
   finalizar_consulta: async (payload) => {
     const { citaId, motivo, notaClinica, seguimientoPayload, actualizadoEnEsperado } = payload
     const citaTrasMotivo = await actualizarCita(citaId, { motivo_consulta: motivo || null }, actualizadoEnEsperado)
-    await crearNotaClinica(notaClinica)
+    // Un plan sin notas clínicas/expediente no genera nota (viene null): cerrar la
+    // consulta no debe depender de ella.
+    if (notaClinica) await crearNotaClinica(notaClinica)
     await actualizarCita(citaId, { estado: 'completada' }, citaTrasMotivo.actualizado_en)
     if (seguimientoPayload) {
       await crearCita(seguimientoPayload)
@@ -150,7 +153,17 @@ async function resolverReferenciasOffline(operacion) {
 
 let procesando = false
 
-export async function procesarColaOffline() {
+// Texto que ve la persona en el panel de sincronización cuando un
+// paciente no se pudo subir por un CURP que ya es de OTRO paciente de la
+// clínica — nunca el error crudo de PostgreSQL.
+export const MENSAJE_CONFLICTO_CURP = 'Un paciente no pudo sincronizarse porque el CURP ya está registrado en esta clínica con otros datos. Revisa el paciente existente antes de continuar.'
+
+// `reintentarConflictos`: solo true cuando la persona pulsa a mano
+// "Reintentar sincronización" — la sincronización automática NUNCA
+// vuelve a intentar un conflicto por su cuenta (no se arregla solo con
+// reintentar), pero tampoco queda sin salida: el botón manual sí lo
+// intenta de nuevo (p. ej. después de que el duplicado se corrigió).
+export async function procesarColaOffline({ reintentarConflictos = false } = {}) {
   // Evita que dos reconexiones casi simultáneas (p. ej. el evento
   // 'online' disparándose dos veces) intenten subir la cola dos veces
   // a la vez.
@@ -200,10 +213,21 @@ export async function procesarColaOffline() {
     const { orden, enCiclo } = ordenarPorDependencias(propias)
     const exitosas = new Set()
     const perdidasDefinitivas = new Set()
+    // Operaciones en conflicto (ver MENSAJE_CONFLICTO_CURP): se
+    // conservan tal cual, y lo que depende de ellas espera sin contarse
+    // como "falla transitoria" (no se arregla solo, no es un reintento).
+    const enConflicto = new Set()
+    // Mensajes de conflictos NUEVOS de esta corrida (se avisa una vez por tipo).
+    const mensajesConflictoNuevos = new Set()
 
     for (const operacion of orden) {
+      if (operacion.estado === 'conflicto' && !reintentarConflictos) {
+        enConflicto.add(operacion.id)
+        continue
+      }
       const estadoDeps = estadoDeDependencias(operacion, { exitosas, perdidasDefinitivas })
       if (estadoDeps === 'esperar') {
+        if ((operacion.dependeDe ?? []).some((d) => enConflicto.has(d))) continue
         // El padre sigue pendiente (todavía no le tocó turno, o falló
         // transitorio) — se reintenta en la próxima corrida junto con él.
         fallidasTransitorias++
@@ -248,6 +272,23 @@ export async function procesarColaOffline() {
           await quitarOperacion(operacion.id)
           perdidasDefinitivas.add(operacion.id)
           perdidasPorConflicto++
+        } else if (err.message === 'CONFLICTO_CURP') {
+          // A diferencia del caso de arriba, aquí NO se borra nada: es
+          // trabajo clínico local (un paciente nuevo, con sus notas
+          // dependientes) que la persona todavía puede resolver.
+          await marcarConflicto(operacion, MENSAJE_CONFLICTO_CURP)
+          enConflicto.add(operacion.id)
+          mensajesConflictoNuevos.add(MENSAJE_CONFLICTO_CURP)
+        } else if (esErrorDePlan(err)) {
+          // Límite del plan o funcionalidad no incluida (PT402 / PT403, migración
+          // 075). Reintentar igual no lo resuelve — hace falta ampliar el plan o
+          // liberar cupo — así que NO se trata como falla de red: se conserva el
+          // cambio (nada se pierde), no se reintenta solo y el botón manual
+          // "Reintentar sincronización" sí lo vuelve a intentar.
+          const mensaje = `Un cambio hecho sin conexión no se pudo subir: ${mensajeErrorDePlan(err)}`
+          await marcarConflicto(operacion, mensaje)
+          enConflicto.add(operacion.id)
+          mensajesConflictoNuevos.add(mensaje)
         } else {
           await marcarIntentoFallido(operacion, err.message)
           fallidasTransitorias++
@@ -265,6 +306,7 @@ export async function procesarColaOffline() {
     if (perdidasPorConflicto > 0) {
       toastError(`${perdidasPorConflicto} cambio(s) sin conexión no se pudieron subir porque otra persona ya modificó lo mismo mientras tanto. Revisa esos registros y vuelve a hacer el cambio si todavía aplica.`)
     }
+    for (const mensaje of mensajesConflictoNuevos) toastError(mensaje)
     if (fallidasTransitorias > 0) toastError(`${fallidasTransitorias} cambio(s) no se pudieron subir todavía — se reintentará más tarde.`)
   } finally {
     procesando = false

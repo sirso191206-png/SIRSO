@@ -6,6 +6,7 @@ import { toastExito, toastError } from '../store/useToastStore'
 import { capitalizarPrimeraLetra } from '../lib/texto'
 import { ColaDeEspera } from '../components/ColaDeEspera'
 import { ModalNuevaUrgencia } from '../components/ModalNuevaUrgencia'
+import { useDisponibilidad } from '../hooks/useFuncionalidad'
 import { ModalSincronizarDia } from '../components/ModalSincronizarDia'
 import { AvisoDatosGuardados } from '../components/layout/AvisoDatosGuardados'
 import { Button } from '../components/ui/Button'
@@ -22,6 +23,7 @@ function saludo() {
 export function MiDia() {
   const perfil = useAuthStore((s) => s.perfil)
   const navigate = useNavigate()
+  const disponible = useDisponibilidad()
   const { datos, cargando, error, iniciarConsulta, finalizarConsulta } = useMiDia()
   const [modalUrgenciaAbierto, setModalUrgenciaAbierto] = useState(false)
   const [modalSincronizarAbierto, setModalSincronizarAbierto] = useState(false)
@@ -69,15 +71,21 @@ export function MiDia() {
           <Button variante="secundario" onClick={() => navigate('/pacientes')} className="inline-flex items-center gap-1.5">
             <Icon.userPlus /> Nuevo paciente
           </Button>
-          <Button variante="secundario" onClick={() => navigate('/agenda')} className="inline-flex items-center gap-1.5">
-            <Icon.calendarPlus /> Nueva cita
-          </Button>
-          <Button onClick={() => setModalUrgenciaAbierto(true)} className="inline-flex items-center gap-1.5">
-            <Icon.zap /> Nueva urgencia
-          </Button>
-          <Button variante="secundario" onClick={() => setModalSincronizarAbierto(true)} className="inline-flex items-center gap-1.5">
-            <Icon.refresh /> Sincronizar mi día
-          </Button>
+          {disponible('agenda') && disponible('citas') && (
+            <Button variante="secundario" onClick={() => navigate('/agenda')} className="inline-flex items-center gap-1.5">
+              <Icon.calendarPlus /> Nueva cita
+            </Button>
+          )}
+          {disponible('urgencias') && disponible('citas') && (
+            <Button onClick={() => setModalUrgenciaAbierto(true)} className="inline-flex items-center gap-1.5">
+              <Icon.zap /> Nueva urgencia
+            </Button>
+          )}
+          {disponible('sincronizacion') && (
+            <Button variante="secundario" onClick={() => setModalSincronizarAbierto(true)} className="inline-flex items-center gap-1.5">
+              <Icon.refresh /> Sincronizar mi día
+            </Button>
+          )}
         </div>
       </div>
 
@@ -92,7 +100,7 @@ export function MiDia() {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <ColaDeEspera key={colaVersion} onIniciarConsulta={handleIniciarDesdeColaDeEspera} />
+          {disponible('turnos') && <ColaDeEspera key={colaVersion} onIniciarConsulta={handleIniciarDesdeColaDeEspera} />}
         </div>
         <ResumenDelDia resumen={datos.resumen} />
       </div>

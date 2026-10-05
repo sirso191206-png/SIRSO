@@ -136,6 +136,11 @@ export async function crearPaciente(paciente, { usuarioId, clinicaId, sucursalId
     .insert(paciente)
     .select()
     .single()
+  // La verificación previa de CURP (pages/Pacientes.jsx) no alcanza a
+  // ver un registro que otra persona crea casi al mismo tiempo — la
+  // base sí lo rechaza; que eso llegue como mensaje entendible y no
+  // como el error crudo del índice.
+  if (error && esConflictoCurp(error)) throw new Error(MENSAJE_CURP_DUPLICADO)
   if (error) throw error
 
   // El expediente vacío y el odontograma se crean solos, vía triggers en
@@ -153,6 +158,63 @@ export async function crearPaciente(paciente, { usuarioId, clinicaId, sucursalId
   return data
 }
 
+export const MENSAJE_CURP_DUPLICADO = 'El CURP ya está registrado en esta clínica. Revisa el paciente existente antes de continuar.'
+
+// Único por (clinica_id, curp) cuando curp NO es nulo — migración 016.
+// Esa restricción es correcta y se mantiene tal cual: aquí solo se
+// RECONOCE su error para tratarlo como lo que es (un conflicto de
+// identidad), no como una falla de red que se reintenta para siempre.
+export function esConflictoCurp(error) {
+  return error?.code === '23505' && /idx_pacientes_curp_por_clinica/.test(error?.message ?? '')
+}
+
+function normalizarNombre(texto) {
+  return (texto ?? '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim()
+}
+
+// Rellena SOLO campos de contacto que el paciente existente tiene
+// vacíos (null) — cada uno con `.is(campo, null)` como condición del
+// UPDATE, así que si alguien más lo llenó entre tanto, no se pisa. Es
+// best-effort: si falla, el paciente ya quedó vinculado igual.
+const CAMPOS_RELLENABLES = ['telefono', 'correo', 'direccion']
+async function rellenarVaciosDelExistente(existente, paciente) {
+  for (const campo of CAMPOS_RELLENABLES) {
+    if (existente[campo] == null && paciente[campo]) {
+      await supabase.from('pacientes').update({ [campo]: paciente[campo] }).eq('id', existente.id).is(campo, null)
+    }
+  }
+}
+
+// El INSERT chocó con el CURP de OTRO registro de la clínica. RLS
+// limita esta búsqueda a la clínica de la sesión, así que un paciente
+// de otra clínica con el mismo CURP nunca se confunde con este (y de
+// todas formas el índice es por clínica: no choca).
+// - Mismo CURP + mismo nombre (y misma fecha de nacimiento si ambos
+//   la traen) → es la misma persona registrada dos veces: se VINCULA
+//   al paciente existente en lugar de crear otro (el trabajo clínico
+//   hecho offline —notas, recetas…— se une a su expediente real).
+// - Mismo CURP pero OTRO nombre → NO se asume que es la misma persona
+//   (un CURP mal tecleado uniría un expediente clínico con el de otra
+//   persona): conflicto real, la persona decide.
+// - Si el existente no es visible para esta sesión (RLS) tampoco se
+//   puede comprobar que sea la misma persona → conflicto.
+async function resolverCurpExistente(paciente) {
+  const { data: existente, error } = await supabase
+    .from('pacientes')
+    .select('id, nombre_completo, numero_expediente, fecha_nacimiento, telefono, correo, direccion')
+    .eq('curp', paciente.curp)
+    .maybeSingle()
+  if (error) throw error // no se pudo comprobar → transitorio, se reintenta
+  if (!existente) throw new Error('CONFLICTO_CURP')
+
+  const mismoNombre = normalizarNombre(existente.nombre_completo) === normalizarNombre(paciente.nombre_completo)
+  const mismaFecha = !existente.fecha_nacimiento || !paciente.fecha_nacimiento || existente.fecha_nacimiento === paciente.fecha_nacimiento
+  if (!mismoNombre || !mismaFecha) throw new Error('CONFLICTO_CURP')
+
+  await rellenarVaciosDelExistente(existente, paciente).catch(() => {})
+  return { ...existente, _yaExistia: true }
+}
+
 // La versión SIN comprobación de conectividad — la usa el ejecutor de
 // la cola (lib/procesadorColaOffline.js) para subir un paciente creado
 // offline: ahí ya se SABE que hay conexión (se está sincronizando), y
@@ -163,11 +225,15 @@ export async function crearPacienteEnServidor(paciente) {
   // que se creó offline (lib/pacientesOffline.js) precisamente para
   // que reintentar esto — por ejemplo si la respuesta se perdió pero
   // el insert sí se aplicó — nunca cree un paciente duplicado.
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('pacientes')
     .upsert(paciente)
     .select()
     .single()
+  if (error && paciente.curp && esConflictoCurp(error)) {
+    data = await resolverCurpExistente(paciente)
+    error = null
+  }
   if (error) throw error
   indexarPaciente({
     id: data.id,
@@ -195,6 +261,10 @@ export async function actualizarPacienteEnServidor(id, cambios, actualizadoEnEsp
     if (error.code === 'PGRST116' && actualizadoEnEsperado) {
       throw new Error('CONFLICTO_CONCURRENCIA')
     }
+    // Cambiar el CURP de un paciente existente a uno que ya tiene OTRO
+    // paciente de la clínica: aquí no hay "misma persona" que vincular
+    // (el registro ya tiene su propio id) — conflicto directo.
+    if (esConflictoCurp(error)) throw new Error('CONFLICTO_CURP')
     throw error
   }
   indexarPaciente({

@@ -80,7 +80,7 @@ export function useCierreSesionSeguro() {
       onCerrar={cerrarModal}
       listarPendientesDescartables={async () => {
         const todas = await listarOperacionesPendientes()
-        return todas.filter((op) => operacionEsDe(op, perfil?.id) && op.estado === 'error')
+        return todas.filter((op) => operacionEsDe(op, perfil?.id) && (op.estado === 'error' || op.estado === 'conflicto'))
       }}
     />
   )

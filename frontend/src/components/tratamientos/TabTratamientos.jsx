@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useTratamientos } from '../../hooks/useTratamientos'
 import { useCatalogoTratamientos } from '../../hooks/useCatalogoTratamientos'
 import { useAuthStore } from '../../store/useAuthStore'
+import { useFuncionalidad } from '../../hooks/useFuncionalidad'
 import { toastError } from '../../store/useToastStore'
 import { imprimirPresupuesto } from './imprimirPresupuesto'
 import { FilaTratamiento } from './FilaTratamiento'
@@ -14,6 +15,9 @@ export function TabTratamientos({ pacienteId, paciente }) {
   const { tratamientos, cargando, agregar, cambiarEstado, cancelar, actualizar, sumarSesion, eliminar } = useTratamientos(pacienteId)
   const { catalogo } = useCatalogoTratamientos()
   const perfil = useAuthStore((s) => s.perfil)
+  // Los pagos dependen del plan (la BD bloquea la tabla `pagos` sin la funcionalidad).
+  const pagosDisponibles = useFuncionalidad('pagos')
+  const presupuestoDisponible = useFuncionalidad('planes_tratamiento') // presupuesto imprimible (solo interfaz)
   const [modalNuevo, setModalNuevo] = useState(false)
   const [tratamientoEditar, setTratamientoEditar] = useState(null)
   const [imprimiendo, setImprimiendo] = useState(false)
@@ -37,12 +41,14 @@ export function TabTratamientos({ pacienteId, paciente }) {
     <div className="space-y-4">
       <div className="flex justify-between">
         <Button onClick={() => setModalNuevo(true)}>+ Nuevo tratamiento</Button>
-        <Button variante="secundario" onClick={handleImprimir} disabled={imprimiendo} className="inline-flex items-center gap-1.5">
-          {imprimiendo ? 'Generando…' : (<><Icon.printer /> Presupuesto imprimible</>)}
-        </Button>
+        {presupuestoDisponible && (
+          <Button variante="secundario" onClick={handleImprimir} disabled={imprimiendo} className="inline-flex items-center gap-1.5">
+            {imprimiendo ? 'Generando…' : (<><Icon.printer /> Presupuesto imprimible</>)}
+          </Button>
+        )}
       </div>
 
-      <SeccionPagos pacienteId={pacienteId} paciente={paciente} />
+      {pagosDisponibles && <SeccionPagos pacienteId={pacienteId} paciente={paciente} />}
 
       <div className="space-y-2">
         {tratamientos.length === 0 && <p className="text-sm text-slate-400">Sin tratamientos registrados.</p>}

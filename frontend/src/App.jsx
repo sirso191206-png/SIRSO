@@ -16,6 +16,8 @@ import { Agenda } from './pages/Agenda'
 import { Usuarios } from './pages/Usuarios'
 import { Administracion } from './pages/Administracion'
 import { AdministracionClinica } from './pages/AdministracionClinica'
+import { SuperAdminPlanes } from './pages/SuperAdminPlanes'
+import { RutaConFuncionalidad } from './components/planes/RutaConFuncionalidad'
 import { CatalogoTratamientos } from './pages/CatalogoTratamientos'
 import { CorteDeCaja } from './pages/CorteDeCaja'
 import { ConfiguracionClinica } from './pages/ConfiguracionClinica'
@@ -63,18 +65,19 @@ export default function App() {
         <Route path="/legal/proveedores" element={<Proveedores />} />
         <Route path="/legal/acuerdo-tratamiento-datos" element={<AcuerdoTratamientoDatos />} />
         <Route path="/" element={<ProtectedRoute><MiDia /></ProtectedRoute>} />
-        <Route path="/reportes" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/reportes" element={<ProtectedRoute><RutaConFuncionalidad funcionalidad="estadisticas"><Dashboard /></RutaConFuncionalidad></ProtectedRoute>} />
         <Route path="/pacientes" element={<ProtectedRoute><Pacientes /></ProtectedRoute>} />
         <Route path="/pacientes/:id" element={<ProtectedRoute><PacienteDetalle /></ProtectedRoute>} />
-        <Route path="/agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />
+        <Route path="/agenda" element={<ProtectedRoute><RutaConFuncionalidad funcionalidad="agenda"><Agenda /></RutaConFuncionalidad></ProtectedRoute>} />
         <Route path="/usuarios" element={<ProtectedRoute><Usuarios /></ProtectedRoute>} />
-        <Route path="/catalogo" element={<ProtectedRoute><CatalogoTratamientos /></ProtectedRoute>} />
-        <Route path="/corte-de-caja" element={<ProtectedRoute><CorteDeCaja /></ProtectedRoute>} />
+        <Route path="/catalogo" element={<ProtectedRoute><RutaConFuncionalidad funcionalidad="tratamientos"><CatalogoTratamientos /></RutaConFuncionalidad></ProtectedRoute>} />
+        <Route path="/corte-de-caja" element={<ProtectedRoute><RutaConFuncionalidad funcionalidad="caja"><CorteDeCaja /></RutaConFuncionalidad></ProtectedRoute>} />
         <Route path="/configuracion" element={<ProtectedRoute><ConfiguracionClinica /></ProtectedRoute>} />
         <Route path="/configuracion/seguridad" element={<ProtectedRoute><ConfiguracionSeguridad /></ProtectedRoute>} />
         <Route path="/sucursales" element={<ProtectedRoute><Sucursales /></ProtectedRoute>} />
         <Route path="/consulta/:citaId" element={<ProtectedRoute><ConsultaUnificada /></ProtectedRoute>} />
         <Route path="/administracion" element={<ProtectedRoute><Administracion /></ProtectedRoute>} />
+        <Route path="/superadmin/planes" element={<ProtectedRoute><SuperAdminPlanes /></ProtectedRoute>} />
         <Route path="/administracion/arco" element={<ProtectedRoute><AdministracionArco /></ProtectedRoute>} />
         <Route path="/administracion/incidentes" element={<ProtectedRoute><AdministracionIncidentes /></ProtectedRoute>} />
         <Route path="/admin/legal" element={<ProtectedRoute><AdminLegal /></ProtectedRoute>} />

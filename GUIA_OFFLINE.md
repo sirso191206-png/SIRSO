@@ -200,6 +200,42 @@ persona pidió, así que un error ahí no debe alarmar a nadie. "Sincronizar
 ahora" sigue existiendo como respaldo manual, para forzarlo de nuevo el
 mismo día o si la precarga automática falló.
 
+**CURP que ya existe en la clínica (error `idx_pacientes_curp_por_clinica`).**
+La restricción —única por `(clinica_id, curp)` cuando el CURP no es nulo,
+migración 016— es correcta y **no se toca**. El error aparecía en el panel
+de sincronización como `pacientes: duplicate key value violates…` y venía
+de la **cola de operaciones**, nunca de la réplica de lectura
+(`syncPacientes()` solo hace `SELECT`). Causa: un paciente creado sin
+conexión se sube con un id nuevo generado en el navegador, pero la
+unicidad se exige sobre el CURP; sin conexión se omite la verificación de
+duplicados, así que si esa persona ya existía en la clínica el insert
+chocaba — y como cualquier error ajeno a la concurrencia se trataba como
+una falla de red, **se reintentaba en cada corrida, para siempre**. Ahora:
+- **Misma persona** (mismo CURP + mismo nombre, sin importar mayúsculas,
+  acentos ni espacios, y misma fecha de nacimiento si ambos la traen): se
+  **vincula** al paciente existente en vez de crear otro; el trabajo clínico
+  hecho sin conexión (notas, recetas…) se une a su expediente real. Solo se
+  rellenan campos de contacto que el existente tenía **vacíos**, con
+  `.is(campo, null)` como condición del UPDATE para no pisar un dato que
+  alguien llenó entre tanto.
+- **Otra persona con el mismo CURP** (o el existente no es visible para esta
+  sesión por RLS, y por tanto no se puede comprobar): **no** se asume que es
+  la misma — un CURP mal tecleado uniría el expediente clínico de dos
+  personas. La operación pasa al estado `conflicto`: se **conserva** (el
+  paciente local y todo lo que depende de él), no se reintenta sola, lo que
+  depende de ella espera sin generar avisos repetidos, cuenta como "con
+  error" (banner) y mantiene bloqueado el cierre de sesión, y se puede
+  **descartar de inmediato** (con la copia y la auditoría de siempre). El
+  botón manual "Reintentar sincronización" sí lo vuelve a intentar (p. ej.
+  si el duplicado ya se corrigió); las corridas automáticas no.
+- El mensaje es siempre "…el CURP ya está registrado en esta clínica…", nunca
+  el error crudo de PostgreSQL. Cambiar el CURP de un paciente existente a
+  uno que ya es de otro, y crear en línea con un CURP recién registrado por
+  alguien más, usan el mismo tratamiento.
+- Aislamiento: la búsqueda del "existente" pasa por RLS, así que un paciente
+  de **otra clínica** con el mismo CURP nunca cuenta como existente (y, al ser
+  único por clínica, tampoco choca).
+
 ## 5. Cerrar sesión
 
 | Situación | Comportamiento |
@@ -370,12 +406,15 @@ select paciente_id, inicio, count(*) from citas
 24. Reconecta, modifica algo del paciente (p. ej. el teléfono, con "Datos generales"). Espera unos segundos y confirma en IndexedDB que `siro-pacientes-clinica` refleja el cambio. Recarga la página con red: no debe volver a traer la clínica completa, solo lo modificado desde la última vez (compara el tiempo que tarda contra la primera carga).
 25. Con red, confirma en IndexedDB que `siro-citas-clinica` tiene citas. Apaga la red y abre en Agenda un rango de fechas (dentro de los próximos 30 días) que NO hayas consultado antes en esta sesión — debe mostrarlo igual, con el aviso de datos guardados. Prueba también un rango MÁS ALLÁ de 30 días — debe fallar en vez de mostrar algo inventado.
 26. Con red, registra una alergia a un paciente que no vayas a abrir después. Espera unos segundos y confirma en IndexedDB → `siro-expedientes-clinica` que aparece. Apaga la red y abre la ficha de ESE paciente por primera vez en esta sesión — su alergia debe verse, aunque el resto del expediente (notas, odontograma) avise que no está disponible sin conexión.
+27. **CURP ya registrado:** con red, anota el CURP y el nombre de un paciente existente. Apaga la red y crea un paciente nuevo con ESE mismo CURP y el mismo nombre. Reconecta y espera: no debe aparecer ningún error, y en Supabase debe seguir existiendo un solo paciente con ese CURP. Abre al paciente local (por su URL antigua): debe mostrar los datos del paciente real (la URL en sí no cambia sola — la marca `_redirigidoA` existe pero ninguna pantalla navega con ella todavía).
+28. **CURP de OTRA persona:** repite pero con el mismo CURP y un nombre distinto. Reconecta: en el panel de sincronización debe aparecer un mensaje entendible sobre el CURP (no `duplicate key…`), no debe crearse ningún paciente nuevo en Supabase, y el panel NO debe volver a intentarlo solo (revisa que `intentos` en `siro-cola-offline` no crezca con el tiempo). Intenta cerrar sesión: debe bloquearla y ofrecer **Descartar**.
+29. Con ese conflicto aún pendiente, pulsa **Reintentar sincronización**: debe intentarlo una vez más y, si el duplicado sigue, quedar otra vez en conflicto sin perder nada. Cierra el navegador por completo y vuelve a abrirlo con red: el conflicto debe seguir ahí, sin reintentos automáticos.
 
 ---
 
 ## 8. Qué cubren las pruebas automáticas (y qué no)
 
-`npx vitest run` → 90 archivos, 794 pruebas, en `src/components/ui/__tests__/offline/`. Usan `fake-indexeddb` (**solo desarrollo**) y cargan el `sw.js` real. Cada bloque se validó con **mutación** (romper el código a propósito y comprobar que las pruebas fallan): 10 mutaciones en `pinOffline.js`, 14 en `useAuthStore.js`/`cierreSesion.js`, más las del SW y la cola.
+`npx vitest run` → 91 archivos, 822 pruebas, en `src/components/ui/__tests__/offline/`. Usan `fake-indexeddb` (**solo desarrollo**) y cargan el `sw.js` real. Cada bloque se validó con **mutación** (romper el código a propósito y comprobar que las pruebas fallan): 10 mutaciones en `pinOffline.js`, 14 en `useAuthStore.js`/`cierreSesion.js`, más las del SW y la cola.
 
 | Área | Cobertura |
 |---|---|
@@ -439,3 +478,4 @@ select paciente_id, inicio, count(*) from citas
 16. **La réplica de pacientes (§6) replica la lista — nombre, teléfono, folio, datos generales — y, por separado, el expediente LIGERO (alergias, enfermedades, medicamentos, antecedentes familiares — ver límite #18). Nunca el expediente clínico completo.** Notas, odontograma, periodontograma, tratamientos y recetas de un paciente que nunca se abrió siguen sin estar disponibles sin conexión; eso seguiría necesitando `lib/cacheLectura.js` por paciente, que es un sistema de réplica aparte, con su propia forma de datos, no construido en esta entrega. Además, sobre la réplica de pacientes: (a) **una sola pasada trae hasta 2000 pacientes modificados** desde la última sincronización — una clínica enorme sincronizando por primera vez en un equipo nuevo podría necesitar más de una reconexión para ponerse al día del todo; (b) el cursor (`actualizado_en`) no es estrictamente único — si dos pacientes se modificaran en el mismo microsegundo exacto justo en el borde de una página, en teoría uno podría quedar fuera de esa pasada (se recuperaría en la siguiente sincronización en cuanto algo más cambie); (c) no hay tombstones de eliminación — no aplica hoy porque SIRO nunca borra pacientes físicamente, solo los archiva (`archivado_en`, que sí viaja con la réplica); si algún día se permite borrar de verdad, esto necesitaría revisarse.
 17. **La réplica de agenda (§6) NO poda citas que salen de la ventana.** `guardarCitasEnReplica()` solo hace `put` — nunca borra lo que el servidor ya no manda (porque la cita quedó fuera del rango de la consulta, o se eliminó de verdad). Una cita vieja replicada hace días sigue en `siro-citas-clinica` indefinidamente hasta cerrar sesión, aunque ya no aparezca en ninguna sincronización nueva — mismo criterio que "la caché de lectura no expira" (límite #11), pero aplicado a un almacén distinto. No afecta la corrección de lo que se muestra (`buscarEnReplicaCitas` sigue filtrando por el rango exacto que pida cada pantalla), solo el tamaño del almacén con el tiempo.
 18. **La réplica de expedientes (§6) es deliberadamente mínima: solo alergias, enfermedades, medicamentos actuales y antecedentes familiares.** NO incluye notas clínicas, odontograma, periodontograma, tratamientos ni recetas — replicar eso para toda la clínica (no solo quien se abre) sería una cantidad de datos por paciente mucho mayor (un periodontograma solo ya son 224 filas; una clínica de 2000 pacientes serían cientos de miles de filas) y es, en sí mismo, el "siguiente proyecto" que se decidió no construir en esta entrega — no por falta de tiempo, sino porque el principio seguido en toda esta sesión fue "no descargar lo que no hace falta". Mismas salvaguardas de `syncPacientes()` (cursor por `actualizado_en`, tope de 2000 filas por corrida, cursor no estrictamente único) aplican aquí igual.
+19. **La vinculación automática por CURP es deliberadamente estricta.** Solo vincula si el nombre coincide (ignorando mayúsculas, acentos y espacios repetidos) y, cuando ambos traen fecha de nacimiento, esta también coincide. Variaciones reales ("Juan Pérez" vs "Juan Pérez G.", un apellido omitido) caen en `conflicto` aunque sea la misma persona: es preferible pedir una revisión humana a unir por error el expediente clínico de dos personas. Tampoco hay todavía una pantalla para **corregir** el CURP de un paciente creado sin conexión que aún no se sube: las salidas actuales son descartar la operación (con copia y auditoría) o reintentar a mano. Además, sin conexión sigue omitiéndose la verificación de duplicados al crear (consultarla exigiría que `v_pacientes_seguro` exponga el CURP a la réplica local — fuera del alcance de esta corrección).

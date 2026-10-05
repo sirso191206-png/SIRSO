@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { listarTodasLasClinicas, crearClinicaConOwner } from '../services/admin'
 import { useAuthStore } from '../store/useAuthStore'
+import { SelectorPlan } from '../components/planes/SelectorPlan'
 
-const FORM_VACIO = { nombreClinica: '', ownerNombre: '', ownerCorreo: '' }
+// planCodigo vacío = el selector elige el recomendado (o el primero activo) al cargar.
+const FORM_VACIO = { nombreClinica: '', ownerNombre: '', ownerCorreo: '', planCodigo: '', modalidad: 'mensual' }
 
 export function Administracion() {
   const perfil = useAuthStore((s) => s.perfil)
@@ -50,6 +52,7 @@ export function Administracion() {
     setGuardando(true)
     setFormError(null)
     try {
+      if (!form.planCodigo) throw new Error('Elige un plan para la clínica.')
       const data = await crearClinicaConOwner(form)
       setResultado({ correo: data.correo, passwordTemporal: data.passwordTemporal })
       cerrarForm()
@@ -151,6 +154,17 @@ export function Administracion() {
                 required
               />
             </label>
+          </div>
+
+          {/* Plan de la clínica: se elige de los planes ACTIVOS en la base de datos y
+              muestra al instante precio, límites y funcionalidades. Al guardar se crea
+              la clínica + su suscripción con un snapshot de esas condiciones. */}
+          <div className="mt-4 rounded-xl border border-slate-200 p-3">
+            <div className="mb-2 text-sm font-medium text-slate-700">Plan</div>
+            <SelectorPlan
+              valor={{ planCodigo: form.planCodigo, modalidad: form.modalidad }}
+              onChange={(v) => setForm((f) => ({ ...f, ...v }))}
+            />
           </div>
 
           {formError && <p className="mt-3 text-sm text-clinico-rojo">{formError}</p>}

@@ -1,9 +1,15 @@
 // Edge Function: admin-actualizar-clinica
 // Solo responde si quien llama tiene usuarios.es_super_admin = true.
 // Permite al super admin cambiar los "permisos" de una clínica:
-// estado (activa/suspendida), plan y límites. Usa service_role, que
-// es la única vía autorizada para tocar estas columnas (el owner tiene
-// revocado el UPDATE sobre ellas — ver migración 029).
+// estado (activa/suspendida) y fechas. Usa service_role, que es la única
+// vía autorizada para tocar estas columnas (el owner tiene revocado el
+// UPDATE sobre ellas — ver migración 029).
+//
+// PLAN y LÍMITES YA NO se cambian aquí (migración 075): la fuente de verdad
+// es la suscripción de la clínica (un snapshot). Escribir clinicas.plan o
+// clinicas.limite_* directo la desincronizaría de lo que la base de datos
+// realmente aplica. Se hacen con las funciones sa_asignar_plan_clinica y
+// sa_ajustar_condiciones_clinica, que además dejan auditoría.
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
@@ -11,11 +17,6 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 import { buildCorsHeaders } from '../_shared/cors.ts'
 
 const ESTADOS = ['activa', 'suspendida']
-const PLANES = ['basico', 'profesional', 'clinica']
-
-function limiteValido(v: unknown): boolean {
-  return v === null || (typeof v === 'number' && Number.isInteger(v) && v >= 0)
-}
 
 serve(async (req) => {
   // CORS por petición: refleja el Origin si está en la lista blanca.
@@ -72,17 +73,10 @@ serve(async (req) => {
       if (!ESTADOS.includes(body.estado)) throw new Error('Estado inválido')
       cambios.estado = body.estado
     }
-    if (body.plan !== undefined) {
-      if (!PLANES.includes(body.plan)) throw new Error('Plan inválido')
-      cambios.plan = body.plan
-    }
-    if (body.limiteUsuarios !== undefined) {
-      if (!limiteValido(body.limiteUsuarios)) throw new Error('Límite de usuarios inválido')
-      cambios.limite_usuarios = body.limiteUsuarios
-    }
-    if (body.limitePacientes !== undefined) {
-      if (!limiteValido(body.limitePacientes)) throw new Error('Límite de pacientes inválido')
-      cambios.limite_pacientes = body.limitePacientes
+    if (body.plan !== undefined || body.limiteUsuarios !== undefined || body.limitePacientes !== undefined) {
+      throw new Error(
+        'El plan y los límites se cambian con "Cambiar plan" / "Ajustar condiciones" (suscripción de la clínica), no desde aquí.',
+      )
     }
     if (body.fechaInicio !== undefined) cambios.fecha_inicio = body.fechaInicio || null
     if (body.fechaVencimiento !== undefined) cambios.fecha_vencimiento = body.fechaVencimiento || null
@@ -97,6 +91,22 @@ serve(async (req) => {
       .single()
     if (updateError) throw updateError
     if (!clinica) throw new Error('Clínica no encontrada')
+
+    // Mantener la suscripción vigente alineada con lo que acaba de cambiar:
+    // estado y fechas viven en las DOS tablas (clinicas es el espejo).
+    const cambiosSuscripcion: Record<string, unknown> = {}
+    if (cambios.estado !== undefined) cambiosSuscripcion.estado = cambios.estado
+    if (cambios.fecha_inicio !== undefined && cambios.fecha_inicio !== null) cambiosSuscripcion.fecha_inicio = cambios.fecha_inicio
+    if (cambios.fecha_vencimiento !== undefined) cambiosSuscripcion.fecha_fin = cambios.fecha_vencimiento
+    if (Object.keys(cambiosSuscripcion).length > 0) {
+      cambiosSuscripcion.updated_at = new Date().toISOString()
+      const { error: subError } = await supabaseAdmin
+        .from('suscripciones')
+        .update(cambiosSuscripcion)
+        .eq('clinica_id', clinicaId)
+        .neq('estado', 'reemplazada')
+      if (subError) throw subError
+    }
 
     await supabaseAdmin.from('auditoria').insert({
       usuario_id: user.id,

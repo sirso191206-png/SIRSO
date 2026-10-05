@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useConsultaForm } from '../hooks/useConsultaForm'
 import { useAuthStore } from '../store/useAuthStore'
+import { useDisponibilidad, useFuncionalidad } from '../hooks/useFuncionalidad'
 import { Odontograma } from '../components/odontograma/Odontograma'
 import { SelectorCie10 } from '../components/SelectorCie10'
 import { InterrogatorioSistemas } from '../components/InterrogatorioSistemas'
@@ -29,6 +30,7 @@ export function ConsultaUnificada() {
   const { citaId } = useParams()
   const perfil = useAuthStore((s) => s.perfil)
   const f = useConsultaForm(citaId)
+  const disponible = useDisponibilidad()
 
   if (f.cargandoCita || !f.cita) return <p className="text-slate-400">Cargando consulta…</p>
 
@@ -54,7 +56,7 @@ export function ConsultaUnificada() {
             <h1 className="text-xl font-semibold text-slate-800">{f.cita.paciente?.nombre_completo}</h1>
             <p className="text-sm text-slate-500">{f.cita.paciente?.numero_expediente}</p>
           </div>
-          <Button variante="secundario" onClick={() => f.setModalExpediente(true)}>Ver expediente completo</Button>
+          {disponible('expediente_clinico') && <Button variante="secundario" onClick={() => f.setModalExpediente(true)}>Ver expediente completo</Button>}
         </div>
         {(alergias.length > 0 || enfermedades.length > 0 || medicamentos.length > 0) && (
           <div className="mt-3 space-y-0.5 rounded-lg bg-white p-3 text-sm">
@@ -72,7 +74,7 @@ export function ConsultaUnificada() {
       </Seccion>
 
       {/* Sección 2: Signos vitales */}
-      <Seccion titulo="2. Signos vitales">
+      <Seccion titulo="2. Signos vitales" funcionalidad="expediente_clinico">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <CampoSignoVital label="Sistólica" unidad="mmHg" valor={f.signosVitalesForm.presion_sistolica} onChange={(v) => f.setSignosVitalesForm((s) => ({ ...s, presion_sistolica: v }))} />
           <CampoSignoVital label="Diastólica" unidad="mmHg" valor={f.signosVitalesForm.presion_diastolica} onChange={(v) => f.setSignosVitalesForm((s) => ({ ...s, presion_diastolica: v }))} />
@@ -94,7 +96,7 @@ export function ConsultaUnificada() {
       </Seccion>
 
       {/* Sección 3: Hallazgos */}
-      <Seccion titulo="3. Hallazgos clínicos">
+      <Seccion titulo="3. Hallazgos clínicos" funcionalidad="notas_clinicas">
         <BotonesRapidos opciones={HALLAZGOS_RAPIDOS} onClick={(op) => f.setHallazgos((actual) => actual.includes(op) ? actual : (actual ? `${actual}, ${op}` : op))} />
         <label className="block text-sm">
           <span className="mb-1 block font-medium text-slate-700">Exploración</span>
@@ -102,27 +104,31 @@ export function ConsultaUnificada() {
         </label>
       </Seccion>
 
-      <SeccionColgable titulo="Interrogatorio por aparatos y sistemas (opcional)">
+      <SeccionColgable titulo="Interrogatorio por aparatos y sistemas (opcional)" funcionalidad="notas_clinicas">
         <InterrogatorioSistemas valor={f.interrogatorioSistemas} onCambiar={f.setInterrogatorioSistemas} />
       </SeccionColgable>
 
-      <SeccionColgable titulo="Exploración física (opcional)">
+      <SeccionColgable titulo="Exploración física (opcional)" funcionalidad="notas_clinicas">
         <ExploracionFisica valor={f.exploracionFisica} onCambiar={f.setExploracionFisica} />
       </SeccionColgable>
 
-      <SeccionColgable titulo="Acciones de salud bucal (opcional)">
+      <SeccionColgable titulo="Acciones de salud bucal (opcional)" funcionalidad="notas_clinicas">
         <AccionSaludBucal valor={f.accionSaludBucal} onCambiar={f.setAccionSaludBucal} />
       </SeccionColgable>
 
       {/* Sección 4: Diagnóstico */}
-      <Seccion titulo="4. Diagnóstico">
-        <label className="mb-1 block text-xs font-medium text-slate-500">Código CIE-10 (opcional)</label>
-        <SelectorCie10
-          codigo={f.diagnosticoCie10Codigo}
-          descripcion={f.diagnosticoCie10Descripcion}
-          onSeleccionar={(r) => { f.setDiagnosticoCie10Codigo(r.codigo); f.setDiagnosticoCie10Descripcion(r.descripcion) }}
-          onLimpiar={() => { f.setDiagnosticoCie10Codigo(''); f.setDiagnosticoCie10Descripcion('') }}
-        />
+      <Seccion titulo="4. Diagnóstico" funcionalidad="notas_clinicas">
+        {disponible('cie10') && (
+          <>
+            <label className="mb-1 block text-xs font-medium text-slate-500">Código CIE-10 (opcional)</label>
+            <SelectorCie10
+              codigo={f.diagnosticoCie10Codigo}
+              descripcion={f.diagnosticoCie10Descripcion}
+              onSeleccionar={(r) => { f.setDiagnosticoCie10Codigo(r.codigo); f.setDiagnosticoCie10Descripcion(r.descripcion) }}
+              onLimpiar={() => { f.setDiagnosticoCie10Codigo(''); f.setDiagnosticoCie10Descripcion('') }}
+            />
+          </>
+        )}
 
         <label className="mb-1 mt-3 block text-xs font-medium text-slate-500">Descripción clínica</label>
         <input
@@ -138,12 +144,12 @@ export function ConsultaUnificada() {
       </Seccion>
 
       {/* Sección 5: Odontograma rápido */}
-      <Seccion titulo="5. Odontograma">
+      <Seccion titulo="5. Odontograma" funcionalidad={['odontograma_2d', 'odontograma_3d', 'periodontograma']}>
         <Odontograma pacienteId={f.cita.paciente_id} />
       </Seccion>
 
       {/* Sección 6: Tratamiento */}
-      <Seccion titulo="6. Tratamiento">
+      <Seccion titulo="6. Tratamiento" funcionalidad="tratamientos">
         <Button variante="secundario" onClick={() => f.setModalTratamiento(true)}>+ Agregar tratamiento</Button>
         <div className="mt-3 space-y-2">
           {f.tratamientos.length === 0 && <p className="text-sm text-slate-400">Sin tratamientos agregados en esta consulta.</p>}
@@ -160,7 +166,7 @@ export function ConsultaUnificada() {
       </Seccion>
 
       {/* Sección 7: Nota clínica */}
-      <Seccion titulo="7. Nota clínica">
+      <Seccion titulo="7. Nota clínica" funcionalidad="notas_clinicas">
         <div className="mb-2 flex flex-wrap gap-2">
           {Object.keys(f.PLANTILLAS_NOTA).map((p) => (
             <button key={p} onClick={() => f.aplicarPlantillaNota(p)} className="rounded-full border border-slate-300 px-3 py-1 text-xs text-slate-600 hover:bg-slate-50">
@@ -185,7 +191,7 @@ export function ConsultaUnificada() {
       </Seccion>
 
       {/* Sección 8: Próxima cita */}
-      <Seccion titulo="8. Próxima cita">
+      <Seccion titulo="8. Próxima cita" funcionalidad="citas">
         <p className="mb-2 text-sm text-slate-600">¿Programar seguimiento?</p>
         <div className="mb-3 flex gap-2">
           <button
@@ -212,7 +218,7 @@ export function ConsultaUnificada() {
       </Seccion>
 
       {/* Sección 9: Receta */}
-      <Seccion titulo="9. Receta">
+      <Seccion titulo="9. Receta" funcionalidad="recetas">
         <Button variante="secundario" onClick={() => f.setModalReceta(true)} className="inline-flex items-center gap-1.5">
           <Icon.edit /> Nueva receta
         </Button>
@@ -265,7 +271,13 @@ export function ConsultaUnificada() {
   )
 }
 
-function Seccion({ titulo, children }) {
+// `funcionalidad` (opcional): código —o lista, basta una— del plan que incluye esta
+// sección. Sin ella, o con el plan desconocido, siempre se muestra. Solo oculta
+// interfaz; la base de datos es quien bloquea los datos. Las secciones conservan su
+// numeración (puede haber saltos si el plan no incluye alguna).
+function Seccion({ titulo, children, funcionalidad }) {
+  const incluida = useFuncionalidad(funcionalidad)
+  if (!incluida) return null
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4">
       <h2 className="mb-3 text-sm font-semibold text-slate-700">{titulo}</h2>
@@ -280,7 +292,9 @@ function Seccion({ titulo, children }) {
 // de salud bucal). No se elimina nada, solo se oculta hasta que se
 // necesita, para que el scroll de la consulta no dependa de
 // secciones que la mayoría de las veces se dejan vacías.
-function SeccionColgable({ titulo, children }) {
+function SeccionColgable({ titulo, children, funcionalidad }) {
+  const incluida = useFuncionalidad(funcionalidad)
+  if (!incluida) return null
   const [abierta, setAbierta] = useState(false)
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4">

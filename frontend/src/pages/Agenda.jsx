@@ -15,6 +15,7 @@ import { VistaMes } from '../components/agenda/VistaMes'
 import { PanelCita } from '../components/agenda/PanelCita'
 import { ModalNuevaCita } from '../components/agenda/ModalNuevaCita'
 import { ModalNuevaUrgencia } from '../components/ModalNuevaUrgencia'
+import { useDisponibilidad } from '../hooks/useFuncionalidad'
 import { AvisoDatosGuardados } from '../components/layout/AvisoDatosGuardados'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
@@ -108,6 +109,7 @@ export function Agenda() {
   })
   const { bloqueos, agregar: agregarBloqueo } = useHorariosBloqueados({ desde, hasta })
   const { lista: listaEspera, agregar: agregarListaEspera, marcarAtendido } = useListaEspera()
+  const disponible = useDisponibilidad()
 
   const cambiarPeriodo = (direccion) => {
     const nueva = new Date(fechaBase)
@@ -218,12 +220,12 @@ export function Agenda() {
             <Button variante="secundario" onClick={() => cambiarPeriodo(-1)} aria-label="Periodo anterior"><Icon.chevronLeft /></Button>
             <Button variante="secundario" onClick={() => setFechaBase(new Date())}>Hoy</Button>
             <Button variante="secundario" onClick={() => cambiarPeriodo(1)} aria-label="Periodo siguiente"><Icon.chevronRight /></Button>
-            {puedeGestionar && (
+            {puedeGestionar && disponible('citas') && (
               <Button onClick={() => { setFechaParaNuevaCita(null); setModalNuevaCita(true) }} className="inline-flex items-center gap-1.5">
                 <Icon.calendarPlus /> Nueva cita
               </Button>
             )}
-            {puedeGestionar && (
+            {puedeGestionar && disponible('urgencias') && disponible('citas') && (
               <Button variante="secundario" onClick={() => setModalUrgenciaAbierto(true)} className="inline-flex items-center gap-1.5">
                 <Icon.zap /> Urgencia
               </Button>

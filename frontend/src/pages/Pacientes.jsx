@@ -4,6 +4,7 @@ import { usePacientesLista } from '../hooks/usePacientesLista'
 import { crearPaciente, buscarPosiblesDuplicados, buscarPacientePorCurp } from '../services/pacientes'
 import { validarEstructuraCurp, parsearCurp } from '../lib/curp'
 import { calcularEdad } from '../lib/fechas'
+import { mensajeErrorDePlan } from '../lib/planes'
 import { useAuthStore } from '../store/useAuthStore'
 import { useSucursalStore } from '../store/useSucursalStore'
 import { toastExito, toastError } from '../store/useToastStore'
@@ -295,7 +296,8 @@ function ModalNuevoPaciente({ abierto, onCerrar }) {
       onCerrar()
       navigate(`/pacientes/${paciente.id}`)
     } catch (err) {
-      toastError('No se pudo crear el paciente: ' + err.message)
+      // Un rechazo por límite del plan (PT402) llega con su mensaje claro; no se reemplaza por uno genérico.
+      toastError('No se pudo crear el paciente: ' + mensajeErrorDePlan(err))
     } finally {
       setGuardando(false)
     }

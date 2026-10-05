@@ -20,6 +20,9 @@ import { quitarOperacion } from './colaOffline'
 export const UMBRAL_INTENTOS_PARA_DESCARTAR = 3
 
 export function operacionEsDescartable(operacion) {
+  // Un conflicto (p. ej. CURP ya registrado) no se arregla reintentando
+  // — se puede descartar de inmediato, sin esperar a los intentos.
+  if (operacion.estado === 'conflicto') return true
   return operacion.estado === 'error' && (operacion.intentos ?? 0) >= UMBRAL_INTENTOS_PARA_DESCARTAR
 }
 

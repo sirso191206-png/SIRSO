@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useUsuarios } from '../hooks/useUsuarios'
 import { useAuthStore } from '../store/useAuthStore'
+import { useFuncionalidad } from '../hooks/useFuncionalidad'
+import { mensajeErrorDePlan } from '../lib/planes'
 import { toastExito, toastError } from '../store/useToastStore'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
@@ -164,7 +166,7 @@ function ModalNuevoUsuario({ abierto, onCerrar, onCrear }) {
       setResultado(res)
       toastExito('Usuario creado.')
     } catch (err) {
-      setError(err.message)
+      setError(mensajeErrorDePlan(err))
     } finally {
       setGuardando(false)
     }
@@ -326,6 +328,7 @@ function AsignacionDentistasDeAsistente({ asistente }) {
 }
 
 function ModalEditarUsuario({ usuario, esUnoMismo, onCerrar, onGuardar }) {
+  const permisosIncluidos = useFuncionalidad('permisos') // asignar asistentes a dentistas
   const [nombre, setNombre] = useState('')
   const [rol, setRol] = useState('recepcion')
   const [cedulaProfesional, setCedulaProfesional] = useState('')
@@ -410,7 +413,7 @@ function ModalEditarUsuario({ usuario, esUnoMismo, onCerrar, onGuardar }) {
           también puede capturarlos él mismo desde "Datos profesionales" en su propia sesión.
         </p>
 
-        {rol === 'asistente' && <AsignacionDentistasDeAsistente asistente={usuario} />}
+        {rol === 'asistente' && permisosIncluidos && <AsignacionDentistasDeAsistente asistente={usuario} />}
 
         <Button type="submit" disabled={guardando} className="w-full">
           {guardando ? 'Guardando…' : 'Guardar cambios'}

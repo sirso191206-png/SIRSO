@@ -19,15 +19,21 @@ import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
 import { ConfirmModal } from '../components/ui/ConfirmModal'
 import { Icon } from '../components/ui/Icon'
+import { useDisponibilidad } from '../hooks/useFuncionalidad'
 
 const TODAS_LAS_TABS = [
   { nombre: 'Resumen', roles: ['owner', 'dentista'] },
   { nombre: 'Datos generales', roles: ['owner', 'dentista', 'recepcion', 'asistente'] },
-  { nombre: 'Historial', roles: ['owner', 'dentista'] },
-  { nombre: 'Odontograma', roles: ['owner', 'dentista'] },
-  { nombre: 'Plan', roles: ['owner', 'dentista', 'recepcion', 'asistente'] },
+  { nombre: 'Historial', roles: ['owner', 'dentista'], funcionalidad: ['expediente_clinico', 'notas_clinicas'] },
+  // `funcionalidad`: pestañas que dependen del plan (solo oculta la interfaz;
+  // la base de datos aplica la restricción real). Sin ella, siempre visible.
+  { nombre: 'Odontograma', roles: ['owner', 'dentista'], funcionalidad: 'odontograma_2d' },
+  { nombre: 'Plan', roles: ['owner', 'dentista', 'recepcion', 'asistente'], funcionalidad: 'tratamientos' },
+  // Recetas, consentimientos y referencias (cada subpestaña se filtra por su propia
+  // funcionalidad dentro de TabDocumentosClinicos; "Referencias" siempre está).
   { nombre: 'Documentos clínicos', roles: ['owner', 'dentista'] },
-  { nombre: 'Archivos', roles: ['owner', 'dentista'] }
+  // Fotografías y documentos subidos: basta con que el plan incluya una de las dos.
+  { nombre: 'Archivos', roles: ['owner', 'dentista'], funcionalidad: ['fotografias', 'documentos'] }
 ]
 
 export function PacienteDetalle() {
@@ -89,7 +95,8 @@ export function PacienteDetalle() {
     }
   }
 
-  const tabsVisibles = TODAS_LAS_TABS.filter((t) => t.roles.includes(perfil?.rol))
+  const disponible = useDisponibilidad()
+  const tabsVisibles = TODAS_LAS_TABS.filter((t) => t.roles.includes(perfil?.rol) && disponible(t.funcionalidad))
   const [tab, setTab] = useState(null)
   const [filtroHistorialInicial, setFiltroHistorialInicial] = useState('todos')
 

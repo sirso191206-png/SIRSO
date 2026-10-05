@@ -15,9 +15,11 @@ export async function verClinica(clinicaId) {
   }) // { clinica, pacientes, usuarios }
 }
 
-// Cambia estado / plan / límites de una clínica. Solo super admin.
-// `cambios` puede incluir: estado, plan, limiteUsuarios, limitePacientes,
-// fechaInicio, fechaVencimiento (solo se envía lo que se quiera cambiar).
+// Cambia estado y fechas de una clínica. Solo super admin.
+// `cambios` puede incluir: estado, fechaInicio, fechaVencimiento (solo se envía
+// lo que se quiera cambiar). El PLAN y los LÍMITES ya no se cambian por aquí
+// (la función lo rechaza): usa asignarPlanClinica / ajustarCondicionesClinica
+// de services/planes.js, que trabajan sobre la suscripción de la clínica.
 export async function actualizarClinica(clinicaId, cambios) {
   return invocarFuncionAutenticada('admin-actualizar-clinica', {
     body: { clinicaId, ...cambios }
@@ -34,11 +36,14 @@ export async function eliminarClinica(clinicaId, confirmarNombre) {
   }) // { ok, advertencias }
 }
 
-// Crea una clínica nueva y su usuario dueño (owner). Solo super admin.
-// Devuelve { clinica, correo, passwordTemporal } — la contraseña temporal
-// se le entrega al dueño para su primer inicio de sesión.
-export async function crearClinicaConOwner({ nombreClinica, ownerNombre, ownerCorreo }) {
+// Crea una clínica nueva, su suscripción (con el snapshot del plan elegido) y su
+// usuario dueño (owner). Solo super admin. `planCodigo`/`modalidad` salen del
+// selector de planes (base de datos); `precioContratado` es opcional para
+// convenios a la medida.
+// Devuelve { clinica, correo, passwordTemporal, suscripcion } — la contraseña
+// temporal se le entrega al dueño para su primer inicio de sesión.
+export async function crearClinicaConOwner({ nombreClinica, ownerNombre, ownerCorreo, planCodigo, modalidad, precioContratado, fechaFin, autoRenovacion }) {
   return invocarFuncionAutenticada('admin-crear-clinica', {
-    body: { nombreClinica, ownerNombre, ownerCorreo }
+    body: { nombreClinica, ownerNombre, ownerCorreo, planCodigo, modalidad, precioContratado, fechaFin, autoRenovacion }
   })
 }

@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useConexion } from './useConexion'
+import { useFuncionalidad } from './useFuncionalidad'
 import { useAuthStore } from '../store/useAuthStore'
 import { useSucursalStore } from '../store/useSucursalStore'
 import { verificarConexionReal } from '../lib/conectividadReal'
@@ -25,9 +26,12 @@ export function esHoy(iso) {
 export function usePrecargaAutomaticaDelDia() {
   const conectado = useConexion()
   const perfil = useAuthStore((s) => s.perfil)
+  // Las réplicas locales dependen de la funcionalidad "sincronizacion" del plan.
+  // Subir los cambios pendientes (la cola) NUNCA se apaga por plan: sería perder datos.
+  const sincronizacionIncluida = useFuncionalidad('sincronizacion')
 
   useEffect(() => {
-    if (!conectado || !perfil) return
+    if (!conectado || !perfil || !sincronizacionIncluida) return
     let cancelado = false
 
     verificarConexionReal(supabase).then(async (real) => {
@@ -48,5 +52,5 @@ export function usePrecargaAutomaticaDelDia() {
 
     return () => { cancelado = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conectado, perfil?.id])
+  }, [conectado, perfil?.id, sincronizacionIncluida])
 }
