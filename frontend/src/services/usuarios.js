@@ -27,9 +27,11 @@ export async function listarDentistas() {
 // Llama a la Edge Function `crear-usuario` con el access_token vigente
 // de la sesión adjunto explícitamente — ver invocarFuncionAutenticada
 // en lib/supabase.js.
-export async function crearUsuario({ correo, nombre, rol, nombreClinica }) {
+// Agrega un usuario a la clínica DEL QUE LLAMA. No crea clínicas ni owners (solo el
+// superadmin da de alta una clínica, con su plan, vía admin-crear-clinica).
+export async function crearUsuario({ correo, nombre, rol }) {
   return invocarFuncionAutenticada('crear-usuario', {
-    body: { correo, nombre, rol, nombreClinica }
+    body: { correo, nombre, rol }
   }) // { correo, passwordTemporal }
 }
 

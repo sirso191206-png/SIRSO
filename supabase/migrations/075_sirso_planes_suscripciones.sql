@@ -33,6 +33,15 @@
 -- ============================================================
 begin;
 
+-- ORDEN DE DESPLIEGUE: la 074 (RLS de planes_catalogo) va ANTES. Sin ella, planes_catalogo
+-- quedaría con políticas nuevas pero SIN RLS activa. Se exige en lugar de confiar en el orden.
+do $$
+begin
+  if not coalesce((select relrowsecurity from pg_class where oid = 'public.planes_catalogo'::regclass), false) then
+    raise exception 'Aplica primero la migración 074 (RLS de planes_catalogo) y después la 075.';
+  end if;
+end $$;
+
 -- ---------- 0. Helper ----------
 create or replace function fn_es_super_admin()
 returns boolean language sql stable security definer set search_path = public as $$

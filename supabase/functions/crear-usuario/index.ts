@@ -1,5 +1,7 @@
 // Edge Function: crear-usuario
-// Solo el 'owner' de una clínica puede crear usuarios nuevos.
+// Solo el 'owner' de una clínica puede crear usuarios nuevos, y SIEMPRE dentro de SU
+// PROPIA clínica. Esta función NUNCA crea clínicas ni owners: dar de alta una clínica
+// (con su plan y suscripción) es exclusivo del superadmin, vía admin-crear-clinica.
 // Usa la service_role key (inyectada automáticamente por Supabase en el
 // entorno de la función) — esa llave NUNCA debe existir en el frontend.
 
@@ -8,7 +10,17 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 
 import { buildCorsHeaders } from '../_shared/cors.ts'
 
-const ROLES_VALIDOS = ['owner', 'dentista', 'recepcion', 'asistente']
+// 'owner' NO está a propósito: un owner nace solo al dar de alta una clínica (superadmin).
+const ROLES_VALIDOS = ['dentista', 'recepcion', 'asistente']
+
+// Error con código HTTP propio (las fallas de autorización devuelven 403, no 400).
+class ErrorDeAutorizacion_ extends Error {
+  status: number
+  constructor(mensaje: string, status = 403) {
+    super(mensaje)
+    this.status = status
+  }
+}
 
 serve(async (req) => {
   // CORS por petición: refleja el Origin si está en la lista blanca.
@@ -52,7 +64,7 @@ serve(async (req) => {
       .eq('id', user.id)
       .single()
     if (perfilError || !perfilCaller) throw new Error('No se encontró tu perfil')
-    if (perfilCaller.rol !== 'owner') throw new Error('Solo el owner puede crear usuarios')
+    if (perfilCaller.rol !== 'owner') throw new ErrorDeAutorizacion_('Solo el owner puede crear usuarios', 403)
 
     // Clínica suspendida: ninguna acción administrativa, ni siquiera
     // crear otra clínica desde aquí. Esto se valida en el backend porque
@@ -68,34 +80,24 @@ serve(async (req) => {
       throw new Error('Tu clínica está suspendida. No puedes crear usuarios en este momento.')
     }
 
-    const { correo, nombre, rol, nombreClinica } = await req.json()
-    if (!correo || !nombre || !rol) throw new Error('Faltan datos (correo, nombre, rol)')
-    if (!ROLES_VALIDOS.includes(rol)) throw new Error('Rol inválido')
-
-    let clinicaIdDestino = perfilCaller.clinica_id
-
-    // Límite de usuarios del plan: solo aplica al agregar usuarios a una
-    // clínica EXISTENTE (no cuando se crea un owner con su clínica nueva).
-    // El límite de usuarios del plan lo aplica la BASE DE DATOS (trigger
-    // trg_validar_limite_usuarios, migración 075) leyendo la suscripción de la
-    // clínica: es la autoridad final. Antes se contaba aquí contra una columna
-    // que puede no coincidir; si el insert de más abajo choca con el cupo, el
-    // error PT402 sube con su mensaje y se revierte el usuario de Auth.
-
+    const { correo, nombre, rol } = await req.json()
+    if (!correo || !nombre || !rol) throw new ErrorDeAutorizacion_('Faltan datos (correo, nombre, rol)', 400)
+    // Un owner NO puede crear otro owner ni una clínica nueva (ni con nombreClinica, ni de
+    // ninguna otra forma): dejaría una clínica fuera del sistema de planes.
     if (rol === 'owner') {
-      // Un owner nuevo es dueño de SU PROPIA clínica, independiente de la
-      // tuya — no hereda ni comparte tus pacientes/usuarios/citas.
-      if (!nombreClinica || !nombreClinica.trim()) {
-        throw new Error('Falta el nombre de la nueva clínica')
-      }
-      const { data: nuevaClinica, error: clinicaError } = await supabaseAdmin
-        .from('clinicas')
-        .insert({ nombre: nombreClinica.trim() })
-        .select()
-        .single()
-      if (clinicaError) throw clinicaError
-      clinicaIdDestino = nuevaClinica.id
+      throw new ErrorDeAutorizacion_(
+        'Solo el superadmin puede dar de alta una clínica nueva o un owner. Puedes agregar dentistas, recepción y asistentes a tu clínica.',
+        403,
+      )
     }
+    if (!ROLES_VALIDOS.includes(rol)) throw new ErrorDeAutorizacion_('Rol inválido', 400)
+
+    // SIEMPRE la clínica del owner que llama — nunca una indicada por el cliente.
+    const clinicaIdDestino = perfilCaller.clinica_id
+
+    // El límite de usuarios lo aplica la BASE DE DATOS (trigger trg_validar_limite_usuarios,
+    // migración 075): si el insert de más abajo choca con el cupo, el error PT402 sube con su
+    // mensaje y se revierte el usuario de Auth.
 
     // Contraseña temporal — se le entrega al owner para compartirla; el
     // nuevo usuario debería cambiarla en su primer inicio de sesión.
@@ -137,7 +139,7 @@ serve(async (req) => {
     })
   } catch (err) {
     return new Response(JSON.stringify({ error: err.message }), {
-      status: 400,
+      status: err instanceof ErrorDeAutorizacion_ ? err.status : 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
   }

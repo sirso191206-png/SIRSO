@@ -150,19 +150,16 @@ function ModalNuevoUsuario({ abierto, onCerrar, onCrear }) {
   const [nombre, setNombre] = useState('')
   const [correo, setCorreo] = useState('')
   const [rol, setRol] = useState('recepcion')
-  const [nombreClinica, setNombreClinica] = useState('')
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState(null)
   const [resultado, setResultado] = useState(null)
-
-  const esNuevoOwner = rol === 'owner'
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError(null)
     setGuardando(true)
     try {
-      const res = await onCrear({ nombre, correo, rol, nombreClinica: esNuevoOwner ? nombreClinica : undefined })
+      const res = await onCrear({ nombre, correo, rol })
       setResultado(res)
       toastExito('Usuario creado.')
     } catch (err) {
@@ -176,7 +173,6 @@ function ModalNuevoUsuario({ abierto, onCerrar, onCrear }) {
     setNombre('')
     setCorreo('')
     setRol('recepcion')
-    setNombreClinica('')
     setResultado(null)
     setError(null)
     onCerrar()
@@ -209,27 +205,12 @@ function ModalNuevoUsuario({ abierto, onCerrar, onCrear }) {
               onChange={(e) => setRol(e.target.value)}
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
             >
-              {ROLES.map((r) => (
+              {/* Un owner solo nace al dar de alta una clínica (superadmin): aquí no se ofrece. */}
+              {ROLES.filter((r) => r.value !== 'owner').map((r) => (
                 <option key={r.value} value={r.value}>{r.label}</option>
               ))}
             </select>
           </label>
-
-          {esNuevoOwner && (
-            <div className="rounded-lg bg-amber-50 p-3">
-              <Input
-                label="Nombre de la nueva clínica"
-                required
-                value={nombreClinica}
-                onChange={(e) => setNombreClinica(e.target.value)}
-                placeholder="Ej. Consultorio Dental García"
-              />
-              <p className="mt-2 text-xs text-amber-800">
-                Un usuario con rol Owner es dueño de su propia clínica, independiente de la tuya.
-                No va a ver tus pacientes, citas ni usuarios, y tú tampoco vas a ver los suyos.
-              </p>
-            </div>
-          )}
 
           {error && <p className="text-sm text-clinico-rojo">{error}</p>}
           <Button type="submit" disabled={guardando} className="w-full">

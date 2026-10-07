@@ -198,3 +198,23 @@ Las Edge Functions solo se validaron de **sintaxis** (no hay Deno aquí); falta 
 - **Cambio de plan** hecho por el superadmin: se refresca al iniciar, al recuperar la red, al volver a la pestaña (máx. 1/min) y cada 5 min (`useSuscripcionAlDia`). Con datos guardados, el panel lo avisa.
 - **Cambio de clínica**: en SIRO una cuenta pertenece a UNA clínica; "cambiar de clínica" ocurre al cambiar de cuenta o si cambia `clinica_id` del perfil. Cambiar de **sucursal** no cambia el plan (es por clínica).
 - Los rechazos reales de la BD se muestran con `mensajeErrorDePlan` al crear pacientes, usuarios y sucursales y al reactivar sucursales.
+
+## 13. Hotfix de la auditoría: migraciones 076 y 077
+
+**Orden de despliegue**
+1. **074** (RLS de `planes_catalogo`) y **077** (nadie se hace superadmin por la API): hotfix de seguridad, independientes de los planes; se aplican de inmediato.
+2. **075** (planes y suscripciones). Ahora se niega a correr si la 074 no está aplicada.
+3. **076** (una clínica nunca existe sin suscripción). Requiere la 075.
+
+**077 — escalada a superadmin.** `usuarios_update_owner` permitía a un dueño actualizar cualquier fila de su clínica, incluida `es_super_admin`; con eso un dueño podía hacerse superadmin (`PATCH /usuarios {"es_super_admin": true}`) y llamar todas las `sa_*`. Un trigger impide ahora a `authenticated`/`anon` activar o cambiar esa columna. El alta de un superadmin se hace con SQL o `service_role`.
+
+**076 — clínica sin suscripción.**
+- `crear-usuario` ya no crea owners ni clínicas (responde 403); solo el superadmin da de alta clínicas con `admin-crear-clinica`.
+- `fn_crear_clinica_con_plan` crea clínica y suscripción en una sola transacción (solo `service_role`) y un trigger diferido rechaza cualquier clínica sin suscripción vigente.
+- **Antes de desplegar**, busca clínicas ya huérfanas (creadas entre la 075 y la 076):
+  `select id, nombre from clinicas c where not exists (select 1 from suscripciones s where s.clinica_id = c.id and s.estado <> 'reemplazada');`
+  Regularízalas con "Asignar plan" del superadmin; hasta entonces funcionan igual pero no se pueden reactivar.
+
+**Verificación:** `supabase/tests/run_planes_tests.sh` (heredadas, idempotencia, 84 pruebas) y `planes_auditoria_hotfix_test.sql` (13 pruebas de los ataques de la auditoría). Ambas corren contra PostgreSQL local, no contra Supabase.
+
+**Pendiente de decisión:** si un plan nuevo QUITA una funcionalidad, los datos de esa funcionalidad no se borran pero la clínica deja de verlos (RLS). Un owner también puede insertar otro owner en su propia clínica por la API directa (no crea clínicas y cuenta contra el límite de usuarios).

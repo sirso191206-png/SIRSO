@@ -91,31 +91,26 @@ serve(async (req) => {
     if (!planDb) throw new Error('El plan seleccionado no existe')
     if (!planDb.activo) throw new Error('El plan seleccionado está desactivado')
 
-    // 1) Crear la clínica.
-    const { data: clinica, error: clinicaError } = await supabaseAdmin
-      .from('clinicas')
-      .insert({ nombre: nombreClinica })
-      .select()
-      .single()
-    if (clinicaError) throw clinicaError
-
-    // 1b) Suscripción + snapshot de límites y funcionalidades CONTRATADOS
-    //     (fn_asignar_plan_interno, migración 075 — solo service_role). Va
-    //     antes del dueño para que el límite de usuarios del plan ya rija.
-    const { data: asignacion, error: asignarError } = await supabaseAdmin.rpc('fn_asignar_plan_interno', {
+    // 1) Crear la clínica CON su suscripción y su snapshot de límites y funcionalidades en UNA
+    //    sola transacción (fn_crear_clinica_con_plan, migración 076 — solo service_role). La base
+    //    de datos además rechaza cualquier clínica sin suscripción: no hay vía "a medias".
+    const { data: alta, error: altaError } = await supabaseAdmin.rpc('fn_crear_clinica_con_plan', {
       p_actor: user.id,
-      p_clinica: clinica.id,
+      p_nombre: nombreClinica,
       p_plan: planCodigo,
       p_modalidad: modalidad,
       p_precio: precioContratado,
-      p_fecha_inicio: null,
       p_fecha_fin: fechaFin,
       p_auto_renovacion: autoRenovacion,
     })
-    if (asignarError) {
-      await supabaseAdmin.from('clinicas').delete().eq('id', clinica.id)
-      throw asignarError
-    }
+    if (altaError) throw altaError
+    const asignacion = alta.suscripcion
+    const { data: clinica, error: clinicaError } = await supabaseAdmin
+      .from('clinicas')
+      .select()
+      .eq('id', alta.clinica_id)
+      .single()
+    if (clinicaError) throw clinicaError
 
     // 2) Crear el usuario de Auth (dueño) con contraseña temporal.
     const passwordTemporal = crypto.randomUUID().slice(0, 12)
