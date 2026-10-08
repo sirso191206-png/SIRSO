@@ -1,42 +1,52 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import { useEffect } from 'react'
+import { Suspense, lazy, useEffect } from 'react'
 import { useAuthStore } from './store/useAuthStore'
 import { ProtectedRoute } from './components/layout/ProtectedRoute'
 import { Login } from './pages/Login'
-import { Contacto } from './pages/Contacto'
-import { RestablecerPassword } from './pages/RestablecerPassword'
-import { Legal } from './pages/Legal'
-import { AvisoPrivacidad } from './pages/legal/AvisoPrivacidad'
-import { Terminos } from './pages/legal/Terminos'
 import { MiDia } from './pages/MiDia'
-import { Dashboard } from './pages/Dashboard'
-import { Pacientes } from './pages/Pacientes'
-import { PacienteDetalle } from './pages/PacienteDetalle'
-import { Agenda } from './pages/Agenda'
-import { Usuarios } from './pages/Usuarios'
-import { Administracion } from './pages/Administracion'
-import { AdministracionClinica } from './pages/AdministracionClinica'
-import { SuperAdminPlanes } from './pages/SuperAdminPlanes'
 import { RutaConFuncionalidad } from './components/planes/RutaConFuncionalidad'
-import { CatalogoTratamientos } from './pages/CatalogoTratamientos'
-import { CorteDeCaja } from './pages/CorteDeCaja'
-import { ConfiguracionClinica } from './pages/ConfiguracionClinica'
-import { ConfiguracionSeguridad } from './pages/ConfiguracionSeguridad'
-import { Sucursales } from './pages/Sucursales'
-import { ConsultaUnificada } from './pages/ConsultaUnificada'
-import { Cookies } from './pages/legal/Cookies'
-import { PreferenciasCookies } from './pages/legal/cookies/Preferencias'
-import { Arco } from './pages/legal/Arco'
-import { Seguridad } from './pages/legal/Seguridad'
-import { Retencion } from './pages/legal/Retencion'
-import { Proveedores } from './pages/legal/Proveedores'
-import { AcuerdoTratamientoDatos } from './pages/legal/AcuerdoTratamientoDatos'
-import { AdministracionArco } from './pages/AdministracionArco'
-import { AdministracionIncidentes } from './pages/AdministracionIncidentes'
-import { AdminLegal } from './pages/AdminLegal'
+import { RutaSucursales } from './components/planes/RutaSucursales'
 import { ToastContainer } from './components/ui/Toast'
 import { BannerCookies } from './components/legal/BannerCookies'
 import { BannerSinConexion } from './components/layout/BannerSinConexion'
+import { ErrorDeCarga } from './components/layout/ErrorDeCarga'
+
+
+// Cada pantalla (salvo el login y "Mi día", que son lo primero que se ve) se descarga cuando se entra a ella, no todas
+// juntas al abrir SIRO. El service worker precachea TODO dist/ (incluidos estos archivos), así que también funcionan sin
+// conexión. Una guardia (codigoPorRutas.test.js) impide volver a importar pantallas de golpe.
+const pagina = (cargar, nombre) => lazy(() => cargar().then((m) => ({ default: m[nombre] })))
+const Contacto = pagina(() => import('./pages/Contacto'), 'Contacto')
+const RestablecerPassword = pagina(() => import('./pages/RestablecerPassword'), 'RestablecerPassword')
+const Legal = pagina(() => import('./pages/Legal'), 'Legal')
+const AvisoPrivacidad = pagina(() => import('./pages/legal/AvisoPrivacidad'), 'AvisoPrivacidad')
+const Terminos = pagina(() => import('./pages/legal/Terminos'), 'Terminos')
+const Dashboard = pagina(() => import('./pages/Dashboard'), 'Dashboard')
+const Pacientes = pagina(() => import('./pages/Pacientes'), 'Pacientes')
+const PacienteDetalle = pagina(() => import('./pages/PacienteDetalle'), 'PacienteDetalle')
+const Agenda = pagina(() => import('./pages/Agenda'), 'Agenda')
+const Usuarios = pagina(() => import('./pages/Usuarios'), 'Usuarios')
+const Administracion = pagina(() => import('./pages/Administracion'), 'Administracion')
+const AdministracionClinica = pagina(() => import('./pages/AdministracionClinica'), 'AdministracionClinica')
+const SuperAdminPlanes = pagina(() => import('./pages/SuperAdminPlanes'), 'SuperAdminPlanes')
+const CatalogoTratamientos = pagina(() => import('./pages/CatalogoTratamientos'), 'CatalogoTratamientos')
+const CorteDeCaja = pagina(() => import('./pages/CorteDeCaja'), 'CorteDeCaja')
+const ConfiguracionClinica = pagina(() => import('./pages/ConfiguracionClinica'), 'ConfiguracionClinica')
+const ConfiguracionSeguridad = pagina(() => import('./pages/ConfiguracionSeguridad'), 'ConfiguracionSeguridad')
+const Sucursales = pagina(() => import('./pages/Sucursales'), 'Sucursales')
+const Auditoria = pagina(() => import('./pages/Auditoria'), 'Auditoria')
+const Ayuda = pagina(() => import('./pages/Ayuda'), 'Ayuda')
+const ConsultaUnificada = pagina(() => import('./pages/ConsultaUnificada'), 'ConsultaUnificada')
+const Cookies = pagina(() => import('./pages/legal/Cookies'), 'Cookies')
+const PreferenciasCookies = pagina(() => import('./pages/legal/cookies/Preferencias'), 'PreferenciasCookies')
+const Arco = pagina(() => import('./pages/legal/Arco'), 'Arco')
+const Seguridad = pagina(() => import('./pages/legal/Seguridad'), 'Seguridad')
+const Retencion = pagina(() => import('./pages/legal/Retencion'), 'Retencion')
+const Proveedores = pagina(() => import('./pages/legal/Proveedores'), 'Proveedores')
+const AcuerdoTratamientoDatos = pagina(() => import('./pages/legal/AcuerdoTratamientoDatos'), 'AcuerdoTratamientoDatos')
+const AdministracionArco = pagina(() => import('./pages/AdministracionArco'), 'AdministracionArco')
+const AdministracionIncidentes = pagina(() => import('./pages/AdministracionIncidentes'), 'AdministracionIncidentes')
+const AdminLegal = pagina(() => import('./pages/AdminLegal'), 'AdminLegal')
 
 export default function App() {
   const init = useAuthStore((s) => s.init)
@@ -50,6 +60,8 @@ export default function App() {
       <ToastContainer />
       <BannerCookies />
       <BannerSinConexion />
+      <ErrorDeCarga>
+        <Suspense fallback={<div className="flex h-screen items-center justify-center text-slate-400">Cargando…</div>}>
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/contacto" element={<Contacto />} />
@@ -74,7 +86,9 @@ export default function App() {
         <Route path="/corte-de-caja" element={<ProtectedRoute><RutaConFuncionalidad funcionalidad="caja"><CorteDeCaja /></RutaConFuncionalidad></ProtectedRoute>} />
         <Route path="/configuracion" element={<ProtectedRoute><ConfiguracionClinica /></ProtectedRoute>} />
         <Route path="/configuracion/seguridad" element={<ProtectedRoute><ConfiguracionSeguridad /></ProtectedRoute>} />
-        <Route path="/sucursales" element={<ProtectedRoute><Sucursales /></ProtectedRoute>} />
+        <Route path="/ayuda" element={<ProtectedRoute><Ayuda /></ProtectedRoute>} />
+        <Route path="/auditoria" element={<ProtectedRoute><RutaConFuncionalidad funcionalidad="auditoria"><Auditoria /></RutaConFuncionalidad></ProtectedRoute>} />
+        <Route path="/sucursales" element={<ProtectedRoute><RutaSucursales><Sucursales /></RutaSucursales></ProtectedRoute>} />
         <Route path="/consulta/:citaId" element={<ProtectedRoute><ConsultaUnificada /></ProtectedRoute>} />
         <Route path="/administracion" element={<ProtectedRoute><Administracion /></ProtectedRoute>} />
         <Route path="/superadmin/planes" element={<ProtectedRoute><SuperAdminPlanes /></ProtectedRoute>} />
@@ -83,6 +97,8 @@ export default function App() {
         <Route path="/admin/legal" element={<ProtectedRoute><AdminLegal /></ProtectedRoute>} />
         <Route path="/administracion/:clinicaId" element={<ProtectedRoute><AdministracionClinica /></ProtectedRoute>} />
       </Routes>
+        </Suspense>
+      </ErrorDeCarga>
     </BrowserRouter>
   )
 }

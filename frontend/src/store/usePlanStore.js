@@ -24,12 +24,19 @@ const identidadActual = () => identidadSuscripcion(useAuthStore.getState().perfi
 // Cada limpiar() invalida las cargas en vuelo: si la cuenta/clínica cambia mientras
 // se espera la respuesta, esa respuesta (de la identidad anterior) se DESCARTA.
 let version = 0
+// Una recarga pedida mientras otra estaba en curso (p. ej. al crear un usuario): se hace al terminar.
+let recargaPendiente = false
 
 export const usePlanStore = create((set, get) => ({
   ...VACIO,
 
-  cargar: async () => {
-    if (get().cargando) return // sin peticiones simultáneas
+  // `forzar`: si ya hay una carga en curso, pide otra al terminar (el contador de uso cambió y la
+  // que va en vuelo pudo haber salido antes del cambio).
+  cargar: async ({ forzar = false } = {}) => {
+    if (get().cargando) { // sin peticiones simultáneas
+      if (forzar) recargaPendiente = true
+      return
+    }
     const identidad = identidadActual()
     // Lo que hay pertenece a otra identidad: se descarta ANTES de pedir lo nuevo.
     if (get().claveSuscripcion && get().claveSuscripcion !== identidad) {
@@ -56,10 +63,15 @@ export const usePlanStore = create((set, get) => ({
       // error); si no, queda en null y la interfaz no oculta nada.
       set({ error: err?.message ?? 'No se pudo cargar el plan', cargada: true, cargando: false })
     }
+    if (recargaPendiente) {
+      recargaPendiente = false
+      await get().cargar()
+    }
   },
 
   limpiar: () => {
     version++
+    recargaPendiente = false
     set({ ...VACIO })
   }
 }))

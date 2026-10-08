@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase'
 
 const BUCKET = 'fotos-clinicas'
+import { validarArchivo, mensajeErrorArchivo } from '../lib/limitesArchivos'
 const PAGINA = 12
 
 // select() con columnas específicas (no '*'), con límite de página — antes
@@ -31,13 +32,18 @@ export async function obtenerFotografias(pacienteId, { desde = 0, limite = PAGIN
 }
 
 export async function subirFotografia({ pacienteId, tratamientoId, archivo, etiqueta, usuarioId }) {
+  const valido = validarArchivo(BUCKET, archivo)
+  if (!valido.ok) throw new Error(valido.mensaje)
   const extension = archivo.name.split('.').pop()
   const path = `${pacienteId}/${crypto.randomUUID()}.${extension}`
 
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
     .upload(path, archivo)
-  if (uploadError) throw uploadError
+  if (uploadError) {
+    console.error(uploadError)
+    throw new Error(mensajeErrorArchivo(uploadError, BUCKET))
+  }
 
   const { data, error } = await supabase
     .from('fotografias')

@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useUsuarios } from '../hooks/useUsuarios'
 import { useAuthStore } from '../store/useAuthStore'
-import { useFuncionalidad } from '../hooks/useFuncionalidad'
+import { useFuncionalidad, usePuedeAgregar } from '../hooks/useFuncionalidad'
+import { usePlanStore } from '../store/usePlanStore'
+import { AvisoAltaBloqueada } from '../components/planes/AvisoAltaBloqueada'
 import { mensajeErrorDePlan } from '../lib/planes'
 import { toastExito, toastError } from '../store/useToastStore'
 import { Button } from '../components/ui/Button'
@@ -21,6 +23,14 @@ const ROLES = [
 export function Usuarios() {
   const perfil = useAuthStore((s) => s.perfil)
   const { usuarios, cargando, crear, actualizar, cambiarActivo, eliminar } = useUsuarios()
+  const altaUsuario = usePuedeAgregar('usuarios') // oculta "+ Nuevo usuario" al llegar al límite del plan
+  // El contador de uso viene de la suscripción: se vuelve a pedir tras cada alta o baja.
+  const refrescarPlan = () => usePlanStore.getState().cargar({ forzar: true })
+  const crearYRefrescar = async (datos) => {
+    const resultado = await crear(datos)
+    refrescarPlan()
+    return resultado
+  }
   const [modalAbierto, setModalAbierto] = useState(false)
   const [usuarioAEditar, setUsuarioAEditar] = useState(null)
   const [usuarioAEliminar, setUsuarioAEliminar] = useState(null)
@@ -34,8 +44,10 @@ export function Usuarios() {
     try {
       await cambiarActivo(u.id, !u.activo)
       toastExito(u.activo ? `${u.nombre} desactivado.` : `${u.nombre} reactivado.`)
+      refrescarPlan()
     } catch (err) {
-      toastError(err.message)
+      // Reactivar un usuario también puede chocar con el límite del plan (PT402).
+      toastError(mensajeErrorDePlan(err))
     }
   }
 
@@ -45,6 +57,7 @@ export function Usuarios() {
       await eliminar(usuarioAEliminar.id)
       toastExito(`${usuarioAEliminar.nombre} eliminado.`)
       setUsuarioAEliminar(null)
+      refrescarPlan()
     } catch (err) {
       toastError(err.message)
     } finally {
@@ -56,7 +69,11 @@ export function Usuarios() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-slate-800">Usuarios</h1>
-        <Button onClick={() => setModalAbierto(true)}>+ Nuevo usuario</Button>
+        {altaUsuario.puede ? (
+          <Button onClick={() => setModalAbierto(true)}>+ Nuevo usuario</Button>
+        ) : (
+          <AvisoAltaBloqueada tipo="usuarios" evaluacion={altaUsuario} />
+        )}
       </div>
 
       {cargando ? (
@@ -124,7 +141,7 @@ export function Usuarios() {
         </div>
       )}
 
-      <ModalNuevoUsuario abierto={modalAbierto} onCerrar={() => setModalAbierto(false)} onCrear={crear} />
+      <ModalNuevoUsuario abierto={modalAbierto} onCerrar={() => setModalAbierto(false)} onCrear={crearYRefrescar} />
 
       <ModalEditarUsuario
         usuario={usuarioAEditar}
@@ -229,15 +246,15 @@ function AsignacionDentistasDeAsistente({ asistente }) {
   const [dentistaSeleccionado, setDentistaSeleccionado] = useState('')
   const perfil = useAuthStore((s) => s.perfil)
 
-  const recargar = async () => {
+  const recargar = useCallback(async () => {
     setCargando(true)
     const [listaDentistas, todasAsignaciones] = await Promise.all([listarDentistas(), listarAsignaciones()])
     setDentistas(listaDentistas)
     setAsignaciones(todasAsignaciones.filter((a) => a.asistente?.id === asistente.id))
     setCargando(false)
-  }
+  }, [asistente.id])
 
-  useEffect(() => { recargar() }, [asistente.id])
+  useEffect(() => { recargar() }, [recargar])
 
   const dentistasSinAsignar = dentistas.filter((d) => !asignaciones.some((a) => a.dentista?.id === d.id))
 

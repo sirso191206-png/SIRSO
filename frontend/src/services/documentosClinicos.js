@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase'
 
 const BUCKET = 'documentos-clinicos'
+import { validarArchivo, mensajeErrorArchivo } from '../lib/limitesArchivos'
 const PAGINA = 12
 
 export async function obtenerDocumentos(pacienteId, { desde = 0, limite = PAGINA } = {}) {
@@ -27,11 +28,16 @@ export async function obtenerDocumentos(pacienteId, { desde = 0, limite = PAGINA
 }
 
 export async function subirDocumento({ pacienteId, archivo, tipo, nombre, descripcion, usuarioId }) {
+  const valido = validarArchivo(BUCKET, archivo)
+  if (!valido.ok) throw new Error(valido.mensaje)
   const extension = archivo.name.split('.').pop()
   const path = `${pacienteId}/${crypto.randomUUID()}.${extension}`
 
   const { error: uploadError } = await supabase.storage.from(BUCKET).upload(path, archivo)
-  if (uploadError) throw uploadError
+  if (uploadError) {
+    console.error(uploadError)
+    throw new Error(mensajeErrorArchivo(uploadError, BUCKET))
+  }
 
   const { data, error } = await supabase
     .from('documentos_clinicos')

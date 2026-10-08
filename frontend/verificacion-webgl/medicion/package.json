@@ -1,0 +1,7 @@
+{
+  "name": "verificacion-webgl",
+  "private": true,
+  "type": "module",
+  "description": "Medición en un Chromium real (con WebGL por software) del ciclo de vida del odontograma 3D y del service worker.",
+  "dependencies": { "puppeteer-core": "^23.0.0", "@sparticuz/chromium": "^131.0.0" }
+}

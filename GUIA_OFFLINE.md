@@ -34,7 +34,7 @@ Cualquiera con acceso al perfil del navegador puede leerlo desde DevTools.
 
 1. **Service worker** (`public/sw.js`): precachea el App Shell; el plugin `vite-plugin-precache-manifest.js` lista los archivos reales y **sella la versión dentro de `sw.js`** (sin eso el navegador nunca detectaría actualizaciones).
 2. **Arranque** (`useAuthStore`): con red usa Supabase Auth. Si falla por red, usa el perfil guardado (≤ 24 h) y, si existe un PIN válido, ofrece desbloqueo offline.
-3. **Lectura** (`lib/cacheLectura.js`): cada servicio clínico guarda su última lectura exitosa. "Sincronizar mi día" precarga citas de hoy y todo lo de sus pacientes — y ahora se dispara sola una vez al día con conexión (`usePrecargaAutomaticaDelDia`), sin requerir el botón.
+3. **Lectura** (`lib/cacheLectura.js`): cada servicio clínico guarda su última lectura exitosa. La precarga del día (`sincronizarMiDia`: citas de hoy y todo lo de sus pacientes) se dispara sola y se mantiene al día (`usePrecargaAutomaticaDelDia`); ya no existe el botón "Sincronizar mi día".
 4. **Escritura** (`lib/colaOffline.js` + `lib/procesadorColaOffline.js`): sin conexión se encolan; al volver la red se suben en orden de creación. Solo se procesan las operaciones **del usuario de la sesión**.
 5. **Indicador** (`BannerSinConexion` + `useEstadoConexion`): OFFLINE · RECONNECTING · SYNC_ERROR · SYNCING · SYNC_PENDING · ONLINE.
 6. **PIN y cierre seguro** (`lib/pinOffline.js`, `lib/cierreSesion.js`, `lib/errorDeRed.js`): ver §3 y §5.
@@ -188,17 +188,20 @@ al detectar conexión (`useColaOffline`), y ese disparo espera una
 comprobación real contra el servidor (`lib/conectividadReal.js`, con
 límite de tiempo) en vez de confiar solo en `navigator.onLine` — una
 wifi conectada sin salida a internet ya no dispara intentos de
-sincronización que solo generarían errores confusos. Además, "Mi día"
-y la Agenda del día **se precargan solas**: `usePrecargaAutomaticaDelDia`
-(montado una vez en `Sidebar.jsx`, igual que `useColaOffline`) dispara
-`sincronizarMiDia()` — la misma función que ya usaba el botón manual,
-sin reimplementar nada — al abrir SIRO ya conectado o al recuperar la
-conexión, una sola vez por día (si ya se precargó hoy, no se repite en
-cada reconexión; `obtenerUltimaSincronizacion()` lo decide). Si falla,
-lo hace en silencio — es una conveniencia de fondo, no algo que la
-persona pidió, así que un error ahí no debe alarmar a nadie. "Sincronizar
-ahora" sigue existiendo como respaldo manual, para forzarlo de nuevo el
-mismo día o si la precarga automática falló.
+sincronización que solo generarían errores confusos. Además, "Mi día" y la Agenda del día **se precargan solas, sin botón**:
+`usePrecargaAutomaticaDelDia` (montado una vez en `Sidebar.jsx`) llama a
+`sincronizarMiDia()` al abrir SIRO ya conectado y al recuperar la conexión, y
+**la mantiene al día**: revisa cada 5 min, al volver a la pestaña y al cambiar de
+sucursal, y la renueva si lo guardado tiene más de 30 min, es de otro día (cruce de
+medianoche con SIRO abierto) o es de otra sucursal (`precargaVigente`). Si falla lo
+hace en silencio y NO la marca como hecha, así la siguiente revisión lo reintenta.
+Por eso, cuando el internet se va a media jornada, lo de hoy ya está guardado y es
+reciente, sin que el médico tenga que sincronizar nada. La réplica de pacientes y
+agenda de la clínica (`useSincronizacionClinica`) se repite cada 10 min. Las
+revisiones las programa `lib/revisionPeriodica.js` y se cancelan solas al perder la
+conexión o cerrar sesión. Límite: solo se precarga el día de HOY (el detalle de
+expediente/odontograma de pacientes con cita hoy); los demás pacientes solo tienen
+la réplica ligera de la lista, alergias y medicamentos.
 
 **CURP que ya existe en la clínica (error `idx_pacientes_curp_por_clinica`).**
 La restricción —única por `(clinica_id, curp)` cuando el CURP no es nulo,
@@ -319,7 +322,7 @@ Chrome, DevTools → **Application**.
 **A. Preparación (con internet)**
 1. Inicia sesión y navega un poco.
 2. Service Workers: *activated and running*; Cache Storage: `siro-shell-build-…`.
-3. En Mi día pulsa **Sincronizar mi día**. Abre un paciente: expediente, odontograma, periodontograma y su cita.
+3. Abre Mi día con conexión y espera unos segundos (se precarga sola). Abre un paciente: expediente, odontograma, periodontograma y su cita.
 4. Configuración → Seguridad → **Activar PIN offline** (elige duración). Verifica en IndexedDB `siro-pin-offline` que hay hash y sal, **sin el PIN en claro**.
 
 **B. Sin internet**
@@ -379,7 +382,7 @@ select paciente_id, inicio, count(*) from citas
 
 **I. Mi día y Agenda offline**
 - **Precarga automática:** borra `siro-cola-offline`/metadatos (o usa un usuario que nunca haya sincronizado hoy) y recarga SIRO con conexión — sin pulsar nada, espera unos segundos y confirma en Application → IndexedDB que `ultima_sincronizacion_dia` quedó con la fecha de hoy. Recarga otra vez: no debe volver a dispararse (ya se hizo hoy).
-- Con red: en Mi día pulsa **Sincronizar ahora** para forzarla de nuevo (debe decir sincronizado; si lo pulsas sin red debe **fallar** con "Sin conexión", no fingir éxito).
+- **Sin botón:** deja SIRO abierto con red; cada 5 min revisa si lo precargado tiene más de 30 min y lo renueva solo (también al volver a la pestaña, al cambiar de sucursal y al pasar la medianoche). Crea una cita desde otro equipo, espera a que se renueve, corta la red y comprueba que aparece en Agenda y Mi día.
 - Apaga la red y recarga Mi día: se ve, con el aviso ámbar y la hora de lo guardado. Abre Agenda en la misma vista (día, mismo dentista/sucursal): se ven citas, bloqueos y lista de espera.
 - Cambia a otro día/semana que no viste: debe dar error, **no** mostrar datos de otro rango.
 - Al día siguiente, sin red y sin haber sincronizado, Mi día **no** debe mostrar el de ayer.
@@ -439,7 +442,7 @@ select paciente_id, inicio, count(*) from citas
 | Aislamiento multi-clínica en un mismo equipo: cambio de usuario vacía índice/pacientes-offline/mapeos (nunca la cola) | ✅ (3 mutaciones reales, todas atrapadas) |
 | Archivar/restaurar paciente offline: clave propia (no colisiona con "datos generales"), convergencia archivar+restaurar, caché optimista | ✅ (4 mutaciones, todas atrapadas) |
 | Bloquear/desbloquear horario offline: upsert idempotente, y crear+eliminar antes de sincronizar cancela la creación en vez de un viaje redondo | ✅ (3 mutaciones, todas atrapadas) |
-| Precarga automática del día (`esHoy`): no repite la precarga si ya se hizo hoy, nunca se salta la primera | ✅ (mutado y atrapado) — el disparo en sí (`usePrecargaAutomaticaDelDia`) es un hook y no se renderiza en pruebas |
+| Precarga automática del día (`precargaVigente`/`precargarSiHaceFalta`/`programarRevisiones`): se renueva a los 30 min, al cambiar de sucursal o de día, nunca se salta la primera, si falla reintenta, el programador revisa por reloj y se cancela al desmontar | ✅ (6 mutaciones atrapadas) — el `useEffect` que las conecta (`usePrecargaAutomaticaDelDia`) no se renderiza en pruebas |
 | Réplica de pacientes de toda la clínica: cursor incremental (nunca repite, nunca retrocede), candado contra corridas simultáneas, conectividad real, exclusión de archivados, vaciado completo (pacientes + cursor) | ✅ (6 mutaciones, todas atrapadas) |
 | `obtenerPaciente`/`buscarPacientes` conscientes de la réplica: caída a datos básicos sin caché previa, combinación réplica+índice sin duplicar | ✅ (3 mutaciones, todas atrapadas) |
 | Aislamiento multi-clínica extendido a la réplica completa (pacientes y cursor, no solo índice/mapeos) | ✅ (mutado y atrapado) |

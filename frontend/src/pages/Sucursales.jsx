@@ -7,10 +7,21 @@ import { Input } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { DetalleSucursal } from '../components/sucursales/DetalleSucursal'
 import { mensajeErrorDePlan } from '../lib/planes'
+import { usePuedeAgregar } from '../hooks/useFuncionalidad'
+import { usePlanStore } from '../store/usePlanStore'
+import { AvisoAltaBloqueada } from '../components/planes/AvisoAltaBloqueada'
 
 export function Sucursales() {
   const perfil = useAuthStore((s) => s.perfil)
   const { sucursales, cargando, crear, cambiarActiva } = useSucursales()
+  // Sin la funcionalidad "multisucursal" del plan, o al llegar a su límite, no se ofrece crear más.
+  const altaSucursal = usePuedeAgregar('sucursales')
+  const refrescarPlan = () => usePlanStore.getState().cargar({ forzar: true })
+  const crearYRefrescar = async (datos) => {
+    const resultado = await crear(datos)
+    refrescarPlan()
+    return resultado
+  }
   const [modalAbierto, setModalAbierto] = useState(false)
   const [expandidaId, setExpandidaId] = useState(null)
 
@@ -22,6 +33,7 @@ export function Sucursales() {
     try {
       await cambiarActiva(s.id, !s.activa)
       toastExito(s.activa ? `${s.nombre} desactivada.` : `${s.nombre} reactivada.`)
+      refrescarPlan()
     } catch (err) {
       // Reactivar también valida el límite de sucursales del plan (PT402/PT403).
       toastError(mensajeErrorDePlan(err))
@@ -32,7 +44,11 @@ export function Sucursales() {
     <div>
       <div className="mb-2 flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-slate-800">Sucursales</h1>
-        <Button onClick={() => setModalAbierto(true)}>+ Nueva sucursal</Button>
+        {altaSucursal.puede ? (
+          <Button onClick={() => setModalAbierto(true)}>+ Nueva sucursal</Button>
+        ) : (
+          <AvisoAltaBloqueada tipo="sucursales" evaluacion={altaSucursal} />
+        )}
       </div>
       <p className="mb-6 text-sm text-slate-400">
         Si tu clínica opera en un solo lugar, no necesitas crear ninguna sucursal — todo sigue funcionando exactamente
@@ -88,7 +104,7 @@ export function Sucursales() {
         abierto={modalAbierto}
         onCerrar={() => setModalAbierto(false)}
         clinicaId={perfil?.clinica_id}
-        onCrear={crear}
+        onCrear={crearYRefrescar}
       />
     </div>
   )

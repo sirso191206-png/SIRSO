@@ -1,10 +1,14 @@
-import { useEffect } from 'react'
+import { useCallback, useEffect } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../../store/useAuthStore'
 import { useEscucharCierreSesion } from '../../hooks/useEscucharCierreSesion'
 import { useConexion } from '../../hooks/useConexion'
 import { toastError } from '../../store/useToastStore'
+import { mensajeSesionCerrada } from '../../services/sesiones'
 import { PantallaDesbloqueoPin } from '../auth/PantallaDesbloqueoPin'
+import { AccesoNoAutorizado } from './AccesoNoAutorizado'
+import { AvisoSuscripcion } from '../planes/AvisoSuscripcion'
+import { puedeEntrarARuta } from '../../lib/accesoPorRol'
 import { Sidebar } from './Sidebar'
 
 export function ProtectedRoute({ children }) {
@@ -18,7 +22,12 @@ export function ProtectedRoute({ children }) {
   // esto, seguiría funcionando hasta que su access token expirara por
   // su cuenta. Va antes de cualquier return para respetar las reglas
   // de hooks de React (nunca condicional).
-  useEscucharCierreSesion(sesionActualId, logout)
+  // logout() es el cierre FORZADO: conserva los cambios pendientes de subir.
+  const alCerrarRemota = useCallback((motivo, limite) => {
+    toastError(mensajeSesionCerrada(motivo, limite))
+    logout()
+  }, [logout])
+  useEscucharCierreSesion(sesionActualId, alCerrarRemota)
 
   // Re-consulta el estado de la clínica en cada navegación, para que una
   // suspensión aplicada mientras la sesión ya estaba abierta se note sin
@@ -77,10 +86,17 @@ export function ProtectedRoute({ children }) {
     )
   }
 
+  // Acceso directo por URL: solo las pantallas de su rol (tabla única en lib/accesoPorRol.js). Es
+  // protección de interfaz; los datos los protege la base de datos.
+  const autorizado = puedeEntrarARuta(location.pathname, perfil)
+
   return (
     <div className="flex">
       <Sidebar />
-      <main className="flex-1 overflow-y-auto p-8">{children}</main>
+      <main className="flex-1 overflow-y-auto p-8">
+        <AvisoSuscripcion />
+        {autorizado ? children : <AccesoNoAutorizado rol={perfil?.rol} />}
+      </main>
     </div>
   )
 }

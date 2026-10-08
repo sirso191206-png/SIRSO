@@ -1,5 +1,6 @@
 import { supabase, invocarFuncionAutenticada } from '../lib/supabase'
 import { conCacheDeLectura } from '../lib/cacheLectura'
+import { nombreParaSelector } from '../lib/profesionales'
 
 export async function listarUsuarios() {
   const { data, error } = await supabase
@@ -10,16 +11,19 @@ export async function listarUsuarios() {
   return data
 }
 
+// Odontólogos activos de la clínica: los dentistas Y los propietarios que ejercen como dentista (marca
+// ejerce_como_dentista, migración 084). Un propietario sin la marca NO aparece. El propietario se muestra con
+// "(propietario)" para distinguirlo; `rol` viaja por si la pantalla necesita saberlo.
 export async function listarDentistas() {
   const { datos } = await conCacheDeLectura('dentistas-activos', async () => {
     const { data, error } = await supabase
       .from('usuarios')
-      .select('id, nombre')
-      .eq('rol', 'dentista')
+      .select('id, nombre, rol')
+      .or('rol.eq.dentista,and(rol.eq.owner,ejerce_como_dentista.eq.true)')
       .eq('activo', true)
       .order('nombre')
     if (error) throw error
-    return data
+    return data.map((u) => ({ ...u, nombre: nombreParaSelector(u) }))
   })
   return datos
 }
@@ -73,16 +77,20 @@ export async function actualizarUsuario(id, { nombre, rol, cedulaProfesional, rf
 // rol/clinica_id/es_super_admin/activo (ni los recibe como parámetro):
 // la policy usuarios_update_self de Supabase exige que esos campos
 // queden exactamente igual, así que ni se intenta mandarlos.
-export async function actualizarMiPerfilProfesional(id, { nombre, rfc, cedulaProfesional, escuelaProcedencia, firmaPng }) {
+// `ejerceComoDentista` solo lo manda un propietario (undefined = no se toca). La base lo exige: la restricción de la
+// migración 084 rechaza la marca en cualquier otro rol.
+export async function actualizarMiPerfilProfesional(id, { nombre, rfc, cedulaProfesional, escuelaProcedencia, firmaPng, ejerceComoDentista }) {
+  const cambios = {
+    nombre,
+    rfc: rfc || null,
+    cedula_profesional: cedulaProfesional || null,
+    escuela_procedencia: escuelaProcedencia || null,
+    firma_png: firmaPng || null
+  }
+  if (typeof ejerceComoDentista === 'boolean') cambios.ejerce_como_dentista = ejerceComoDentista
   const { data, error } = await supabase
     .from('usuarios')
-    .update({
-      nombre,
-      rfc: rfc || null,
-      cedula_profesional: cedulaProfesional || null,
-      escuela_procedencia: escuelaProcedencia || null,
-      firma_png: firmaPng || null
-    })
+    .update(cambios)
     .eq('id', id)
     .select()
     .single()

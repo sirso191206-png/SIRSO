@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { toastExito, toastError } from '../../store/useToastStore'
 import {
   listarConsultorios, crearConsultorio, desactivarConsultorio,
@@ -25,13 +25,15 @@ function BloqueConsultorios({ sucursalId }) {
   const [nombreNuevo, setNombreNuevo] = useState('')
   const [guardando, setGuardando] = useState(false)
 
-  const recargar = async () => {
+  // useCallback: recargar se usa también en los manejadores; con [sucursalId] el efecto corre solo cuando cambia la sucursal
+  // (igual que antes), y la dependencia es explícita sin provocar un bucle de renders.
+  const recargar = useCallback(async () => {
     setCargando(true)
     setConsultorios(await listarConsultorios(sucursalId))
     setCargando(false)
-  }
+  }, [sucursalId])
 
-  useEffect(() => { recargar() }, [sucursalId])
+  useEffect(() => { recargar() }, [recargar])
 
   const handleCrear = async (e) => {
     e.preventDefault()
@@ -173,15 +175,15 @@ function BloqueUsuarios({ sucursalId }) {
   const [seleccionado, setSeleccionado] = useState('')
   const [guardando, setGuardando] = useState(false)
 
-  const recargar = async () => {
+  const recargar = useCallback(async () => {
     setCargando(true)
     const [asig, todos] = await Promise.all([listarUsuariosDeSucursal(sucursalId), listarUsuarios()])
     setAsignados(asig)
     setTodosLosUsuarios(todos)
     setCargando(false)
-  }
+  }, [sucursalId])
 
-  useEffect(() => { recargar() }, [sucursalId])
+  useEffect(() => { recargar() }, [recargar])
 
   const idsYaAsignados = new Set(asignados.map((a) => a.usuario.id))
   const disponibles = todosLosUsuarios.filter((u) => u.rol !== 'owner' && !idsYaAsignados.has(u.id))

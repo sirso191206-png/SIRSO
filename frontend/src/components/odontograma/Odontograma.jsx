@@ -1,8 +1,11 @@
-import { lazy, Suspense, useState } from 'react'
+import { lazy, Suspense, useMemo, useState } from 'react'
 import { Odontograma2D } from './Odontograma2D'
 import { OdontogramaHojaClinica } from './OdontogramaHojaClinica'
 import { CargandoModelo3D } from './CargandoModelo3D'
 import { Periodontograma } from '../periodontograma/Periodontograma'
+import { ErrorVista3D } from './ErrorVista3D'
+import { reiniciarModelo3D } from './modelo3D'
+import { useOdontograma } from '../../hooks/useOdontograma'
 import { useDisponibilidad } from '../../hooks/useFuncionalidad'
 import { elegirVistaDisponible } from '../../lib/planes'
 
@@ -10,7 +13,7 @@ import { elegirVistaDisponible } from '../../lib/planes'
 // vista 3D — con React.lazy nunca entran al bundle inicial ni se cargan
 // mientras el odontólogo se queda en 2D (que es lo normal para
 // registrar consultas rápido).
-const Odontograma3D = lazy(() => import('./Odontograma3D').then((m) => ({ default: m.Odontograma3D })))
+const crearVista3D = () => lazy(() => import('./Odontograma3D').then((m) => ({ default: m.Odontograma3D })))
 
 const CLAVE_PREFERENCIA = 'sirso_odontograma_view'
 const VISTAS_VALIDAS = ['2d', '3d', 'perio', 'hoja']
@@ -31,10 +34,18 @@ export function Odontograma({ pacienteId, onIrATab }) {
     return VISTAS_VALIDAS.includes(guardada) ? guardada : '2d'
   })
 
+  // Los datos del odontograma se piden UNA vez por paciente aquí y se comparten con 2D y 3D: alternar entre vistas ya
+  // no repite la petición ni vuelve a mostrar "Cargando".
+  const [intento3D, setIntento3D] = useState(0)
+  const Odontograma3D = useMemo(() => crearVista3D(), [intento3D]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const disponible = useDisponibilidad()
   const opciones = OPCIONES.filter((o) => disponible(o.funcionalidad))
   // La preferencia guardada puede no estar en el plan actual: cae a una disponible.
   const vistaActiva = elegirVistaDisponible(vista, opciones.map((o) => o.value))
+
+  const necesitaDatos = vistaActiva === '2d' || vistaActiva === '3d'
+  const odontograma = useOdontograma(pacienteId, { habilitado: necesitaDatos })
 
   const cambiarVista = (nueva) => {
     setVista(nueva)
@@ -67,16 +78,23 @@ export function Odontograma({ pacienteId, onIrATab }) {
         ))}
       </div>
 
-      {vistaActiva === '2d' && <Odontograma2D pacienteId={pacienteId} />}
+      {vistaActiva === '2d' && <Odontograma2D pacienteId={pacienteId} odontograma={odontograma} />}
 
       {vistaActiva === '3d' && (
-        <Suspense fallback={<CargandoModelo3D />}>
-          <Odontograma3D
-            pacienteId={pacienteId}
-            onVerEnExpediente={() => cambiarVista('2d')}
-            onIrAPlan={onIrATab ? () => onIrATab('Plan') : undefined}
-          />
-        </Suspense>
+        <ErrorVista3D
+          onReintentar={() => { reiniciarModelo3D(); setIntento3D((n) => n + 1) }}
+          onUsar2D={() => cambiarVista('2d')}
+        >
+          <Suspense fallback={<CargandoModelo3D />}>
+            <Odontograma3D
+              pacienteId={pacienteId}
+              odontograma={odontograma}
+              onVerEnExpediente={() => cambiarVista('2d')}
+              onIrAPlan={onIrATab ? () => onIrATab('Plan') : undefined}
+              onUsar2D={() => cambiarVista('2d')}
+            />
+          </Suspense>
+        </ErrorVista3D>
       )}
 
       {vistaActiva === 'perio' && <Periodontograma pacienteId={pacienteId} />}

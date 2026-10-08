@@ -55,7 +55,6 @@ let servidor
 let clinicaSesion
 let intentosUpsert
 let updatesVistos
-let escriturasEnReplica
 let ocultarExistenteALaBusqueda
 
 beforeEach(() => {
@@ -66,7 +65,6 @@ beforeEach(() => {
   clinicaSesion = 'clinica-A'
   intentosUpsert = 0
   updatesVistos = []
-  escriturasEnReplica = 0
   ocultarExistenteALaBusqueda = false
 
   m.from.mockImplementation((tabla) =>
@@ -93,7 +91,6 @@ beforeEach(() => {
       const upsert = ops.find(([met]) => met === 'upsert')
       if (upsert) {
         intentosUpsert++
-        escriturasEnReplica += 0
         const fila = { ...upsert[1][0] }
         const yaEsta = servidor.find((p) => p.id === fila.id)
         if (yaEsta) { Object.assign(yaEsta, fila); return ok(yaEsta) } // mismo id → idempotente

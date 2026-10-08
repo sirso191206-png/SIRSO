@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { usePacientes } from '../../hooks/usePacientes'
+import { ejerceComoDentista } from '../../lib/profesionales'
 import { useSucursales } from '../../hooks/useSucursales'
 import { listarConsultorios, listarSillones } from '../../services/sucursales'
 import { useAuthStore } from '../../store/useAuthStore'
@@ -20,7 +21,7 @@ export function ModalNuevaCita({ abierto, onCerrar, onAgendar, dentistas, fechaI
   const { pacientes } = usePacientes(termino)
 
   const [pacienteId, setPacienteId] = useState('')
-  const [dentistaId, setDentistaId] = useState(perfil?.rol === 'dentista' ? perfil.id : '')
+  const [dentistaId, setDentistaId] = useState(ejerceComoDentista(perfil) ? perfil.id : '')
   const [fecha, setFecha] = useState('')
   const [horaInicio, setHoraInicio] = useState('')
   const [duracionMin, setDuracionMin] = useState(30)

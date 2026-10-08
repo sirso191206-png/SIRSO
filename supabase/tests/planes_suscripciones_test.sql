@@ -98,7 +98,7 @@ select pg_temp.t('A5 NO existe WhatsApp como funcionalidad (no hay integración 
 select pg_temp.t('A6 Esencial NO incluye periodontograma; Profesional sí; Empresarial incluye todo lo activo',
   not exists (select 1 from plan_funcionalidades where plan='esencial' and funcionalidad='periodontograma' and habilitada)
   and exists (select 1 from plan_funcionalidades where plan='profesional' and funcionalidad='periodontograma' and habilitada)
-  and (select count(*) from plan_funcionalidades where plan='empresarial' and habilitada) = (select count(*) from funcionalidades where activo));
+  and (select count(*) from plan_funcionalidades pf join funcionalidades f on f.codigo = pf.funcionalidad where pf.plan='empresarial' and pf.habilitada and f.activo) = (select count(*) from funcionalidades where activo));
 select pg_temp.t('A7 el código legado "basico" ya no existe (migrado a esencial)',
   not exists (select 1 from planes_catalogo where plan='basico'));
 select pg_temp.t('A8 el trigger viejo de sesiones (números fijos) fue eliminado',
@@ -246,27 +246,27 @@ select pg_temp.t('D2c un SUPERADMIN no consume cupo ni es bloqueado por él (la 
   and exists (select 1 from usuarios where id = 'a0000000-0000-0000-0000-0000000000e5'));
 
 -- D3 sucursales
-insert into sucursales (clinica_id, nombre) values ('c0000000-0000-0000-0000-0000000000d1', 'Matriz');
-select pg_temp.t('D3a la 1ª sucursal se crea (límite 1)',
-  (select count(*) from sucursales where clinica_id = 'c0000000-0000-0000-0000-0000000000d1' and activa) = 1);
+-- Regla (migración 079): sin la funcionalidad "multisucursal" NO se crea ninguna sucursal, ni la primera.
 do $$ declare v text; begin
-  begin insert into sucursales (clinica_id, nombre) values ('c0000000-0000-0000-0000-0000000000d1', 'Segunda'); v := 'OK';
+  begin insert into sucursales (clinica_id, nombre) values ('c0000000-0000-0000-0000-0000000000d1', 'Matriz'); v := 'OK';
   exception when others then get stacked diagnostics v = pg_exception_detail; v := sqlstate || '|' || v; end;
-  perform set_config('t.rs', v, false);
+  perform set_config('t.rs0', v, false);
 end $$;
-select pg_temp.t('D3b la 2ª sucursal sin "multisucursal" se rechaza con PT403 / FEATURE_NOT_AVAILABLE',
-  current_setting('t.rs') = 'PT403|FEATURE_NOT_AVAILABLE');
+select pg_temp.t('D3a sin "multisucursal" NO se puede crear ninguna sucursal, ni la primera: PT403 / FEATURE_NOT_AVAILABLE',
+  current_setting('t.rs0') = 'PT403|FEATURE_NOT_AVAILABLE'
+  and (select count(*) from sucursales where clinica_id = 'c0000000-0000-0000-0000-0000000000d1') = 0);
 select set_config('request.jwt.claim.sub', current_setting('t.sa'), true);
 set local role authenticated;
 select sa_ajustar_condiciones_clinica('c0000000-0000-0000-0000-0000000000d1', '{"max_sucursales":2}', '{"multisucursal":true}');
 reset role;
+insert into sucursales (clinica_id, nombre) values ('c0000000-0000-0000-0000-0000000000d1', 'Matriz');
 insert into sucursales (clinica_id, nombre) values ('c0000000-0000-0000-0000-0000000000d1', 'Segunda');
 do $$ declare v text; begin
   begin insert into sucursales (clinica_id, nombre) values ('c0000000-0000-0000-0000-0000000000d1', 'Tercera'); v := 'OK';
   exception when others then get stacked diagnostics v = pg_exception_detail; v := sqlstate || '|' || v; end;
   perform set_config('t.rs2', v, false);
 end $$;
-select pg_temp.t('D3c con multisucursal activada y límite 2: la 2ª entra y la 3ª se rechaza (PT402)',
+select pg_temp.t('D3c con multisucursal activada y límite 2: la 1ª y la 2ª entran y la 3ª se rechaza (PT402)',
   (select count(*) from sucursales where clinica_id = 'c0000000-0000-0000-0000-0000000000d1') = 2 and current_setting('t.rs2') = 'PT402|PLAN_LIMIT_REACHED');
 update sucursales set activa = false where clinica_id = 'c0000000-0000-0000-0000-0000000000d1' and nombre = 'Segunda';
 insert into sucursales (clinica_id, nombre) values ('c0000000-0000-0000-0000-0000000000d1', 'Tercera');

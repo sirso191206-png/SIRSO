@@ -7,7 +7,7 @@ import { capitalizarPrimeraLetra } from '../lib/texto'
 import { ColaDeEspera } from '../components/ColaDeEspera'
 import { ModalNuevaUrgencia } from '../components/ModalNuevaUrgencia'
 import { useDisponibilidad } from '../hooks/useFuncionalidad'
-import { ModalSincronizarDia } from '../components/ModalSincronizarDia'
+import { OnboardingClinica } from '../components/onboarding/OnboardingClinica'
 import { AvisoDatosGuardados } from '../components/layout/AvisoDatosGuardados'
 import { Button } from '../components/ui/Button'
 import { Icon } from '../components/ui/Icon'
@@ -26,7 +26,6 @@ export function MiDia() {
   const disponible = useDisponibilidad()
   const { datos, cargando, error, iniciarConsulta, finalizarConsulta } = useMiDia()
   const [modalUrgenciaAbierto, setModalUrgenciaAbierto] = useState(false)
-  const [modalSincronizarAbierto, setModalSincronizarAbierto] = useState(false)
   const [colaVersion, setColaVersion] = useState(0)
 
   // Recepción no tiene "Mi día" en su flujo (ver menú) — si llega aquí
@@ -60,6 +59,7 @@ export function MiDia() {
   return (
     <div className="space-y-6">
       <AvisoDatosGuardados deCache={datos.deCache} guardadoEn={datos.guardadoEn} />
+      <OnboardingClinica />
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-800">
@@ -79,11 +79,6 @@ export function MiDia() {
           {disponible('urgencias') && disponible('citas') && (
             <Button onClick={() => setModalUrgenciaAbierto(true)} className="inline-flex items-center gap-1.5">
               <Icon.zap /> Nueva urgencia
-            </Button>
-          )}
-          {disponible('sincronizacion') && (
-            <Button variante="secundario" onClick={() => setModalSincronizarAbierto(true)} className="inline-flex items-center gap-1.5">
-              <Icon.refresh /> Sincronizar mi día
             </Button>
           )}
         </div>
@@ -109,11 +104,6 @@ export function MiDia() {
         abierto={modalUrgenciaAbierto}
         onCerrar={() => setModalUrgenciaAbierto(false)}
         onCreada={() => setColaVersion((v) => v + 1)}
-      />
-
-      <ModalSincronizarDia
-        abierto={modalSincronizarAbierto}
-        onCerrar={() => setModalSincronizarAbierto(false)}
       />
     </div>
   )

@@ -14,7 +14,7 @@ import { guardarMetadato, leerMetadato } from '../lib/cacheLectura'
 
 const CLAVE_ULTIMA_SINCRONIZACION = 'ultima_sincronizacion_dia'
 
-// "Sincronizar mi día" no es un mecanismo aparte — es llamar, uno por
+// La precarga del día (que se dispara sola, sin botón) no es un mecanismo aparte — es llamar, uno por
 // uno, a las mismas funciones que ya usa cada pantalla (todas ya
 // cacheadas, ver services/*.js). El único propósito de esto es
 // adelantar esas llamadas MIENTRAS hay internet, para que cuando se
@@ -95,6 +95,8 @@ export async function sincronizarMiDia({ dentistaId, perfil, sucursalId } = {}) 
     expedientes: expedientesOk,
     odontogramas: odontogramasOk,
     periodontogramas: periodontogramasOk,
+    // Para qué sucursal se precargó: si la persona cambia de sucursal hay que volver a hacerlo.
+    sucursalId: sucursalId ?? null,
     sincronizadoEn: new Date().toISOString()
   }
 

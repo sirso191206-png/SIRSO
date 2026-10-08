@@ -25,7 +25,6 @@ beforeEach(() => {
     crearQueryMock(tabla, (t, operaciones) => {
       if (!hayRed) return sinRed()
       if (t === 'v_pacientes_seguro') {
-        const ins = operaciones.find(([m]) => m === 'insert')
         return ok({ id: 'p-online-1', nombre_completo: 'Paciente Cacheado' })
       }
       if (t === 'pacientes') {

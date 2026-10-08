@@ -22,7 +22,7 @@ beforeEach(() => {
   pacienteEnServidor = { id: 'p1', nombre_completo: 'Ana López', telefono: '555', actualizado_en: 't1', archivado_en: null }
   supabaseMock.from.mockReset()
   supabaseMock.from.mockImplementation((tabla) =>
-    crearQueryMock(tabla, (t) => {
+    crearQueryMock(tabla, () => {
       if (!hayRed) return { data: null, error: { message: 'sin red' } }
       return ok(pacienteEnServidor)
     }, [])

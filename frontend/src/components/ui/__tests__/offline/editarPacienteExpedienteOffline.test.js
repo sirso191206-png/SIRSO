@@ -80,7 +80,6 @@ describe('actualizar_paciente / actualizar_expediente: el ejecutor de la cola SÃ
     hayRed = false
     await actualizarPaciente('p1', { telefono: '777' }, 't1', { usuarioId: 'u1' })
 
-    const m = vi.hoisted ? null : null // no-op, evita confusiones de scope
     const { procesarColaOffline } = await import('../../../../lib/procesadorColaOffline.js')
     hayRed = true
     supabaseMock.from.mockImplementation((tabla) =>

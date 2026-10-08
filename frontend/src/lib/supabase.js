@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { crearFetchConTimeout } from './fetchConTimeout'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -9,7 +10,8 @@ if (!supabaseUrl || !supabaseAnonKey) {
   )
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+// Todas las peticiones llevan un tiempo máximo de espera (ver lib/fetchConTimeout.js).
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, { global: { fetch: crearFetchConTimeout() } })
 
 // Cuando una Edge Function responde con un status distinto de 2xx,
 // supabase-js solo da un error genérico ("non-2xx status code") — el

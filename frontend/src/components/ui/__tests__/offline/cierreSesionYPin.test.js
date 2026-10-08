@@ -17,7 +17,7 @@ vi.mock('../../../../services/sesiones', () => sesionesMock)
 
 import { useAuthStore } from '../../../../store/useAuthStore.js'
 import { encolarOperacion, listarOperacionesPendientes, quitarOperacion } from '../../../../lib/colaOffline.js'
-import { guardarMetadato, leerMetadato, conCacheDeLectura } from '../../../../lib/cacheLectura.js'
+import { leerMetadato, conCacheDeLectura } from '../../../../lib/cacheLectura.js'
 import { guardarPerfilOffline, leerPerfilOffline } from '../../../../lib/cacheAuth.js'
 import { configurarPin, obtenerEstadoPin, obtenerPinDisponible } from '../../../../lib/pinOffline.js'
 import { evaluarOperaciones, evaluarCierreDeSesion } from '../../../../lib/cierreSesion.js'

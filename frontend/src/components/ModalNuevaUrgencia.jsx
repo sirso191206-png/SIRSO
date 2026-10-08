@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { ejerceComoDentista } from '../lib/profesionales'
 import { buscarPosiblesDuplicados, crearPaciente } from '../services/pacientes'
 import { crearCitaUrgencia } from '../services/citas'
 import { usePacientes } from '../hooks/usePacientes'
@@ -95,7 +96,7 @@ export function ModalNuevaUrgencia({ abierto, onCerrar, onCreada }) {
         pacienteId = nuevo.id
       }
 
-      const dentistaId = perfil.rol === 'dentista' ? perfil.id : null
+      const dentistaId = ejerceComoDentista(perfil) ? perfil.id : null
 
       const cita = await crearCitaUrgencia({
         pacienteId,

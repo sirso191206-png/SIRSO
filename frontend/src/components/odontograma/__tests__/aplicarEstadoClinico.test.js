@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { Mesh, BoxGeometry, MeshStandardMaterial, Vector3, Euler } from 'three'
+import { Mesh, BoxGeometry, MeshStandardMaterial } from 'three'
 import { aplicarEstadoClinico } from '../aplicarEstadoClinico'
 
 function crearMeshDePrueba() {

@@ -16,7 +16,8 @@ export const ETIQUETA_CATEGORIA = {
 const NOMBRE_RECURSO = {
   pacientes: { plural: 'pacientes', alta: 'registrar nuevos pacientes' },
   usuarios: { plural: 'usuarios', alta: 'agregar nuevos usuarios' },
-  sucursales: { plural: 'sucursales activas', alta: 'activar nuevas sucursales' }
+  sucursales: { plural: 'sucursales activas', alta: 'activar nuevas sucursales' },
+  almacenamiento_mb: { plural: 'MB de almacenamiento', alta: 'subir nuevos archivos' }
 }
 
 // null/undefined = ilimitado (así lo define la base).
@@ -283,4 +284,84 @@ export function nombreDeFuncionalidad(suscripcion, codigo) {
 // código, una lista (basta una) o no existir (siempre visible).
 export function enlacesVisibles(enlaces, rol, disponible) {
   return enlaces.filter((e) => e.roles.includes(rol) && disponible(e.funcionalidad))
+}
+
+// ---------------------------------------------------------------------------
+// ¿Se puede agregar uno más? (usuarios / sucursales). SOLO decide qué mostrar: ocultar el botón
+// no es seguridad — la base de datos es la que aplica el límite (PT402) y la funcionalidad (PT403).
+// Ante cualquier duda (sin suscripción, clínica heredada, datos que no llegaron) NO oculta nada.
+// ---------------------------------------------------------------------------
+export function evaluarAlta(suscripcion, tipo) {
+  const libre = { puede: true, motivo: 'ok', usado: null, limite: null }
+  if (!suscripcion || suscripcion.sin_suscripcion) return libre
+  const usado = suscripcion.uso?.[tipo] ?? null
+  const limite = suscripcion.limites?.[tipo] ?? null
+  // Las sucursales exigen la funcionalidad "multisucursal" del plan, tenga o no cupo.
+  if (tipo === 'sucursales' && !funcionalidadDisponible(suscripcion, 'multisucursal')) {
+    return { puede: false, motivo: 'funcionalidad', usado, limite }
+  }
+  // límite null = ilimitado; sin número = no se sabe: en ambos casos se puede.
+  if (typeof usado !== 'number' || typeof limite !== 'number') return { ...libre, usado, limite }
+  if (usado >= limite) return { puede: false, motivo: 'limite', usado, limite }
+  return { puede: true, motivo: 'ok', usado, limite }
+}
+
+export function mensajeAlta(tipo, { motivo, limite } = {}) {
+  if (motivo === 'funcionalidad') return 'Tu plan no incluye sucursales. Para usarlas, mejora tu plan.'
+  if (tipo === 'usuarios' && limite === 1) return 'Tu plan incluye 1 usuario: el principal. Para agregar más, mejora tu plan.'
+  const nombre = tipo === 'sucursales' ? (limite === 1 ? 'sucursal' : 'sucursales') : (limite === 1 ? 'usuario' : 'usuarios')
+  return `Tu plan permite hasta ${limite} ${nombre} y ya alcanzaste ese límite. Para agregar más, mejora tu plan.`
+}
+
+// ¿Mostrar el módulo Sucursales (menú y pantalla)? Sí si el plan incluye `multisucursal`. Si no la
+// incluye, solo se oculta cuando la clínica NO tiene ninguna sucursal activa: una que bajó de plan
+// y ya las tiene conserva el acceso para verlas y desactivarlas (no se esconde lo que ya usa).
+// Solo interfaz; la base de datos es la que impide crear sin la funcionalidad.
+export function puedeVerSucursales(suscripcion) {
+  if (funcionalidadDisponible(suscripcion, 'multisucursal')) return true
+  return (suscripcion?.uso?.sucursales ?? 0) > 0
+}
+
+// ---------------------------------------------------------------------------
+// Vencimiento: la base calcula el estado efectivo (activa | gracia | vencida | suspendida). Aquí solo se
+// convierte en un aviso. Vencer NO bloquea ni borra nada: solo informa.
+// ---------------------------------------------------------------------------
+const DIAS_AVISO_PREVIO = 7
+
+function fechaLarga(ymd) {
+  if (!ymd) return ''
+  const [a, m, d] = String(ymd).slice(0, 10).split('-').map(Number)
+  return new Date(a, m - 1, d).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })
+}
+
+function sumarDias(ymd, dias) {
+  const [a, m, d] = String(ymd).slice(0, 10).split('-').map(Number)
+  const f = new Date(a, m - 1, d + dias)
+  return `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, '0')}-${String(f.getDate()).padStart(2, '0')}`
+}
+
+// null = no hay nada que avisar. nivel: 'info' | 'alerta' | 'critico'.
+export function avisoSuscripcion(suscripcion) {
+  if (!suscripcion || suscripcion.sin_suscripcion) return null
+  const estado = suscripcion.estado_efectivo
+  const fin = suscripcion.fecha_fin
+  if (estado === 'gracia' && fin) {
+    const hasta = sumarDias(fin, Number(suscripcion.dias_gracia ?? 0))
+    return {
+      nivel: 'alerta', estado,
+      mensaje: `Tu suscripción venció el ${fechaLarga(fin)}. Tienes hasta el ${fechaLarga(hasta)} para renovarla. No se borra ninguna información.`
+    }
+  }
+  if (estado === 'vencida' && fin) {
+    return {
+      nivel: 'critico', estado,
+      mensaje: `Tu suscripción está vencida desde el ${fechaLarga(fin)}. Tu información se conserva. Contacta a SIRO para renovarla.`
+    }
+  }
+  const dias = suscripcion.dias_para_vencer
+  if (estado === 'activa' && typeof dias === 'number' && dias >= 0 && dias <= DIAS_AVISO_PREVIO) {
+    const cuando = dias === 0 ? 'hoy' : dias === 1 ? 'mañana' : `en ${dias} días`
+    return { nivel: 'info', estado, mensaje: `Tu suscripción vence ${cuando} (${fechaLarga(fin)}). Contacta a SIRO para renovarla.` }
+  }
+  return null
 }

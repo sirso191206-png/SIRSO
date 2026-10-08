@@ -3,6 +3,9 @@ import { useConexion } from './useConexion'
 import { useFuncionalidad } from './useFuncionalidad'
 import { useAuthStore } from '../store/useAuthStore'
 import { syncClinica } from '../lib/clinicDataSync'
+import { programarRevisiones } from '../lib/revisionPeriodica'
+
+export const REVISION_REPLICA_MS = 10 * 60 * 1000
 
 // Mantiene la réplica local de la LISTA DE PACIENTES de toda la
 // clínica al día — a diferencia de usePrecargaAutomaticaDelDia (que
@@ -23,13 +26,18 @@ export function useSincronizacionClinica() {
   const sincronizacionIncluida = useFuncionalidad('sincronizacion')
 
   useEffect(() => {
-    if (!conectado || !perfil || !sincronizacionIncluida) return
-    // No hay estado local que limpiar al desmontar — syncClinica()
-    // solo escribe en IndexedDB, nunca en el estado de este hook.
-    syncClinica().catch(() => {
-      // Silencioso a propósito, igual que la precarga del día: es
-      // conveniencia de fondo, no algo que la persona pidió.
-    })
+    if (!conectado || !perfil || !sincronizacionIncluida) return undefined
+    // syncClinica() solo escribe en IndexedDB y tiene su propio candado contra corridas
+    // simultáneas: repetirla es barato (pacientes incrementales) y mantiene la lista y la
+    // agenda de la clínica al día sin que nadie lo pida. Se repite cada REVISION_REPLICA_MS y
+    // al volver a la pestaña, además de al abrir SIRO y al recuperar la conexión.
+    const intentar = () => {
+      syncClinica().catch(() => {
+        // Silencioso a propósito: es conveniencia de fondo; la siguiente revisión reintenta.
+      })
+    }
+    intentar()
+    return programarRevisiones(intentar, { intervaloMs: REVISION_REPLICA_MS })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conectado, perfil?.id, sincronizacionIncluida])
 }

@@ -78,9 +78,16 @@ self.addEventListener('message', (event) => {
 })
 
 // ─── Peticiones ─────────────────────────────────────────────────────────
+// SOLO se gestionan peticiones GET del MISMO ORIGEN: el shell de SIRO (HTML, JS, CSS, imágenes, modelo 3D). Todo lo
+// demás pasa de largo, sin tocarlo, para que el navegador lo trate como siempre:
+//   · Supabase (API, Auth, Storage) — datos clínicos y financieros: nunca se cachean aquí.
+//   · Recursos de OTROS dominios (scripts o estilos de terceros, extensiones, analíticas). Antes también se
+//     interceptaban: si uno fallaba por un bloqueador, DNS o CSP, este archivo fabricaba un "503 Sin conexión" aunque
+//     SÍ hubiera Internet, y además guardaba en caché copias de código ajeno que ya no se actualizaban.
 self.addEventListener('fetch', (event) => {
   const { request } = event
-  if (request.method !== 'GET' || request.url.includes('supabase.co')) return
+  if (request.method !== 'GET') return
+  if (new URL(request.url).origin !== self.location.origin) return
   event.respondWith(responder(request))
 })
 
@@ -89,6 +96,29 @@ self.addEventListener('fetch', (event) => {
 // Una navegación a un ARCHIVO (algo.glb) no es una ruta de la app.
 function esRutaDeLaApp(request) {
   return request.mode === 'navigate' && !/\.[a-z0-9]+$/i.test(new URL(request.url).pathname)
+}
+
+// ¿La URL pide un ARCHIVO (js, css, glb, png…) y no una página? Un archivo nunca debe responderse con HTML.
+function pideUnArchivo(request) {
+  return /\.(?!html?$)[a-z0-9]+$/i.test(new URL(request.url).pathname)
+}
+
+function esHtml(respuesta) {
+  return /text\/html/i.test(respuesta.headers.get('Content-Type') ?? '')
+}
+
+// Tiempo máximo para traer algo de la red: sin esto, con un wifi "conectado" que no sale a Internet la petición se
+// queda colgada para siempre y la pantalla nunca sabe que falló.
+const TIEMPO_MAX_RED_MS = 20000
+
+async function pedirALaRed(request) {
+  const control = new AbortController()
+  const temporizador = setTimeout(() => control.abort(), TIEMPO_MAX_RED_MS)
+  try {
+    return await fetch(request, { signal: control.signal })
+  } finally {
+    clearTimeout(temporizador)
+  }
 }
 
 async function responder(request) {
@@ -113,17 +143,29 @@ async function responder(request) {
   }
 
   try {
-    const respuesta = await fetch(request)
+    const respuesta = await pedirALaRed(request)
+
+    // Un ARCHIVO que no existe NO debe contestarse con la página de inicio (un servidor de SPA devuelve el
+    // index.html con 200 para cualquier ruta desconocida). Si se guardara, un .js o un .glb quedaría "cacheado"
+    // como HTML hasta el siguiente deploy y la app fallaría con "Unexpected token '<'". Se responde un 404 honesto.
+    if (respuesta.ok && pideUnArchivo(request) && esHtml(respuesta)) {
+      console.warn('[SIRO SW] Se pidió un archivo que no existe en el servidor:', request.url)
+      return new Response('Archivo no encontrado.', { status: 404, statusText: 'No encontrado', headers: { 'Content-Type': 'text/plain; charset=utf-8' } })
+    }
+
     // Solo respuestas correctas. Guardar un 500 o un 404 pasajero lo
     // dejaría fijo hasta el siguiente deploy.
     if (respuesta.ok) cache.put(request, respuesta.clone()).catch(() => {})
     return respuesta
-  } catch {
-    // Ni caché ni red. Devolver "nada" es lo que el navegador reporta
-    // como "TypeError: Load failed" / "Failed to fetch".
+  } catch (causa) {
+    // Ni caché ni red. "Sin conexión" solo cuando de verdad no hay conexión; si hay red y aun así no se pudo traer
+    // (tiempo agotado, DNS, bloqueo), se dice eso — no se disfraza de "offline". Se deja constancia (con la URL) para
+    // poder diagnosticarlo: aparece en la consola del service worker (DevTools → Application → Service Workers).
+    const sinConexion = self.navigator && self.navigator.onLine === false
+    console.warn('[SIRO SW] No se pudo obtener', request.url, '·', sinConexion ? 'sin conexión' : (causa && causa.name) || 'error de red')
     return new Response(
-      'Sin conexión, y este archivo todavía no se había guardado localmente.',
-      { status: 503, statusText: 'Sin conexión', headers: { 'Content-Type': 'text/plain; charset=utf-8' } }
+      sinConexion ? 'Sin conexión, y este archivo todavía no se había guardado localmente.' : 'No se pudo obtener este archivo (el servidor no respondió a tiempo).',
+      { status: 503, statusText: sinConexion ? 'Sin conexión' : 'No disponible', headers: { 'Content-Type': 'text/plain; charset=utf-8' } }
     )
   }
 }

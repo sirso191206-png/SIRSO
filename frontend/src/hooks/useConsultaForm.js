@@ -63,7 +63,10 @@ export function useConsultaForm(citaId) {
   // La nota clínica de la consulta necesita las funcionalidades "notas_clinicas" y
   // "expediente_clinico" del plan (la base de datos rechaza escribirlas sin ellas).
   // Sin ellas la consulta SE PUEDE cerrar igual: simplemente no se genera nota.
-  const notasIncluidas = useFuncionalidad('notas_clinicas') && useFuncionalidad('expediente_clinico')
+  // OJO: cada hook se llama SIEMPRE (no dentro de un &&): React exige el mismo orden de hooks en cada render.
+  const incluyeNotas = useFuncionalidad('notas_clinicas')
+  const incluyeExpediente = useFuncionalidad('expediente_clinico')
+  const notasIncluidas = incluyeNotas && incluyeExpediente
   const { recetas, agregar: agregarReceta } = useRecetas(cita?.paciente_id)
 
   useEffect(() => {

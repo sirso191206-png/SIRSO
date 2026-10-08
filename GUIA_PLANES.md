@@ -97,8 +97,8 @@ El personal de plataforma (superadmin) conserva acceso de soporte.
 | `cie10` | selector CIE-10 del diagnóstico | no |
 | `permisos` | asignación de asistentes a dentistas (Usuarios) | no |
 | `offline` | sección "PIN para trabajar sin conexión" (Seguridad) | no |
-| `sincronizacion` | botón "Sincronizar mi día" y las **réplicas de lectura** en segundo plano | no |
-| `multisucursal` | — (ver §2: el trigger de sucursales) | sí |
+| `sincronizacion` | las **réplicas de lectura** en segundo plano (precarga del día y lista de pacientes/agenda) | no |
+| `multisucursal` | botón "+ Nueva sucursal" (Sucursales): sin la funcionalidad no se ofrece | sí (migración 079: sin ella no se crea NINGUNA sucursal) |
 
 - **Sin conectar a ninguna pantalla** (el flag existe y se puede asignar a planes, pero hoy no restringe nada en la interfaz):
   `inventario` (no existe el módulo; ni siquiera está en el catálogo), `administracion_avanzada` (no hay una pantalla
@@ -218,3 +218,18 @@ Las Edge Functions solo se validaron de **sintaxis** (no hay Deno aquí); falta 
 **Verificación:** `supabase/tests/run_planes_tests.sh` (heredadas, idempotencia, 84 pruebas) y `planes_auditoria_hotfix_test.sql` (13 pruebas de los ataques de la auditoría). Ambas corren contra PostgreSQL local, no contra Supabase.
 
 **Pendiente de decisión:** si un plan nuevo QUITA una funcionalidad, los datos de esa funcionalidad no se borran pero la clínica deja de verlos (RLS). Un owner también puede insertar otro owner en su propia clínica por la API directa (no crea clínicas y cuenta contra el límite de usuarios).
+
+## 14. Usuarios y sucursales: límites en pantalla (migración 079)
+
+- **"+ Nuevo usuario"** desaparece al llegar al límite de usuarios del plan y en su lugar se explica por qué, con "Mejorar plan". Esencial (1): "Tu plan incluye 1 usuario: el principal." Profesional (3): desaparece al llegar a 3. El límite se edita por plan en el panel de planes (`max_usuarios`; vacío = ilimitado).
+- **"+ Nueva sucursal"** solo aparece si el plan incluye la funcionalidad `multisucursal` y aún hay cupo. Esencial y Profesional (que no la incluyen) no pueden crear ninguna. Para dar sucursales a un plan: activa `multisucursal` en el plan y fija `limite_sucursales`.
+- **Base de datos (079):** crear una sucursal sin `multisucursal` se rechaza siempre (PT403), también la primera; antes la primera se permitía y por eso Esencial "sí dejaba". Reactivar una sucursal que ya existía conserva la regla anterior. No se toca ninguna sucursal existente ni a las clínicas heredadas.
+- El botón es solo interfaz: la base de datos rechaza el alta de más (PT402 usuarios/sucursales, PT403 sin la funcionalidad). Ante la duda (sin suscripción, clínica heredada, datos que no llegaron) no se oculta nada.
+- El contador de uso viene de la suscripción y se vuelve a pedir tras cada alta, baja o reactivación, así el botón aparece o desaparece al momento (`cargar({ forzar: true })`).
+- Pruebas: `sucursales_multisucursal_test.sql` (9) y `altaUsuariosYSucursales.test.js` (22, renderiza las pantallas reales).
+
+### 14.1 Qué se oculta cuando el plan no lo incluye (migración 080 y menú)
+
+- **Sucursales** (entrada del menú y pantalla `/sucursales`) se oculta si el plan no incluye `multisucursal` **y** la clínica no tiene ninguna sucursal. Si ya tiene (por ejemplo, bajó de plan), conserva el acceso para verlas y desactivarlas: no se esconde lo que ya usa. Quien escriba la dirección a mano ve "Esta funcionalidad no está disponible en tu plan" con "Mejorar plan".
+- **Profesional incluye 1 sucursal** (migración 080: `multisucursal` activada, tope 1). Esencial no. Cambia el catálogo: las clínicas que ya tenían Profesional conservan su snapshot; para dársela, el superadmin usa "Aplicar condiciones actuales del plan" en esa clínica.
+- Pruebas: `ocultarSucursalesSegunPlan.test.js` (11, renderiza el menú lateral real) y `sucursales_multisucursal_test.sql` (10).

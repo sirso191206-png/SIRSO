@@ -43,3 +43,13 @@ do $$ begin
   if not exists (select 1 from pg_roles where rolname='authenticator') then create role authenticator login noinherit password 'authpw'; end if;
 end $$;
 grant anon, authenticated, service_role to authenticator;
+
+-- auth.sessions de Supabase Auth (solo las columnas que usan las migraciones).
+create table if not exists auth.sessions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  user_agent text,
+  ip inet
+);

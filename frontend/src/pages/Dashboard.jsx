@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
@@ -5,7 +6,18 @@ import {
 } from 'recharts'
 import { useAuthStore } from '../store/useAuthStore'
 import { useDashboard } from '../hooks/useDashboard'
+import { useReportesSeries } from '../hooks/useReportesSeries'
+import { useSucursales } from '../hooks/useSucursales'
+import { useFuncionalidad } from '../hooks/useFuncionalidad'
+import { listarDentistas } from '../services/usuarios'
+import { registrarExportacion } from '../services/auditoria'
+import { aCsv, descargarCsv } from '../lib/csv'
+import { EXPORTACIONES, FILTROS_INICIALES, resumenFiltros } from '../lib/reportes'
+import { toastError, toastExito } from '../store/useToastStore'
+import { Icon } from '../components/ui/Icon'
+import { FiltrosReportes } from '../components/dashboard/FiltrosReportes'
 import { infoEstado } from '../components/agenda/constantes'
+import { etiquetaAccion, etiquetaModulo } from '../lib/auditoria'
 import { TarjetaEstadistica } from '../components/dashboard/TarjetaEstadistica'
 import { SeccionLista } from '../components/dashboard/SeccionLista'
 
@@ -21,6 +33,28 @@ export function Dashboard() {
   const perfil = useAuthStore((s) => s.perfil)
   const navigate = useNavigate()
   const { datos, cargando, error, puedeVerFinanzas, esOwner } = useDashboard()
+  // Filtros y series de las gráficas (los hooks van antes de cualquier return).
+  const [filtros, setFiltros] = useState(FILTROS_INICIALES)
+  const [dentistas, setDentistas] = useState([])
+  const { sucursales } = useSucursales()
+  const puedeExportar = useFuncionalidad('reportes')
+  const { series, cargando: cargandoSeries, error: errorSeries, errorRango } = useReportesSeries(filtros, { puedeVerFinanzas })
+  useEffect(() => {
+    if (esOwner) listarDentistas().then(setDentistas).catch(() => setDentistas([]))
+  }, [esOwner])
+
+  // Exportar deja constancia en la auditoría ANTES de entregar el archivo.
+  const exportar = async (clave, filas) => {
+    const { archivo, columnas } = EXPORTACIONES[clave]
+    try {
+      await registrarExportacion({ usuarioId: perfil.id, entidad: 'reportes', filas: filas.length, filtros: { reporte: archivo, ...resumenFiltros(filtros) } })
+      descargarCsv(aCsv(columnas, filas), `${archivo}-${new Date().toISOString().slice(0, 10)}`)
+      toastExito('Reporte exportado.')
+    } catch (err) {
+      toastError('No se pudo exportar el reporte. Intenta de nuevo.')
+      console.error(err)
+    }
+  }
 
   if (cargando || !datos) {
     return (
@@ -159,7 +193,8 @@ export function Dashboard() {
             render={(a) => (
               <div key={a.id} className="text-xs text-slate-500">
                 <span className="font-medium text-slate-700">{a.usuario?.nombre ?? 'Usuario eliminado'}</span>
-                {' '}{a.accion.replace(/_/g, ' ')}
+                {' '}{etiquetaAccion(a.accion)}
+                <span className="text-slate-400"> · {etiquetaModulo(a.entidad)}</span>
                 <span className="ml-1 text-slate-400">· {new Date(a.creado_en).toLocaleString('es-MX')}</span>
               </div>
             )}
@@ -167,70 +202,95 @@ export function Dashboard() {
         )}
       </div>
 
-      {/* Gráficas */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {puedeVerFinanzas && (
-          <GraficaTarjeta titulo="Ingresos por mes">
-            <BarChart data={datos.ingresosPorMes}>
+      {/* Filtros y gráficas */}
+      <FiltrosReportes
+        filtros={filtros}
+        onCambiar={setFiltros}
+        onLimpiar={() => setFiltros(FILTROS_INICIALES)}
+        dentistas={dentistas}
+        sucursales={sucursales.filter((s) => s.activa)}
+        puedeElegirDentista={esOwner}
+        errorRango={errorRango}
+      />
+
+      {errorSeries && <p className="text-sm text-clinico-rojo" role="alert">{errorSeries}</p>}
+      {cargandoSeries && !series && !errorRango && <p className="text-sm text-slate-400">Cargando gráficas…</p>}
+
+      {series && (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {puedeVerFinanzas && series.ingresosPorMes && (
+            <GraficaTarjeta titulo="Ingresos por mes" onExportar={puedeExportar ? () => exportar('ingresos', series.ingresosPorMes) : null}>
+              <BarChart data={series.ingresosPorMes}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+                <XAxis dataKey="mes" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} />
+                <Tooltip formatter={(v) => formatoMoneda(v)} />
+                <Bar dataKey="ingresos" fill="#1E5F8C" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </GraficaTarjeta>
+          )}
+
+          <GraficaTarjeta titulo="Citas por semana" onExportar={puedeExportar ? () => exportar('citasPorSemana', series.citasPorSemana) : null}>
+            <BarChart data={series.citasPorSemana}>
               <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-              <XAxis dataKey="mes" tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 12 }} />
-              <Tooltip formatter={(v) => formatoMoneda(v)} />
-              <Bar dataKey="ingresos" fill="#1E5F8C" radius={[4, 4, 0, 0]} />
+              <XAxis dataKey="semana" tick={{ fontSize: 12 }} />
+              <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="completadas" name="Completadas" stackId="c" fill="#22C55E" />
+              <Bar dataKey="pendientes" name="Pendientes" stackId="c" fill="#94A3B8" />
+              <Bar dataKey="canceladas" name="Canceladas" stackId="c" fill="#FCA5A5" radius={[4, 4, 0, 0]} />
             </BarChart>
           </GraficaTarjeta>
-        )}
 
-        <GraficaTarjeta titulo="Citas por semana">
-          <BarChart data={datos.citasPorSemana}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-            <XAxis dataKey="semana" tick={{ fontSize: 12 }} />
-            <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
-            <Tooltip />
-            <Bar dataKey="citas" fill="#3B82F6" radius={[4, 4, 0, 0]} />
-          </BarChart>
-        </GraficaTarjeta>
+          <GraficaTarjeta titulo="Citas del mes: completadas, canceladas y pendientes" onExportar={puedeExportar ? () => exportar('citasDelMes', series.citasDelMes) : null}>
+            <PieChart>
+              <Pie data={series.citasDelMes.filter((d) => d.valor > 0)} dataKey="valor" nameKey="estado" outerRadius={80} label={(e) => `${e.porcentaje}%`}>
+                {series.citasDelMes.filter((d) => d.valor > 0).map((d) => (
+                  <Cell key={d.estado} fill={d.color} />
+                ))}
+              </Pie>
+              <Tooltip formatter={(v, n, p) => [`${v} (${p.payload.porcentaje}%)`, n]} />
+              <Legend />
+            </PieChart>
+          </GraficaTarjeta>
 
-        <GraficaTarjeta titulo="Citas completadas y canceladas (este mes)">
-          <PieChart>
-            <Pie data={datos.citasCompletadasCanceladas} dataKey="valor" nameKey="estado" outerRadius={80} label>
-              {datos.citasCompletadasCanceladas.map((d) => (
-                <Cell key={d.estado} fill={d.color} />
-              ))}
-            </Pie>
-            <Tooltip />
-            <Legend />
-          </PieChart>
-        </GraficaTarjeta>
+          <GraficaTarjeta titulo="Tratamientos más realizados" onExportar={puedeExportar ? () => exportar('tratamientos', series.tratamientosMasRealizados) : null}>
+            <BarChart data={series.tratamientosMasRealizados} layout="vertical" margin={{ left: 24 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+              <XAxis type="number" tick={{ fontSize: 12 }} allowDecimals={false} />
+              <YAxis type="category" dataKey="descripcion" tick={{ fontSize: 11 }} width={120} />
+              <Tooltip />
+              <Bar dataKey="cantidad" fill="#7C3AED" radius={[0, 4, 4, 0]} />
+            </BarChart>
+          </GraficaTarjeta>
 
-        <GraficaTarjeta titulo="Tratamientos más realizados">
-          <BarChart data={datos.tratamientosMasRealizados} layout="vertical" margin={{ left: 24 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-            <XAxis type="number" tick={{ fontSize: 12 }} allowDecimals={false} />
-            <YAxis type="category" dataKey="descripcion" tick={{ fontSize: 11 }} width={120} />
-            <Tooltip />
-            <Bar dataKey="cantidad" fill="#7C3AED" radius={[0, 4, 4, 0]} />
-          </BarChart>
-        </GraficaTarjeta>
-
-        <GraficaTarjeta titulo="Pacientes nuevos por mes">
-          <LineChart data={datos.pacientesNuevosPorMes}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-            <XAxis dataKey="mes" tick={{ fontSize: 12 }} />
-            <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
-            <Tooltip />
-            <Line type="monotone" dataKey="pacientes" stroke="#22C55E" strokeWidth={2} dot={{ r: 3 }} />
-          </LineChart>
-        </GraficaTarjeta>
-      </div>
+          <GraficaTarjeta titulo="Pacientes nuevos por mes" onExportar={puedeExportar ? () => exportar('pacientesNuevos', series.pacientesNuevosPorMes) : null}>
+            <LineChart data={series.pacientesNuevosPorMes}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+              <XAxis dataKey="mes" tick={{ fontSize: 12 }} />
+              <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
+              <Tooltip />
+              <Line type="monotone" dataKey="pacientes" stroke="#22C55E" strokeWidth={2} dot={{ r: 3 }} />
+            </LineChart>
+          </GraficaTarjeta>
+        </div>
+      )}
     </div>
   )
 }
 
-function GraficaTarjeta({ titulo, children }) {
+function GraficaTarjeta({ titulo, children, onExportar }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4">
-      <h3 className="mb-3 text-sm font-semibold text-slate-700">{titulo}</h3>
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold text-slate-700">{titulo}</h3>
+        {onExportar && (
+          <button onClick={onExportar} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50" aria-label={`Exportar ${titulo} a CSV`}>
+            <Icon.download /> CSV
+          </button>
+        )}
+      </div>
       <ResponsiveContainer width="100%" height={220}>
         {children}
       </ResponsiveContainer>

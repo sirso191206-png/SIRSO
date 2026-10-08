@@ -12,7 +12,7 @@ import { asegurarCacheDeEsteUsuario, limpiarDatosLocalesDeSesion } from '../../.
 import { indexarPaciente, buscarEnIndiceLocal } from '../../../../lib/indicePacientesOffline.js'
 import { crearPacienteOffline, obtenerPacienteOfflineLocal } from '../../../../lib/pacientesOffline.js'
 import { guardarMapeoId, resolverId } from '../../../../lib/mapeoIdsOffline.js'
-import { encolarOperacion, listarOperacionesPendientes } from '../../../../lib/colaOffline.js'
+import { listarOperacionesPendientes } from '../../../../lib/colaOffline.js'
 import { actualizarCacheDeLectura, conCacheDeLectura } from '../../../../lib/cacheLectura.js'
 import { guardarPacientesEnReplica, buscarEnReplicaClinica, guardarCursorReplica, leerCursorReplica } from '../../../../lib/pacientesReplica.js'
 

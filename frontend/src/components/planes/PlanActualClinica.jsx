@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { BarraUso } from './BarraUso'
+import { avisoSuscripcion } from '../../lib/planes'
 import { ListaFuncionalidades } from './ListaFuncionalidades'
 import { usePlanStore } from '../../store/usePlanStore'
 import { usePlanActual } from '../../hooks/useFuncionalidad'
@@ -48,14 +49,21 @@ export function PlanActualClinica() {
         </p>
       )}
 
+      {avisoSuscripcion(suscripcion) && avisoSuscripcion(suscripcion).nivel !== 'info' && (
+        <p className={`mb-4 rounded-lg p-3 text-sm ${avisoSuscripcion(suscripcion).nivel === 'critico' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-800'}`}>
+          {avisoSuscripcion(suscripcion).mensaje}
+        </p>
+      )}
+
       {estado === 'suspendida' && (
         <p className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">Tu suscripción está suspendida. Contacta al administrador.</p>
       )}
 
-      <div className="mb-4 grid gap-4 sm:grid-cols-3">
+      <div className="mb-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <BarraUso etiqueta="Pacientes" usado={uso?.pacientes ?? 0} limite={limites?.pacientes} />
         <BarraUso etiqueta="Usuarios" usado={uso?.usuarios ?? 0} limite={limites?.usuarios} />
         <BarraUso etiqueta="Sucursales" usado={uso?.sucursales ?? 0} limite={limites?.sucursales} />
+        <BarraUso etiqueta="Almacenamiento" usado={uso?.almacenamiento_mb ?? 0} limite={limites?.almacenamiento_mb} unidad="MB" />
       </div>
       <p className="mb-4 text-xs text-slate-500">Sesiones simultáneas por usuario: {formatearLimite(limites?.sesiones)}</p>
 

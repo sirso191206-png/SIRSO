@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { verClinica, eliminarClinica } from '../services/admin'
 import { useAuthStore } from '../store/useAuthStore'
@@ -21,7 +21,8 @@ export function AdministracionClinica() {
   const [confirmarNombre, setConfirmarNombre] = useState('')
   const [eliminando, setEliminando] = useState(false)
 
-  async function cargar() {
+  // useCallback con [clinicaId]: el efecto sigue corriendo solo al cambiar de clínica; evita el bucle de renders.
+  const cargar = useCallback(async () => {
     setCargando(true)
     setError(null)
     try {
@@ -32,11 +33,11 @@ export function AdministracionClinica() {
     } finally {
       setCargando(false)
     }
-  }
+  }, [clinicaId])
 
   useEffect(() => {
     cargar()
-  }, [clinicaId])
+  }, [cargar])
 
   async function handleEliminar() {
     setEliminando(true)

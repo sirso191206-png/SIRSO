@@ -82,12 +82,13 @@ function Corona({ numeroPieza, tipo, color, emissive }) {
   // al del diente real. .center() la recentra una sola vez (memoizado,
   // no en cada render) para que encaje con la posición que ya calcula
   // configuracionDental.js, igual que encajaba la cápsula placeholder.
+  const geometriaNodo = nodo?.geometry
   const geometriaCentrada = useMemo(() => {
-    if (!nodo || !nodo.geometry) return null
-    const geo = nodo.geometry.clone()
+    if (!geometriaNodo) return null
+    const geo = geometriaNodo.clone()
     geo.center()
     return geo
-  }, [nodo?.geometry])
+  }, [geometriaNodo])
 
   if (geometriaCentrada) {
     return (

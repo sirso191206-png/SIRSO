@@ -28,11 +28,7 @@ export function useDashboard() {
       tratamientosActivos: dash.contarTratamientosActivos(),
       pacientesAtendidosHoy: dash.contarPacientesAtendidosHoy(),
       pacientesEnEspera: dash.contarPacientesEnEspera(),
-      citasPendientesConfirmar: dash.contarCitasPendientesConfirmar(),
-      citasPorSemana: dash.obtenerCitasPorSemana(),
-      citasCompletadasCanceladas: dash.obtenerCitasCompletadasCanceladas(),
-      tratamientosMasRealizados: dash.obtenerTratamientosMasRealizados(),
-      pacientesNuevosPorMes: dash.obtenerPacientesNuevosPorMes()
+      citasPendientesConfirmar: dash.contarCitasPendientesConfirmar()
     }
 
     if (puedeVerFinanzas) {
@@ -41,7 +37,6 @@ export function useDashboard() {
       tareas.pagosRecientes = dash.obtenerPagosRecientes()
       tareas.pacientesConSaldo = dash.obtenerPacientesConSaldo()
       tareas.saldosPendientes = dash.sumaSaldosPendientes()
-      tareas.ingresosPorMes = dash.obtenerIngresosPorMes()
     }
 
     if (esOwner) {

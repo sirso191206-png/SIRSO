@@ -60,12 +60,14 @@ function crearCaches(almacenes, fetchFn) {
   }
 }
 
-function levantarSW({ build = 'build-1', red, almacenes = new Map() }) {
+function levantarSW({ build = 'build-1', red, almacenes = new Map(), enLinea = true }) {
   const handlers = {}
   // El navegador resuelve las rutas relativas contra el origen antes de pedirlas.
   const fetchMock = vi.fn(async (req) => red(abs(typeof req === 'string' ? req : req.url)))
-  const self = { addEventListener: (t, f) => { handlers[t] = f }, skipWaiting: vi.fn(), clients: { claim: vi.fn() } }
-  const contexto = vm.createContext({ self, caches: crearCaches(almacenes, fetchMock), fetch: fetchMock, Response, URL, Promise, console })
+  // Lo que un service worker REAL tiene a mano: su origen (el SW solo gestiona el suyo), el estado de la conexión y los
+  // temporizadores/cancelación con los que acota la espera de la red.
+  const self = { addEventListener: (t, f) => { handlers[t] = f }, skipWaiting: vi.fn(), clients: { claim: vi.fn() }, location: { origin: ORIGEN }, navigator: { onLine: enLinea } }
+  const contexto = vm.createContext({ self, caches: crearCaches(almacenes, fetchMock), fetch: fetchMock, Response, URL, Promise, console, AbortController, setTimeout, clearTimeout })
   vm.runInContext(CODIGO_SW.replaceAll('__SIRO_BUILD__', build), contexto)
 
   const despachar = async (tipo) => {

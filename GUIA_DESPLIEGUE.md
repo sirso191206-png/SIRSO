@@ -1,8 +1,9 @@
 # SIRO — Guía de despliegue
 
 Versión de esta guía: refleja el estado real del proyecto al cierre de la
-ronda de preparación para V1 de producción — **45 migraciones** (001 a 045),
-sin ningún resto de SIS en código ni en Supabase.
+ronda de preparación para V1 de producción — **85 archivos de migración** (001 a 084; la 064 tiene dos archivos; las 046 a 073 están en el repositorio
+y las 074 a 080, de planes, seguridad y sesiones, se describen en la sección 3.1).
+El detalle de planes está en `GUIA_PLANES.md`, el de sesiones en `GUIA_SESIONES.md` y el de offline en `GUIA_OFFLINE.md`.
 
 ---
 
@@ -31,7 +32,7 @@ Corre todas las migraciones de un jalón:
 supabase db push
 ```
 
-Esto aplica, en orden, las 45 migraciones (`001` a `045`). Están escritas para
+Esto aplica, en orden, todas las migraciones (`001` a `080`). Están escritas para
 ser seguras de volver a correr (`if not exists` / `drop policy if exists` /
 `create or replace function`), así que repetir el comando no rompe nada si
 alguna ya se había aplicado.
@@ -52,6 +53,29 @@ creadas en migraciones anteriores.
 | `043` | Corrige `signos_vitales`, la última tabla clínica sin el filtro de asignación |
 | `044` | Cierra permisos de pacientes: lista blanca ampliada de recepción (CURP, tipo_paciente), `pacientes_insert` restringido a owner/dentista/recepción, y refuerza la autoasignación para que un dentista nunca pueda asignar un paciente a otro dentista |
 | `045` | Elimina de Supabase los objetos exclusivos de SIS: tabla `sis_catalogo_establecimientos` y 14 columnas SIS sin uso en `usuarios`/`pacientes` |
+
+### 3.1 Migraciones 074 a 080 — planes, seguridad y sesiones
+
+Se aplican **en este orden** (el orden numérico ya es el correcto; la 075 se niega a correr si falta la 074).
+
+Documentación de puesta en marcha: `docs/CHECKLIST_PRODUCCION.md`, `docs/CHECKLIST_COMERCIALIZACION.md`, `docs/ROLES_Y_PERMISOS.md`, `docs/BACKUPS_Y_RECUPERACION.md` y `docs/PRIVACIDAD_REVISION.md`.
+
+| Migración | Qué hace | Notas de despliegue |
+|---|---|---|
+| `074` | Hotfix: RLS en `planes_catalogo` (estaba abierta a cualquier usuario con sesión) | Aplicar de inmediato |
+| `075` | Planes y suscripciones: catálogo, funcionalidades, snapshot por clínica, límites y RLS por funcionalidad | Las clínicas existentes toman un snapshot con todo activo |
+| `076` | Una clínica nunca existe sin suscripción (`fn_crear_clinica_con_plan` + trigger diferido) | **Antes**, busca clínicas sin suscripción (consulta en `GUIA_PLANES.md` §13) |
+| `077` | Hotfix: nadie se hace superadmin por la API (`es_super_admin`) | Aplicar de inmediato |
+| `078` | Sesiones por dispositivo reales (`auth.sessions`) con interruptor | Viene **apagado**; pasos de verificación y activación en `GUIA_SESIONES.md` |
+| `079` | Crear sucursales exige la funcionalidad `multisucursal` | No toca sucursales existentes |
+| `080` | El plan Profesional incluye 1 sucursal | Solo catálogo: las clínicas que ya tienen Profesional necesitan "Aplicar condiciones actuales del plan" |
+| `081` | **HOTFIX**: la auditoría de una clínica ya no la lee otra clínica ni se puede falsificar | **Aplicar de inmediato** (requiere la 075) |
+| `082` | Estado de suscripción (activa/gracia/vencida), almacenamiento medido y limitado, topes por archivo, catálogo honesto | Requiere la 078. Los planes tienen almacenamiento ilimitado: no bloquea a nadie hasta que se ponga un tope. Validar la política sobre `storage.objects` en Supabase real |
+| `083` | Ranking de tratamientos con período, estado y odontólogo | Independiente |
+| `084` | El propietario puede ejercer como dentista (marca `usuarios.ejerce_como_dentista`; la base lo acepta como odontólogo responsable y como dentista de un asistente) | Requiere la 038. Nadie queda marcado por omisión; cada propietario lo activa en "Datos profesionales" |
+
+Verifica primero en **staging**: estas migraciones se probaron contra PostgreSQL local, no contra un Supabase real.
+Pruebas: `supabase/tests/run_planes_tests.sh` y los archivos `*_test.sql` de la misma carpeta.
 
 **Importante — 038 duplicada, ya resuelta**: durante el desarrollo existieron
 temporalmente dos migraciones "038" (una arquitectura paralela, redundante).
@@ -82,6 +106,10 @@ supabase functions deploy admin-crear-clinica admin-actualizar-clinica admin-eli
 No hay ninguna función relacionada con SIS — se eliminó `sis-cifrar-archivo`
 en el cierre de V1.
 
+**Funciones que cambiaron con los planes y que hay que volver a desplegar:** `admin-crear-clinica`
+(alta atómica de la clínica con su plan), `admin-actualizar-clinica` y `crear-usuario` (ya no crea owners ni clínicas;
+el límite de usuarios lo aplica la base de datos). **Nunca se ejecutaron en un Supabase real**: pruébalas en staging.
+
 ---
 
 ## 6. Secrets
@@ -111,14 +139,16 @@ con el build.
 
 ## 8. Configuración inicial de producción
 
-### Crear el primer Owner y su clínica
-El primer usuario de cada clínica se crea con rol `owner` — la Edge Function
-`crear-usuario` acepta `nombreClinica` cuando el rol es `owner`, y crea la
-clínica y el usuario en el mismo paso.
+### Crear una clínica y su Owner
+**Solo el superadmin** da de alta una clínica: Administración → nueva clínica, eligiendo el plan, la modalidad y el
+precio. Eso (Edge Function `admin-crear-clinica`) crea la clínica **con su suscripción**, sus límites y funcionalidades,
+y a su dueño en un solo paso. `crear-usuario` **no** crea owners ni clínicas (responde 403): un owner no puede crear
+otro owner ni una clínica nueva, y la base de datos rechaza cualquier clínica sin suscripción.
+El primer superadmin se da de alta con SQL / `service_role`, nunca desde la aplicación.
 
 ### Crear el resto de los usuarios
 El owner, desde `/usuarios`, crea odontólogos/asistentes/recepción de su
-propia clínica. Cada uno recibe una contraseña temporal que debe cambiar en
+propia clínica, hasta el límite de usuarios de su plan (al llegar al límite el botón desaparece). Cada uno recibe una contraseña temporal que debe cambiar en
 su primer inicio de sesión.
 
 ### Datos profesionales del odontólogo

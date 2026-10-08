@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAuthStore } from '../../store/useAuthStore'
 import { toastExito, toastError } from '../../store/useToastStore'
 import { listarDentistas } from '../../services/usuarios'
+import { nombreParaSelector } from '../../lib/profesionales'
 import { reasignarPaciente } from '../../services/pacientes'
 
 /**
@@ -52,6 +53,13 @@ export function SelectorDentistaResponsable({ paciente, onReasignado }) {
         {dentistas.map((d) => (
           <option key={d.id} value={d.id}>{d.nombre}</option>
         ))}
+        {/* Si el responsable actual ya no está en la lista (dejó de ejercer, o está inactivo) se muestra tal cual en vez
+            de aparentar "Sin asignar". */}
+        {paciente.dentista_responsable_id && !dentistas.some((d) => d.id === paciente.dentista_responsable_id) && (
+          <option value={paciente.dentista_responsable_id}>
+            {nombreParaSelector(paciente.dentista_responsable) ? `${nombreParaSelector(paciente.dentista_responsable)} (actual)` : 'Responsable actual'}
+          </option>
+        )}
       </select>
       <p className="mt-1 text-xs text-slate-400">
         Un paciente sin asignar es visible para todos los odontólogos de la clínica hasta que se asigne.

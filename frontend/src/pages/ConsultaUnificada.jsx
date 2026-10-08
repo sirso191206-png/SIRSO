@@ -293,9 +293,11 @@ function Seccion({ titulo, children, funcionalidad }) {
 // necesita, para que el scroll de la consulta no dependa de
 // secciones que la mayoría de las veces se dejan vacías.
 function SeccionColgable({ titulo, children, funcionalidad }) {
+  // Los hooks van ANTES de cualquier return: si el plan cambia mientras la pantalla está abierta, el número de hooks
+  // no puede variar (React lo trata como error y la pantalla se caería).
   const incluida = useFuncionalidad(funcionalidad)
-  if (!incluida) return null
   const [abierta, setAbierta] = useState(false)
+  if (!incluida) return null
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4">
       <button onClick={() => setAbierta((a) => !a)} className="flex w-full items-center justify-between text-left">

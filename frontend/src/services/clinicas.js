@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { validarArchivo, mensajeErrorArchivo } from '../lib/limitesArchivos'
 
 export async function obtenerMiClinica(clinicaId) {
   const { data, error } = await supabase
@@ -26,13 +27,18 @@ export async function actualizarMiClinica(clinicaId, cambios) {
 // bucket es público, así que la URL pública queda estable de una vez
 // (no hace falta firmar nada cada vez que se muestra en una receta).
 export async function subirLogoClinica(clinicaId, archivo) {
+  const valido = validarArchivo('logos-clinicas', archivo)
+  if (!valido.ok) throw new Error(valido.mensaje)
   const extension = archivo.name.split('.').pop()
   const path = `${clinicaId}/logo.${extension}`
 
   const { error: uploadError } = await supabase.storage
     .from('logos-clinicas')
     .upload(path, archivo, { upsert: true })
-  if (uploadError) throw uploadError
+  if (uploadError) {
+    console.error(uploadError)
+    throw new Error(mensajeErrorArchivo(uploadError, 'logos-clinicas'))
+  }
 
   const { data: { publicUrl } } = supabase.storage.from('logos-clinicas').getPublicUrl(path)
   // Se agrega un parámetro de caché-bust (?t=timestamp) porque el path

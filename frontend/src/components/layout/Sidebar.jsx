@@ -7,9 +7,10 @@ import { SelectorSucursal } from '../sucursales/SelectorSucursal'
 import { useColaOffline } from '../../hooks/useColaOffline'
 import { usePrecargaAutomaticaDelDia } from '../../hooks/usePrecargaAutomaticaDelDia'
 import { useSincronizacionClinica } from '../../hooks/useSincronizacionClinica'
-import { useDisponibilidad } from '../../hooks/useFuncionalidad'
+import { useDisponibilidad, usePuedeVerSucursales } from '../../hooks/useFuncionalidad'
 import { useSuscripcionAlDia } from '../../hooks/useSuscripcionAlDia'
 import { enlacesVisibles } from '../../lib/planes'
+import { rolesDeRuta } from '../../lib/accesoPorRol'
 import { useCierreSesionSeguro } from '../../hooks/useCierreSesionSeguro'
 import { PadFirma } from '../PadFirma'
 import { Modal } from '../ui/Modal'
@@ -33,17 +34,17 @@ export function etiquetaPacientesPorRol(rol) {
 // principal; "Consultas", "Finanzas", "Configuración" y "Reportes" se
 // agregan cuando esas fases futuras construyan una pantalla real, para
 // no dejar enlaces rotos mientras tanto.
-const SECCIONES = [
+const SECCIONES_BASE = [
   {
     titulo: null, // Inicio no lleva encabezado, va suelto arriba
     enlaces: [
-      { to: '/', label: 'Mi día', icon: 'home', roles: ['owner', 'dentista', 'asistente'] }
+      { to: '/', label: 'Mi día', icon: 'home' }
     ]
   },
   {
     titulo: 'Atención',
     enlaces: [
-      { to: '/agenda', label: 'Agenda', icon: 'calendar', roles: ['owner', 'dentista', 'recepcion', 'asistente'], funcionalidad: 'agenda' },
+      { to: '/agenda', label: 'Agenda', icon: 'calendar', funcionalidad: 'agenda' },
       // Pacientes: la etiqueta cambia según el rol para que la
       // navegación refleje lo que RLS ya filtra en la base — no es
       // decorativo, "Mis pacientes" para un dentista son literalmente
@@ -51,30 +52,38 @@ const SECCIONES = [
       {
         to: '/pacientes',
         label: (rol) => etiquetaPacientesPorRol(rol),
-        icon: 'users',
-        roles: ['owner', 'dentista', 'recepcion', 'asistente']
+        icon: 'users'
       }
     ]
   },
   {
     titulo: 'Gestión',
     enlaces: [
-      { to: '/catalogo', label: 'Tratamientos', icon: 'sparkles', roles: ['owner', 'dentista'], funcionalidad: 'tratamientos' },
-      { to: '/corte-de-caja', label: 'Corte de caja', icon: 'card', roles: ['owner', 'recepcion'], funcionalidad: 'caja' },
-      { to: '/reportes', label: 'Reportes', icon: 'chart', roles: ['owner'], funcionalidad: 'estadisticas' }
+      { to: '/catalogo', label: 'Tratamientos', icon: 'sparkles', funcionalidad: 'tratamientos' },
+      { to: '/corte-de-caja', label: 'Corte de caja', icon: 'card', funcionalidad: 'caja' },
+      { to: '/reportes', label: 'Reportes', icon: 'chart', funcionalidad: 'estadisticas' }
     ]
   },
   {
     titulo: 'Administración',
     enlaces: [
-      { to: '/usuarios', label: 'Usuarios', icon: 'user', roles: ['owner'] },
-      { to: '/sucursales', label: 'Sucursales', icon: 'building', roles: ['owner'] },
-      { to: '/configuracion', label: 'Configuración', icon: 'settings', roles: ['owner'] },
-      { to: '/administracion/arco', label: 'Derechos ARCO', icon: 'shield', roles: ['owner'] },
-      { to: '/administracion/incidentes', label: 'Incidentes de seguridad', icon: 'alertTriangle', roles: ['owner'] }
+      { to: '/usuarios', label: 'Usuarios', icon: 'user' },
+      { to: '/sucursales', label: 'Sucursales', icon: 'building', funcionalidad: 'multisucursal' },
+      { to: '/auditoria', label: 'Auditoría', icon: 'clipboard', funcionalidad: 'auditoria' },
+      { to: '/configuracion', label: 'Configuración', icon: 'settings' },
+      { to: '/administracion/arco', label: 'Derechos ARCO', icon: 'shield' },
+      { to: '/administracion/incidentes', label: 'Incidentes de seguridad', icon: 'alertTriangle' }
     ]
+  },
+  {
+    titulo: null,
+    enlaces: [{ to: '/ayuda', label: 'Ayuda', icon: 'helpCircle' }]
   }
 ]
+
+// Los roles de cada enlace salen de lib/accesoPorRol.js, la misma tabla que usa ProtectedRoute: el
+// menú y el acceso por URL no pueden contradecirse.
+const SECCIONES = SECCIONES_BASE.map((s) => ({ ...s, enlaces: s.enlaces.map((e) => ({ ...e, roles: rolesDeRuta(e.to) })) }))
 
 const ETIQUETA_ROL = {
   owner: 'Propietario',
@@ -135,7 +144,10 @@ export function Sidebar() {
   // Plan de la clínica ACTUAL: se mantiene al día (al iniciar, al cambiar de
   // cuenta/clínica, al volver la red o la pestaña) y solo sirve para ocultar menús.
   // La base de datos es la que realmente aplica límites y funcionalidades.
-  const disponible = useDisponibilidad()
+  const disponibleBase = useDisponibilidad()
+  // Sucursales se oculta si el plan no la incluye Y la clínica no tiene ninguna (si ya las tiene, conserva el acceso).
+  const veSucursales = usePuedeVerSucursales()
+  const disponible = (codigo) => (codigo === 'multisucursal' ? veSucursales : disponibleBase(codigo))
   useSuscripcionAlDia()
   const [modalAbierto, setModalAbierto] = useState(false)
   const [modalPerfilAbierto, setModalPerfilAbierto] = useState(false)
@@ -368,7 +380,7 @@ function ModalCambiarPassword({ abierto, onCerrar }) {
 function ModalPerfilProfesional({ abierto, onCerrar }) {
   const perfil = useAuthStore((s) => s.perfil)
   const recargarPerfil = useAuthStore((s) => s.recargarPerfil)
-  const [form, setForm] = useState({ nombre: '', rfc: '', cedulaProfesional: '', escuelaProcedencia: '' })
+  const [form, setForm] = useState({ nombre: '', rfc: '', cedulaProfesional: '', escuelaProcedencia: '', ejerceComoDentista: false })
   const [firmaPng, setFirmaPng] = useState(undefined) // undefined = sin tocar, usa la guardada
   const [refirmando, setRefirmando] = useState(false)
   const [guardando, setGuardando] = useState(false)
@@ -382,7 +394,8 @@ function ModalPerfilProfesional({ abierto, onCerrar }) {
         nombre: perfil.nombre ?? '',
         rfc: perfil.rfc ?? '',
         cedulaProfesional: perfil.cedula_profesional ?? '',
-        escuelaProcedencia: perfil.escuela_procedencia ?? ''
+        escuelaProcedencia: perfil.escuela_procedencia ?? '',
+        ejerceComoDentista: perfil.ejerce_como_dentista === true
       })
       setFirmaPng(undefined)
       setRefirmando(false)
@@ -397,6 +410,8 @@ function ModalPerfilProfesional({ abierto, onCerrar }) {
       // ya estaba guardada — no se manda nada y no se borra por
       // accidente solo por abrir y cerrar este modal sin firmar de nuevo.
       const datosGuardar = { ...form }
+      // Solo el propietario tiene esta opción; para los demás roles ni se manda (la base la rechazaría).
+      if (perfil.rol !== 'owner') delete datosGuardar.ejerceComoDentista
       if (firmaPng !== undefined) datosGuardar.firmaPng = firmaPng
       else datosGuardar.firmaPng = perfil.firma_png
       await actualizarMiPerfilProfesional(perfil.id, datosGuardar)
@@ -442,6 +457,24 @@ function ModalPerfilProfesional({ abierto, onCerrar }) {
           value={form.escuelaProcedencia}
           onChange={(e) => setForm({ ...form, escuelaProcedencia: e.target.value })}
         />
+
+        {perfil?.rol === 'owner' && (
+          <label className="flex items-start gap-3 rounded-lg border border-slate-200 p-3 text-sm">
+            <input
+              type="checkbox"
+              checked={form.ejerceComoDentista}
+              onChange={(e) => setForm({ ...form, ejerceComoDentista: e.target.checked })}
+              className="mt-0.5 h-4 w-4"
+            />
+            <span>
+              <span className="block font-medium text-slate-700">Atiendo pacientes como dentista</span>
+              <span className="block text-xs text-slate-500">
+                Actívalo si además de dirigir la clínica atiendes pacientes: aparecerás en las listas de odontólogos
+                (agenda, odontólogo responsable de un paciente) y podrán asignarte asistentes. Si no atiendes, déjalo apagado.
+              </span>
+            </span>
+          </label>
+        )}
 
         <div>
           <span className="mb-1 block text-sm font-medium text-slate-700">Firma</span>

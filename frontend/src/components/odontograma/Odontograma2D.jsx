@@ -9,8 +9,10 @@ import { OdontogramaSvg } from './OdontogramaSvg'
 import { ModalCara } from './ModalCara'
 import { ModalPiezaGeneral } from './ModalPiezaGeneral'
 
-export function Odontograma2D({ pacienteId }) {
-  const { piezas, cargando, cambiarEstadoPieza, cambiarEstadoCara } = useOdontograma(pacienteId)
+export function Odontograma2D({ pacienteId, odontograma }) {
+  // Si el padre ya cargó los datos (`odontograma`) se reutilizan; si no, se piden aquí.
+  const propio = useOdontograma(pacienteId, { habilitado: !odontograma })
+  const { piezas, cargando, error, recargar, cambiarEstadoPieza, cambiarEstadoCara } = odontograma ?? propio
   const { tratamientos } = useTratamientos(pacienteId)
   const perfil = useAuthStore((s) => s.perfil)
   const [piezaModalGeneral, setPiezaModalGeneral] = useState(null)
@@ -53,6 +55,14 @@ export function Odontograma2D({ pacienteId }) {
   }
 
   if (cargando) return <p className="text-slate-400">Cargando odontograma…</p>
+  if (error && piezas.length === 0) {
+    return (
+      <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-amber-50 p-4 text-sm text-amber-800">
+        <span>{error}</span>
+        <button onClick={recargar} className="rounded-lg border border-amber-300 px-3 py-1.5 text-xs font-medium hover:bg-amber-100">Reintentar</button>
+      </div>
+    )
+  }
 
   const porNumero = Object.fromEntries(piezas.map((p) => [p.numero_pieza, p]))
   const porNumeroInicial = piezasIniciales ? Object.fromEntries(piezasIniciales.map((p) => [p.numero_pieza, p])) : null

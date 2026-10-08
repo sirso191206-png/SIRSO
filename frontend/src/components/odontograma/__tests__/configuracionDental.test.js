@@ -19,7 +19,7 @@ describe('configuracionDental — posición anatómica de las 32 piezas', () => 
 
   it('ninguna pieza comparte exactamente la misma posición 3D (x,y,z) que otra — nota: piezas superiores e inferiores SÍ comparten (x,z), es correcto anatómicamente (una arriba y otra abajo alineadas verticalmente), lo que las distingue es Y (altura de arco)', () => {
     const posiciones = Object.entries(CONFIGURACION_DENTAL).map(
-      ([fdi, c]) => `${c.posicion[0].toFixed(4)},${c.posicion[1].toFixed(4)},${c.posicion[2].toFixed(4)}`
+      ([, c]) => `${c.posicion[0].toFixed(4)},${c.posicion[1].toFixed(4)},${c.posicion[2].toFixed(4)}`
     )
     const unicas = new Set(posiciones)
     expect(unicas.size).toBe(posiciones.length)
