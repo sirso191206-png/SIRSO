@@ -9,6 +9,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 
 import { buildCorsHeaders } from '../_shared/cors.ts'
+import { exigirSinCambioPendiente, ErrorDeSolicitud, fechaOpcional, generarPasswordTemporal, leerCuerpoJson, responderError } from '../_shared/solicitud.ts'
 
 serve(async (req) => {
   // CORS por petición: refleja el Origin si está en la lista blanca.
@@ -20,15 +21,15 @@ serve(async (req) => {
   try {
     const authHeader = req.headers.get('Authorization')
     console.log('admin-crear-clinica: Authorization presente:', !!authHeader, '— empieza con Bearer:', !!authHeader?.startsWith('Bearer '))
-    if (!authHeader) throw new Error('Falta autenticación')
+    if (!authHeader) throw new ErrorDeSolicitud('Falta autenticación')
 
     const token = authHeader.replace(/^Bearer\s+/i, '').trim()
     console.log('admin-crear-clinica: token presente:', !!token, '— longitud:', token.length)
-    if (!token) throw new Error('Falta token de acceso')
+    if (!token) throw new ErrorDeSolicitud('Falta token de acceso')
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')
-    const anonKey = Deno.env.get('SUPABASE_ANON_KEY')
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
     // Cliente efímero: sin persistir/refrescar sesión propia — esta
     // función corre una sola vez por petición; el único propósito de
@@ -41,7 +42,7 @@ serve(async (req) => {
       console.error('admin-crear-clinica: error validando JWT:', userError.message, '— status:', userError.status)
     }
     console.log('admin-crear-clinica: usuario autenticado:', !!user)
-    if (userError || !user) throw new Error('Token inválido')
+    if (userError || !user) throw new ErrorDeSolicitud('Token inválido')
 
     // Cliente admin: el único que puede crear usuarios de Auth.
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey)
@@ -49,36 +50,46 @@ serve(async (req) => {
     // Autorización: SOLO super admin.
     const { data: perfilCaller, error: perfilError } = await supabaseAdmin
       .from('usuarios')
-      .select('es_super_admin')
+      .select('es_super_admin, debe_cambiar_password')
       .eq('id', user.id)
       .single()
-    if (perfilError || !perfilCaller) throw new Error('No se encontró tu perfil')
-    if (!perfilCaller.es_super_admin) throw new Error('No autorizado')
+    if (perfilError || !perfilCaller) throw new ErrorDeSolicitud('No se encontró tu perfil')
+    exigirSinCambioPendiente(perfilCaller)
+    if (!perfilCaller.es_super_admin) throw new ErrorDeSolicitud('No autorizado')
 
     // Entrada
-    const body = await req.json()
-    const nombreClinica = (body?.nombreClinica ?? '').trim()
-    const ownerNombre = (body?.ownerNombre ?? '').trim()
-    const ownerCorreo = (body?.ownerCorreo ?? '').trim().toLowerCase()
+    const body = await leerCuerpoJson(req)
+    // Los campos de texto deben LLEGAR como texto: un número, un arreglo o un objeto es una solicitud malformada, no algo que se convierta en silencio.
+    for (const campo of ['nombreClinica', 'ownerNombre', 'ownerCorreo', 'planCodigo', 'modalidad']) {
+      const v = body?.[campo]
+      if (v !== undefined && v !== null && typeof v !== 'string') throw new ErrorDeSolicitud(`${campo} debe ser texto`)
+    }
+    const nombreClinica = String(body?.nombreClinica ?? '').trim()
+    const ownerNombre = String(body?.ownerNombre ?? '').trim()
+    const ownerCorreo = String(body?.ownerCorreo ?? '').trim().toLowerCase()
     // Plan: por compatibilidad con clientes anteriores al selector de plan,
     // si no viene se usa 'esencial'/'mensual'. NO hay precios ni límites
     // aquí: todo sale de la base de datos (planes_catalogo).
     const planCodigo = (body?.planCodigo ?? 'esencial').toString().trim().toLowerCase()
     const modalidad = (body?.modalidad ?? 'mensual').toString().trim().toLowerCase()
     const precioContratado = body?.precioContratado ?? null      // opcional: convenio a la medida
-    const fechaFin = body?.fechaFin ?? null
+    const fechaFin = fechaOpcional(body?.fechaFin, 'La fecha de fin')
     const autoRenovacion = body?.autoRenovacion ?? true
+    if (typeof autoRenovacion !== 'boolean') throw new ErrorDeSolicitud('autoRenovacion debe ser verdadero o falso')
+    if (nombreClinica.length > 150) throw new ErrorDeSolicitud('El nombre de la clínica no puede tener más de 150 caracteres')
+    if (ownerNombre.length > 120) throw new ErrorDeSolicitud('El nombre del dueño no puede tener más de 120 caracteres')
+    if (ownerCorreo.length > 254) throw new ErrorDeSolicitud('El correo del dueño no es válido')
 
-    if (!nombreClinica) throw new Error('Falta el nombre de la clínica')
-    if (!ownerNombre) throw new Error('Falta el nombre del dueño')
-    if (!ownerCorreo) throw new Error('Falta el correo del dueño')
+    if (!nombreClinica) throw new ErrorDeSolicitud('Falta el nombre de la clínica')
+    if (!ownerNombre) throw new ErrorDeSolicitud('Falta el nombre del dueño')
+    if (!ownerCorreo) throw new ErrorDeSolicitud('Falta el correo del dueño')
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(ownerCorreo)) {
-      throw new Error('El correo del dueño no es válido')
+      throw new ErrorDeSolicitud('El correo del dueño no es válido')
     }
 
-    if (!['mensual', 'anual'].includes(modalidad)) throw new Error('Modalidad inválida (mensual o anual)')
+    if (!['mensual', 'anual'].includes(modalidad)) throw new ErrorDeSolicitud('Modalidad inválida (mensual o anual)')
     if (precioContratado !== null && (typeof precioContratado !== 'number' || precioContratado < 0)) {
-      throw new Error('Precio contratado inválido')
+      throw new ErrorDeSolicitud('Precio contratado inválido')
     }
     // Se valida el plan ANTES de crear nada: así un plan inexistente o
     // desactivado no deja una clínica ni un usuario a medias.
@@ -88,8 +99,8 @@ serve(async (req) => {
       .eq('plan', planCodigo)
       .maybeSingle()
     if (planError) throw planError
-    if (!planDb) throw new Error('El plan seleccionado no existe')
-    if (!planDb.activo) throw new Error('El plan seleccionado está desactivado')
+    if (!planDb) throw new ErrorDeSolicitud('El plan seleccionado no existe')
+    if (!planDb.activo) throw new ErrorDeSolicitud('El plan seleccionado está desactivado')
 
     // 1) Crear la clínica CON su suscripción y su snapshot de límites y funcionalidades en UNA
     //    sola transacción (fn_crear_clinica_con_plan, migración 076 — solo service_role). La base
@@ -113,7 +124,7 @@ serve(async (req) => {
     if (clinicaError) throw clinicaError
 
     // 2) Crear el usuario de Auth (dueño) con contraseña temporal.
-    const passwordTemporal = crypto.randomUUID().slice(0, 12)
+    const passwordTemporal = generarPasswordTemporal()
     const { data: nuevoAuth, error: createError } =
       await supabaseAdmin.auth.admin.createUser({
         email: ownerCorreo,
@@ -123,7 +134,7 @@ serve(async (req) => {
     if (createError) {
       // Revertir la clínica recién creada (p. ej. si el correo ya existe).
       await supabaseAdmin.from('clinicas').delete().eq('id', clinica.id)
-      throw createError
+      throw new ErrorDeSolicitud(createError.message || 'No se pudo crear la cuenta del dueño')   // lo lee solo el superadministrador
     }
 
     // 3) Crear el perfil en `usuarios` como owner de ESTA clínica.
@@ -133,6 +144,7 @@ serve(async (req) => {
       nombre: ownerNombre,
       correo: ownerCorreo,
       rol: 'owner',
+      debe_cambiar_password: true,   // contraseña temporal: debe cambiarla antes de usar SIRO (migración 103)
     })
     if (insertError) {
       // Revertir todo: sin perfil, ni Auth ni clínica deben quedar.
@@ -163,9 +175,6 @@ serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     )
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    return responderError(err, corsHeaders, 'admin-crear-clinica')
   }
 })

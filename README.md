@@ -8,6 +8,10 @@ un módulo legal/privacidad completo (avisos, consentimientos, cookies,
 ARCO). Pensado para odontólogos independientes, consultorios pequeños y
 clínicas con varias sucursales.
 
+> **Documentación vigente de instalación, despliegue y verificación** (empieza aquí): `docs/INSTALACION_COMPLETA.md` · `docs/DESPLIEGUE_PRODUCCION.md` · `docs/VERIFICACION_SUPABASE.md` · `docs/RESPALDO_Y_RECUPERACION.md` · `docs/CONFIGURACION_PENDIENTE.md` · `docs/INVENTARIO_DE_MIGRACIONES.md` · `docs/RESULTADOS_DE_PRUEBAS.md` · `docs/INFORME_FINAL_AUDITORIA.md` · `docs/CHECKLIST_NAVEGADOR.md` · `docs/CAMBIO_PASSWORD_OBLIGATORIO.md` · `docs/POLITICA_CONSERVACION_DATOS.md` · `docs/MATRIZ_REVISION_JURIDICA.md` · `docs/PENDIENTES_LEGALES.md` · `docs/PLAN_PRUEBA_RESTAURACION.md` · `docs/RESULTADO_PRUEBA_RESTAURACION.md`.
+> Los informes de fases anteriores están en `docs/historico/` solo por trazabilidad y pueden estar superados.
+> Este paquete NO declara estar «listo para producción»: lo que no se pudo validar sin un entorno real está en `docs/INFORME_FINAL_AUDITORIA.md` (sección «Pendiente de entorno real»).
+
 ---
 
 ## 1. Funcionalidades actuales

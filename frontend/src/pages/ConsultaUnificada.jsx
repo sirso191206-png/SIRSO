@@ -32,7 +32,21 @@ export function ConsultaUnificada() {
   const f = useConsultaForm(citaId)
   const disponible = useDisponibilidad()
 
-  if (f.cargandoCita || !f.cita) return <p className="text-slate-400">Cargando consulta…</p>
+  if (f.cargandoCita) return <p className="text-slate-400">Cargando consulta…</p>
+  if (!f.cita) {
+    // La cita no cargó: se dice POR QUÉ (inexistente / sin acceso / sesión / sin conexión) y se puede reintentar. Nunca se queda
+    // "Cargando…" para siempre ni se muestra un formulario que no podría guardarse.
+    return (
+      <div role="alert" className="mx-auto max-w-xl space-y-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+        <div className="font-semibold">No se pudo abrir la consulta</div>
+        <p>{f.errorCita?.mensaje ?? 'No se pudo cargar la cita.'}</p>
+        <div className="flex gap-2">
+          {f.errorCita?.codigo !== 'SESION_INVALIDA' && <Button variante="secundario" onClick={f.reintentarCarga}>Reintentar</Button>}
+          <Button variante="secundario" onClick={() => window.history.back()}>Volver</Button>
+        </div>
+      </div>
+    )
+  }
 
   if (!['owner', 'dentista'].includes(perfil?.rol)) {
     return <p className="text-slate-400">Esta sección solo está disponible para owner y dentista.</p>
@@ -58,6 +72,12 @@ export function ConsultaUnificada() {
           </div>
           {disponible('expediente_clinico') && <Button variante="secundario" onClick={() => f.setModalExpediente(true)}>Ver expediente completo</Button>}
         </div>
+        {f.modoRecuperacion && (
+          <div role="alert" className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900" data-modo-recuperacion>
+            <div className="font-semibold">Esta cita ya estaba marcada como completada</div>
+            <p>Si le falta la nota clínica puedes guardarla aquí. La cita no cambia y, si ya tiene una nota, no se crea otra.</p>
+          </div>
+        )}
         {(alergias.length > 0 || enfermedades.length > 0 || medicamentos.length > 0) && (
           <div className="mt-3 space-y-0.5 rounded-lg bg-white p-3 text-sm">
             {alergias.map((a, i) => <div key={`a-${i}`} className="text-clinico-rojo">⚠ Alergia: {a.sustancia} ({a.severidad})</div>)}
@@ -242,7 +262,7 @@ export function ConsultaUnificada() {
             ? 'Guardando…'
             : f.finalizada
               ? (<><Icon.checkCircle /> Consulta guardada</>)
-              : 'Guardar y finalizar consulta'}
+              : (f.modoRecuperacion ? 'Guardar nota y completar consulta' : 'Guardar y finalizar consulta')}
         </Button>
       </div>
 

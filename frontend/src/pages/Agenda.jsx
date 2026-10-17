@@ -257,6 +257,7 @@ export function Agenda() {
           onCambiarEstado={cambiarEstado}
           onReagendar={reagendar}
           onDesagendar={desagendar}
+          onCorregida={recargar}
         />
       )}
 

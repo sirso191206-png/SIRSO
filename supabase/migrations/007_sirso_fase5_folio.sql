@@ -7,6 +7,9 @@
 -- un paciente al mismo tiempo.
 
 alter table clinicas add column if not exists siguiente_folio_paciente integer not null default 1;
+-- (canónica v9) `archivado_en` se crea AQUÍ, antes que `numero_expediente`: la vista de abajo (y la de la 038) la usan, y la 040 —que antes la creaba— es
+-- posterior. Mismo tipo e `if not exists` que la 040, así que es inofensivo donde ya existe. Este orden deja las columnas como en producción (13 y 14).
+alter table pacientes add column if not exists archivado_en timestamptz;
 alter table pacientes add column if not exists numero_expediente text;
 
 -- Se integra al trigger que YA existía (fn_set_clinica_pacientes), en
@@ -72,9 +75,11 @@ begin
   );
 end $$;
 
--- La vista de lectura también expone el folio (se agrega al final, no
--- se reordena nada, así que no hace falta DROP VIEW esta vez).
-create or replace view v_pacientes_seguro
+-- La vista de lectura también expone el folio. (canónica v9) `archivado_en` y `numero_expediente` van DESPUÉS de `creado_por`, en medio de la lista:
+-- `create or replace view` no puede insertar columnas en medio, así que se recrea (DROP + CREATE), como hizo la versión aplicada en producción. Mismas
+-- columnas y mismas reglas que antes. En este punto nada depende de la vista (comprobado con 001–006): sin CASCADE, el DROP fallaría antes que borrar nada.
+drop view if exists v_pacientes_seguro;
+create view v_pacientes_seguro
 with (security_invoker = true) as
 select
   id, clinica_id, nombre_completo, fecha_nacimiento, telefono, correo,
@@ -83,3 +88,6 @@ select
   case when auth_rol() in ('owner', 'dentista') then seguro_medico end as seguro_medico,
   case when auth_rol() in ('owner', 'dentista') then notas_generales end as notas_generales
 from pacientes;
+
+-- (canónica v9) El DROP quita los permisos: se restituye el de la 001 (lectura para usuarios autenticados), como hizo la versión aplicada en producción.
+grant select on v_pacientes_seguro to authenticated;

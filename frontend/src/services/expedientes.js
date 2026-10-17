@@ -3,6 +3,8 @@ import { conCacheDeLectura, actualizarCacheDeLectura } from '../lib/cacheLectura
 import { encolarOperacion } from '../lib/colaOffline'
 import { verificarConexionReal } from '../lib/conectividadReal'
 import { obtenerExpedienteDeReplica } from '../lib/expedientesReplica'
+import { ErrorDeDatos, clasificarErrorDeDatos } from '../lib/erroresDatos'
+import { haySesionVigente } from './sesionVigente'
 
 export async function obtenerExpediente(pacienteId) {
   try {
@@ -107,15 +109,46 @@ async function _obtenerNotasClinicasReal(expedienteId) {
 // upsert en vez de insert — así, si la subida se reintenta después de
 // un fallo parcial (la escritura sí llegó pero la respuesta se perdió
 // por la red), no se crea una nota duplicada.
+// Las notas clínicas son INMUTABLES a propósito (la migración 001 revoca UPDATE y DELETE a `authenticated`), así que se crean con
+// INSERT. Antes era un upsert, que genera `ON CONFLICT DO UPDATE` y exige el privilegio UPDATE: fallaba SIEMPRE con
+// "permission denied for table notas_clinicas". Idempotencia: si el id ya existe (un reintento de algo que sí se guardó), se
+// devuelve la nota ya guardada — sin duplicar y sin reescribirla.
+//
+// Por qué NO `upsert(..., { ignoreDuplicates: true })` (ON CONFLICT DO NOTHING, que solo exige INSERT): ante un id repetido
+// PostgREST responde 201 con `[]` — sin error y sin filas —, y responde EXACTAMENTE igual si el id es de una nota AJENA que no se
+// puede ver. Un `[]` no prueba que la nota quedó guardada. Con INSERT simple el id repetido da un 409 `23505` explícito y se
+// VERIFICA leyendo la nota por id (verificar_postgrest.mjs lo comprueba contra un PostgREST real).
+//   · primer intento → INSERT; se devuelve la fila creada (nunca se declara éxito sin ella)
+//   · id ya existente → se lee la nota por id: si es la MISMA (mismo expediente, cita y contenido) es un reintento de algo que sí
+//     se guardó y se devuelve `{ ..., yaExistia: true }`; si es otra → NOTA_CONFLICTO; si no se puede ver → NOTA_NO_VERIFICABLE
+//   · permisos, sesión vencida, red → error con su causa; JAMÁS un éxito
 export async function crearNotaClinica(nota) {
   // nota: { id?, expediente_id, usuario_id, contenido, tipo }
   const { data, error } = await supabase
     .from('notas_clinicas')
-    .upsert(nota)
+    .insert(nota)
     .select()
     .single()
-  if (error) throw error
-  return data
+  if (!error) {
+    if (!data) throw new ErrorDeDatos('NOTA_NO_CONFIRMADA', 'No se pudo confirmar que la nota quedó guardada. Revisa el expediente antes de volver a intentarlo.')
+    return data
+  }
+  if (error.code === '23505' && nota?.id) return confirmarNotaExistente(nota)
+  throw clasificarErrorDeDatos(error, { haySesion: await haySesionVigente(), entidad: 'la nota' })
+}
+
+async function confirmarNotaExistente(nota) {
+  const { data: existente, error } = await supabase.from('notas_clinicas').select('id, expediente_id, cita_id, contenido, tipo').eq('id', nota.id).maybeSingle()
+  if (error) throw clasificarErrorDeDatos(error, { haySesion: await haySesionVigente(), entidad: 'la nota' }) // no se pudo verificar: error real
+  if (!existente) {
+    throw new ErrorDeDatos('NOTA_NO_VERIFICABLE', 'No se pudo confirmar que la nota se guardó: ese identificador ya existe pero no puedes ver el registro. No se guardó nada nuevo.')
+  }
+  const igual = existente.expediente_id === nota.expediente_id && existente.contenido === nota.contenido
+    && (nota.tipo == null || existente.tipo === nota.tipo) && (nota.cita_id == null || existente.cita_id === nota.cita_id)
+  if (!igual) {
+    throw new ErrorDeDatos('NOTA_CONFLICTO', 'Ya existe una nota con ese identificador y contenido distinto. No se sobrescribió: las notas clínicas no se modifican. Guarda esta como una nota nueva.')
+  }
+  return { ...existente, yaExistia: true }
 }
 
 // "Editar" = crear una nota nueva enlazada a la anterior (append-only real:

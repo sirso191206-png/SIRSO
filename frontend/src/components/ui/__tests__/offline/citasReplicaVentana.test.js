@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { IDBFactory } from 'fake-indexeddb'
 import { crearQueryMock, ok, sinRed } from './helpers/supabaseMock.js'
 
@@ -19,7 +19,12 @@ const ponerConexion = (enLinea) => Object.defineProperty(globalThis.navigator, '
 
 let hayRed
 let citasEnServidor
+// «Hoy» FIJO: estas pruebas usan fechas de calendario concretas (2026-10-04 … 2026-10-11) que deben caer dentro de la ventana replicada, que se calcula respecto
+// a la fecha actual. Sin fijarla, la prueba pasaba o fallaba según el DÍA en que se ejecutara (falló al pasar una semana). Solo se falsea `Date`: los
+// temporizadores reales los necesita fake-indexeddb.
+afterEach(() => { vi.useRealTimers() })
 beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date('2026-10-08T12:00:00Z'))
   globalThis.indexedDB = new IDBFactory()
   hayRed = true
   ponerConexion(true)

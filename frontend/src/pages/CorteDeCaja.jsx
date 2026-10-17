@@ -9,19 +9,23 @@ import { imprimirCorteDeCaja } from '../components/pagos/imprimirCorteDeCaja'
 import { Button } from '../components/ui/Button'
 import { Icon } from '../components/ui/Icon'
 import { formatearMoneda } from '../lib/formato'
+import { fechaInputLocal } from '../lib/fechas'
+import { fechaLocal } from '../lib/reportes'
 
+// Los campos de fecha dan "AAAA-MM-DD": se interpretan como día LOCAL (new Date('AAAA-MM-DD') sería medianoche UTC, es decir,
+// el día ANTERIOR en México: el corte «de hoy» consultaba los cobros de ayer — H24).
 function inicioDelDia(fecha) {
-  const d = new Date(fecha)
+  const d = (typeof fecha === 'string' && fechaLocal(fecha)) || new Date(fecha)
   d.setHours(0, 0, 0, 0)
   return d
 }
 function finDelDia(fecha) {
-  const d = new Date(fecha)
+  const d = (typeof fecha === 'string' && fechaLocal(fecha)) || new Date(fecha)
   d.setHours(23, 59, 59, 999)
   return d
 }
 function formatoInput(fecha) {
-  return fecha.toISOString().slice(0, 10)
+  return fechaInputLocal(fecha)
 }
 
 export function CorteDeCaja() {

@@ -5,7 +5,13 @@ import { esIdOffline } from '../lib/mapeoIdsOffline'
 import { verificarConexionReal } from '../lib/conectividadReal'
 import { buscarEnReplicaCitas, huboSincronizacionCompleta } from '../lib/citasReplica'
 import { ventanaDeAgenda } from '../lib/clinicDataSync'
+import { clasificarErrorDeDatos } from '../lib/erroresDatos'
+import { haySesionVigente } from './sesionVigente'
 
+// `.single()` se conserva a propósito: una cita por id debe ser EXACTAMENTE una. El caso "0 filas" (PGRST116 / 406) no se esconde
+// ni se convierte en null: se clasifica y se explica (ver lib/erroresDatos.js — inexistente, sin acceso por RLS y sesión perdida
+// responden IGUAL, así que se consulta si el cliente conserva sesión). La caché de lectura solo cubre la falta de CONEXIÓN: ante una
+// respuesta definitiva del servidor no se abre una copia vieja (el usuario podría seguir editando algo a lo que ya no tiene acceso).
 export async function obtenerCitaPorId(id) {
   const { datos } = await conCacheDeLectura(`cita:${id}`, async () => {
     const { data, error } = await supabase
@@ -13,9 +19,9 @@ export async function obtenerCitaPorId(id) {
       .select('*, paciente:pacientes(nombre_completo, telefono, numero_expediente), dentista:usuarios(nombre)')
       .eq('id', id)
       .single()
-    if (error) throw error
+    if (error) throw clasificarErrorDeDatos(error, { haySesion: await haySesionVigente(), entidad: 'la cita' })
     return data
-  })
+  }, { usarCacheSi: (err) => err.codigo === 'SIN_CONEXION' || err.codigo === 'SERVIDOR_NO_DISPONIBLE' })
   return datos
 }
 
@@ -194,6 +200,35 @@ export async function crearCita(cita) {
 // .single() lanza PGRST116. Ese código se revisa ANTES de pasar por
 // mensajeError() — envolver el error ahí abajo pierde `.code`, así que
 // la detección de conflicto tiene que pasar primero.
+// Al terminar una consulta, el siguiente paciente EN ESPERA pasa a consulta (comodidad que antes vivía en el botón de Mi día). Es ADMINISTRATIVO: no completa nada
+// ni genera notas, y es de MEJOR ESFUERZO (quien llama ignora un fallo). NO avanza a nadie si pudiera asignarlo al odontólogo, la sucursal o el sillón equivocados:
+//  · solo pacientes de ESE odontólogo (una urgencia sin odontólogo asignado nunca se avanza sola);
+//  · solo de la MISMA sucursal que la consulta que termina;
+//  · si el paciente en espera tiene SILLÓN asignado, solo si es el mismo sillón de la consulta que termina (sin sillón asignado, no hay conflicto);
+//  · si el odontólogo ya tiene a otra persona EN CONSULTA hoy, no se abre una segunda;
+//  · el cambio es CONDICIONAL (`estado = 'en_espera'`): si recepción canceló o movió a ese paciente mientras tanto, no se toca (antes se le «resucitaba»).
+// La fila NO se reordena: se avanza al primero que le corresponde por hora; los que no corresponden se dejan como están.
+export async function avanzarSiguienteEnEspera({ dentistaId, excluirCitaId, sucursalId = null, sillonId = null }) {
+  if (!dentistaId) return null
+  const hoy = new Date()
+  const inicio = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate())
+  const fin = new Date(inicio.getTime() + 86400000)
+  const deHoy = (q) => q.eq('dentista_id', dentistaId).neq('id', excluirCitaId).gte('inicio', inicio.toISOString()).lt('inicio', fin.toISOString())
+
+  const { data: yaEnConsulta, error: errorConsulta } = await deHoy(supabase.from('citas').select('id').eq('estado', 'en_consulta')).limit(1)
+  if (errorConsulta) throw errorConsulta
+  if (yaEnConsulta?.length) return null
+
+  const { data, error } = await deHoy(supabase.from('citas').select('id, sucursal_id, sillon_id').eq('estado', 'en_espera')).order('inicio', { ascending: true }).limit(20)
+  if (error) throw error
+  const siguiente = (data ?? []).find((c) => (c.sucursal_id ?? null) === (sucursalId ?? null) && (c.sillon_id == null || (sillonId != null && c.sillon_id === sillonId)))
+  if (!siguiente) return null
+
+  const { data: movidas, error: errorMover } = await supabase.from('citas').update({ estado: 'en_consulta' }).eq('id', siguiente.id).eq('estado', 'en_espera').select('id')
+  if (errorMover) throw errorMover
+  return movidas?.length ? siguiente.id : null
+}
+
 export async function actualizarCita(id, cambios, actualizadoEnEsperado) {
   let query = supabase.from('citas').update(cambios).eq('id', id)
   if (actualizadoEnEsperado) {
@@ -203,8 +238,14 @@ export async function actualizarCita(id, cambios, actualizadoEnEsperado) {
 
   if (error) {
     if (error.code === 'PGRST116' && actualizadoEnEsperado) {
+      // Sin sesión, "0 filas" no es que alguien más cambió la cita: es que no hay sesión. Llamarlo conflicto haría que la cola offline
+      // DESCARTARA la operación en vez de reintentarla al volver a iniciar sesión.
+      if (!(await haySesionVigente())) throw clasificarErrorDeDatos(error, { haySesion: false, entidad: 'la cita', accion: 'actualizar' })
       throw new Error('CONFLICTO_CONCURRENCIA')
     }
+    // Cero filas / sesión / permisos / red: se explican con su causa. Lo demás conserva el mensaje de siempre.
+    const tipado = clasificarErrorDeDatos(error, { haySesion: await haySesionVigente(), entidad: 'la cita', accion: 'actualizar' })
+    if (tipado.codigo !== 'DESCONOCIDO') throw tipado
     throw new Error(mensajeError(error))
   }
   return data
@@ -213,4 +254,21 @@ export async function actualizarCita(id, cambios, actualizadoEnEsperado) {
 export async function eliminarCita(id) {
   const { error } = await supabase.from('citas').delete().eq('id', id)
   if (error) throw error
+}
+
+// Rechazos de NEGOCIO de fn_corregir_estado_cita (migración 094): su mensaje es nuestro, claro y seguro de mostrar.
+export const CODIGOS_CORRECCION = ['SESION_INVALIDA', 'SESION_CERRADA', 'ROL_NO_PERMITIDO', 'ESTADO_NO_PERMITIDO', 'MOTIVO_REQUERIDO', 'CITA_NO_ENCONTRADA', 'SUCURSAL_NO_PERMITIDA', 'CITA_NO_COMPLETADA', 'CITA_DE_OTRO_DENTISTA', 'ESTADO_NO_PERMITIDO_PARA_ROL']
+
+// Corrige una cita YA COMPLETADA (reabrir, cancelar o marcar inasistencia) con un MOTIVO; la base de datos decide por rol y deja la auditoría completa.
+// Requiere conexión: es una corrección de historial, no se encola a ciegas. Un doble clic no duplica nada (la segunda llamada responde CITA_NO_COMPLETADA).
+export async function corregirEstadoCita({ citaId, estado, motivo }) {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    throw Object.assign(new Error('Corregir una consulta ya completada requiere conexión: es un cambio de historial y se registra en el servidor.'), { codigo: 'SIN_CONEXION' })
+  }
+  const { data, error } = await supabase.rpc('fn_corregir_estado_cita', { p_cita: citaId, p_estado: estado, p_motivo: motivo })
+  if (error) {
+    if (error.hint && CODIGOS_CORRECCION.includes(error.hint)) throw Object.assign(new Error(error.message), { codigo: error.hint, original: error })
+    throw clasificarErrorDeDatos(error, { haySesion: await haySesionVigente(), entidad: 'la cita', accion: 'corregir' })
+  }
+  return data
 }

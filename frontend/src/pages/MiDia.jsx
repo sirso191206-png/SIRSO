@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/useAuthStore'
 import { useMiDia } from '../hooks/useMiDia'
-import { toastExito, toastError } from '../store/useToastStore'
+import { useConsultasPendientes } from '../hooks/useConsultasPendientes'
 import { capitalizarPrimeraLetra } from '../lib/texto'
 import { ColaDeEspera } from '../components/ColaDeEspera'
 import { ModalNuevaUrgencia } from '../components/ModalNuevaUrgencia'
@@ -24,7 +24,8 @@ export function MiDia() {
   const perfil = useAuthStore((s) => s.perfil)
   const navigate = useNavigate()
   const disponible = useDisponibilidad()
-  const { datos, cargando, error, iniciarConsulta, finalizarConsulta } = useMiDia()
+  const { datos, cargando, error, iniciarConsulta } = useMiDia()
+  const { pendientes: consultasPendientes } = useConsultasPendientes(30)
   const [modalUrgenciaAbierto, setModalUrgenciaAbierto] = useState(false)
   const [colaVersion, setColaVersion] = useState(0)
 
@@ -90,8 +91,9 @@ export function MiDia() {
         ultimaConsulta={datos.ultimaConsultaPacienteActual}
         tratamientoActivo={datos.tratamientoActivoPacienteActual}
         saldo={datos.saldoPacienteActual}
-        onFinalizar={finalizarConsulta}
       />
+
+      <ConsultasPorCompletar pendientes={consultasPendientes} />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
@@ -109,9 +111,28 @@ export function MiDia() {
   )
 }
 
-function PacienteActualCard({ cita, alertas, ultimaConsulta, tratamientoActivo, saldo, onFinalizar }) {
+// Citas que quedaron COMPLETADAS sin nota clínica. Se completan desde la pantalla de consulta (acción explícita, idempotente, sin duplicar).
+export function ConsultasPorCompletar({ pendientes }) {
   const navigate = useNavigate()
-  const [procesando, setProcesando] = useState(false)
+  if (!pendientes?.length) return null
+  return (
+    <div role="status" className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900" data-consultas-pendientes>
+      <div className="mb-2 font-semibold">Consultas por completar ({pendientes.length})</div>
+      <p className="mb-2">Estas citas se marcaron como completadas sin guardar su nota clínica. Complétalas para que el expediente quede íntegro.</p>
+      <ul className="space-y-1">
+        {pendientes.map((p) => (
+          <li key={p.cita_id} className="flex items-center justify-between gap-3">
+            <span>{p.paciente_nombre} · {new Date(p.inicio).toLocaleDateString('es-MX')}{p.motivo_consulta ? ` · ${p.motivo_consulta}` : ''}</span>
+            <Button variante="secundario" onClick={() => navigate(`/consulta/${p.cita_id}`)}>Completar consulta</Button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function PacienteActualCard({ cita, alertas, ultimaConsulta, tratamientoActivo, saldo }) {
+  const navigate = useNavigate()
 
   if (!cita) {
     return (
@@ -120,18 +141,6 @@ function PacienteActualCard({ cita, alertas, ultimaConsulta, tratamientoActivo, 
         <p className="text-sm text-slate-400">No hay ningún paciente en consulta en este momento.</p>
       </div>
     )
-  }
-
-  const handleFinalizar = async () => {
-    setProcesando(true)
-    try {
-      await onFinalizar(cita.id)
-      toastExito('Consulta finalizada.')
-    } catch (err) {
-      toastError(err.message)
-    } finally {
-      setProcesando(false)
-    }
   }
 
   const alergias = alertas?.alergias ?? []
@@ -192,11 +201,9 @@ function PacienteActualCard({ cita, alertas, ultimaConsulta, tratamientoActivo, 
           <Button variante="secundario" onClick={() => navigate(`/pacientes/${cita.paciente_id}`)} className="inline-flex items-center gap-1.5">
             <Icon.folder /> Ver expediente
           </Button>
-          <Button variante="secundario" onClick={() => navigate(`/consulta/${cita.id}`)} className="inline-flex items-center gap-1.5">
-            <Icon.play /> Continuar
-          </Button>
-          <Button onClick={handleFinalizar} disabled={procesando} className="inline-flex items-center gap-1.5">
-            <Icon.check /> {procesando ? 'Guardando…' : 'Finalizar consulta'}
+          {/* Finalizar una consulta es un acto CLÍNICO (nota, verificación, seguimiento): se hace en la pantalla de consulta. */}
+          <Button onClick={() => navigate(`/consulta/${cita.id}`)} className="inline-flex items-center gap-1.5">
+            <Icon.play /> Continuar y finalizar consulta
           </Button>
         </div>
       </div>

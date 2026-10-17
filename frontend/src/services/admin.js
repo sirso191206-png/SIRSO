@@ -30,10 +30,12 @@ export async function actualizarClinica(clinicaId, cambios) {
 // pacientes y todo lo que cuelga de ellos, Storage, catálogos —
 // IRREVERSIBLE. Requiere el nombre exacto de la clínica como
 // confirmación (lo valida también el backend, no solo el frontend).
-export async function eliminarClinica(clinicaId, confirmarNombre) {
+// Eliminación DEFINITIVA e irreversible. Solo de una clínica ya suspendida, con el nombre exacto y, si hay pacientes, con la
+// confirmación explícita de que su información clínica se destruirá (`confirmarDatosClinicos`).
+export async function eliminarClinica(clinicaId, confirmarNombre, confirmarDatosClinicos = false) {
   return invocarFuncionAutenticada('admin-eliminar-clinica', {
-    body: { clinicaId, confirmarNombre }
-  }) // { ok, advertencias }
+    body: { clinicaId, accion: 'eliminar', confirmarNombre, confirmarDatosClinicos: confirmarDatosClinicos === true }
+  }) // { ok, conteos, advertencias, pendientes }
 }
 
 // Crea una clínica nueva, su suscripción (con el snapshot del plan elegido) y su
@@ -46,4 +48,19 @@ export async function crearClinicaConOwner({ nombreClinica, ownerNombre, ownerCo
   return invocarFuncionAutenticada('admin-crear-clinica', {
     body: { nombreClinica, ownerNombre, ownerCorreo, planCodigo, modalidad, precioContratado, fechaFin, autoRenovacion }
   })
+}
+
+// Lo que falta limpiar (archivos de Storage y cuentas de Auth) de una clínica YA eliminada, y reanudarlo. La base de datos, Auth y
+// Storage NO comparten transacción: la lista de lo pendiente vive en la auditoría y se puede consultar y reanudar.
+export async function limpiezaPendienteClinica(clinicaId) {
+  return invocarFuncionAutenticada('admin-eliminar-clinica', { body: { clinicaId, accion: 'limpieza_pendiente' } })
+}
+export async function reintentarLimpiezaClinica(clinicaId) {
+  return invocarFuncionAutenticada('admin-eliminar-clinica', { body: { clinicaId, accion: 'reintentar_limpieza' } })
+}
+
+// Qué se destruiría al eliminar una clínica, qué se conserva y si algo lo impide (clínica activa, superadmin alojado…).
+// No modifica nada. Solo superadmin (lo exige la Edge Function y, por debajo, la base de datos).
+export async function previsualizarEliminacionClinica(clinicaId) {
+  return invocarFuncionAutenticada('admin-eliminar-clinica', { body: { clinicaId, accion: 'previsualizar' } }) // { ok, resumen }
 }

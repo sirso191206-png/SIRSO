@@ -10,6 +10,7 @@ import { ESTADOS_CITA, TIPOS_CONSULTA, DURACIONES_RAPIDAS } from './constantes'
 import { Modal } from '../ui/Modal'
 import { Input } from '../ui/Input'
 import { Button } from '../ui/Button'
+import { fechaInputLocal } from '../../lib/fechas'
 
 export function ModalNuevaCita({ abierto, onCerrar, onAgendar, dentistas, fechaInicial }) {
   const perfil = useAuthStore((s) => s.perfil)
@@ -63,7 +64,7 @@ export function ModalNuevaCita({ abierto, onCerrar, onAgendar, dentistas, fechaI
   useEffect(() => {
     if (abierto && fechaInicial) {
       const f = new Date(fechaInicial)
-      setFecha(f.toISOString().slice(0, 10))
+      setFecha(fechaInputLocal(f))   // fecha LOCAL del hueco elegido (con toISOString, desde las 18:00 proponía el día siguiente — H24)
       setHoraInicio(f.toTimeString().slice(0, 5))
     }
   }, [abierto, fechaInicial])

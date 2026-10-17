@@ -1,3 +1,5 @@
+> **Esta guía es anterior.** El procedimiento vigente y verificado es `docs/DESPLIEGUE_PRODUCCION.md` (con `docs/INSTALACION_COMPLETA.md`). Si algo difiere, manda el de `docs/`.
+
 # SIRO — Guía de despliegue
 
 Versión de esta guía: refleja el estado real del proyecto al cierre de la

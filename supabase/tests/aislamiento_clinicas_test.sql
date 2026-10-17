@@ -302,7 +302,8 @@ select pg_temp.t('C1 TODA tabla con RLS está cubierta por la lista explícita, 
        and c.relname not in (select tabla from _tablas)
        and c.relname not in (select objeto from _barrido)
        -- catálogos globales (solo lectura para clínicas) y tablas sin acceso por la API
-       and c.relname not in ('funcionalidades','plan_funcionalidades','planes_catalogo','plataforma_config','legal_documents')
+       and c.relname not in ('funcionalidades','plan_funcionalidades','planes_catalogo','plataforma_config','legal_documents',
+                             'politicas_conservacion','retenciones_legales','conservacion_historial')   -- migración 104: SIN ningún acceso para anon ni authenticated (solo servidor)
   ));
 
 -- ============================================================ FUNCIONES expuestas

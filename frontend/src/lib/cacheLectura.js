@@ -92,12 +92,16 @@ export async function actualizarCacheDeLectura(clave, datos) {
 // en vez de mezclar campos de control dentro de `datos`: si `datos`
 // resulta ser un arreglo (una lista de pacientes, por ejemplo),
 // mezclarle campos encima lo dejaría de ser un arreglo de verdad.
-export async function conCacheDeLectura(clave, funcionReal) {
+// `usarCacheSi(err)` (opcional): si se da y devuelve false, el error se propaga SIN mirar la caché. Sirve para que una respuesta
+// DEFINITIVA del servidor ("no existe / no tienes acceso", sesión inválida) no se disfrace con una copia vieja: la caché solo
+// debe cubrir la falta de conexión. Sin este parámetro el comportamiento es el de siempre.
+export async function conCacheDeLectura(clave, funcionReal, { usarCacheSi } = {}) {
   try {
     const datos = await funcionReal()
     guardarEnCache(clave, datos).catch(() => {})
     return { datos, deCache: false, guardadoEn: null }
   } catch (err) {
+    if (usarCacheSi && !usarCacheSi(err)) throw err
     const registro = await leerDeCache(clave).catch(() => null)
     if (registro) {
       return { datos: registro.datos, deCache: true, guardadoEn: registro.guardado_en }

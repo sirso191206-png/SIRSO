@@ -9,7 +9,7 @@ import { crearQueryMock, ok, fallo } from '../offline/helpers/supabaseMock.js'
 const m = vi.hoisted(() => ({
   refreshSession: vi.fn(), from: vi.fn(), crearNotaClinica: vi.fn(), crearReceta: vi.fn(),
   actualizarPiezaOdontograma: vi.fn(), actualizarPiezaPeriodontal: vi.fn(), actualizarSitioPeriodontal: vi.fn(),
-  actualizarCita: vi.fn(), toastExito: vi.fn(), toastError: vi.fn()
+  actualizarCita: vi.fn(), finalizarConsulta: vi.fn(), toastExito: vi.fn(), toastError: vi.fn()
 }))
 
 vi.mock('../../../../lib/supabase', () => ({ supabase: { auth: { refreshSession: m.refreshSession }, from: m.from } }))
@@ -18,6 +18,7 @@ vi.mock('../../../../services/recetas', () => ({ crearReceta: m.crearReceta }))
 vi.mock('../../../../services/odontograma', () => ({ actualizarPiezaOdontograma: m.actualizarPiezaOdontograma }))
 vi.mock('../../../../services/periodontograma', () => ({ actualizarPiezaPeriodontal: m.actualizarPiezaPeriodontal, actualizarSitioPeriodontal: m.actualizarSitioPeriodontal }))
 vi.mock('../../../../services/citas', () => ({ actualizarCita: m.actualizarCita, crearCita: vi.fn() }))
+vi.mock('../../../../services/consultas', () => ({ finalizarConsulta: m.finalizarConsulta }))
 vi.mock('../../../../store/useToastStore', () => ({ toastExito: m.toastExito, toastError: m.toastError }))
 
 import { procesarColaOffline } from '../../../../lib/procesadorColaOffline.js'
@@ -146,7 +147,7 @@ describe('funcionalidad no incluida en el plan (PT403)', () => {
 
 describe('cerrar una consulta en un plan sin notas clínicas / expediente', () => {
   it('finalizar_consulta con notaClinica = null completa la cita SIN intentar crear la nota', async () => {
-    m.actualizarCita.mockResolvedValue({ actualizado_en: 't2' })
+    m.finalizarConsulta.mockResolvedValue({ ok: true })
     await encolarOperacion({
       id: 'fin-1', tipo: 'finalizar_consulta', entidad: 'citas', entidadId: 'cita-1',
       payload: { citaId: 'cita-1', motivo: 'Dolor', notaClinica: null, seguimientoPayload: null, actualizadoEnEsperado: 't1' },
@@ -154,20 +155,20 @@ describe('cerrar una consulta en un plan sin notas clínicas / expediente', () =
     })
     await procesarColaOffline()
     expect(m.crearNotaClinica).not.toHaveBeenCalled()
-    expect(m.actualizarCita).toHaveBeenCalledWith('cita-1', { estado: 'completada' }, 't2')
+    expect(m.finalizarConsulta).toHaveBeenCalledWith({ citaId: 'cita-1', motivo: 'Dolor', nota: null, seguimiento: null, actualizadoEnEsperado: 't1' })
     expect(await listarOperacionesPendientes()).toHaveLength(0)
   })
 
-  it('con nota (plan que la incluye) se sigue creando como siempre', async () => {
-    m.actualizarCita.mockResolvedValue({ actualizado_en: 't2' })
-    m.crearNotaClinica.mockResolvedValue({ id: 'n' })
+  it('con nota (plan que la incluye) la nota viaja en la misma operación transaccional', async () => {
+    m.finalizarConsulta.mockResolvedValue({ ok: true })
     await encolarOperacion({
       id: 'fin-2', tipo: 'finalizar_consulta', entidad: 'citas', entidadId: 'cita-2',
       payload: { citaId: 'cita-2', motivo: 'x', notaClinica: { id: 'n1', contenido: 'c' }, seguimientoPayload: null, actualizadoEnEsperado: 't1' },
       dependeDe: [], usuarioId: 'u1', creado_en: 1
     })
     await procesarColaOffline()
-    expect(m.crearNotaClinica).toHaveBeenCalledTimes(1)
+    expect(m.finalizarConsulta).toHaveBeenCalledTimes(1)
+    expect(m.finalizarConsulta.mock.calls[0][0].nota).toEqual({ id: 'n1', contenido: 'c' })
   })
 })
 

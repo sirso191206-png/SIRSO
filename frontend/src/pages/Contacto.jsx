@@ -1,8 +1,6 @@
 import { useState } from 'react'
-import { enviarMensajeContacto } from '../services/contacto'
+import { enviarMensajeContacto, validarContacto, LIMITES_CONTACTO } from '../services/contacto'
 import { HeaderPublico } from '../components/layout/HeaderPublico'
-
-const REGEX_CORREO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export function Contacto() {
   const [nombre, setNombre] = useState('')
@@ -14,10 +12,7 @@ export function Contacto() {
   const [mensajeEstado, setMensajeEstado] = useState('')
 
   const validar = () => {
-    const nuevosErrores = {}
-    if (!nombre.trim()) nuevosErrores.nombre = 'El nombre es obligatorio.'
-    if (!REGEX_CORREO.test(correo.trim())) nuevosErrores.correo = 'Ingresa un correo válido.'
-    if (!mensaje.trim()) nuevosErrores.mensaje = 'Escribe tu mensaje.'
+    const nuevosErrores = validarContacto({ nombre, correo, mensaje })
     setErrores(nuevosErrores)
     return Object.keys(nuevosErrores).length === 0
   }
@@ -77,7 +72,7 @@ export function Contacto() {
             <div>
               <input
                 type="text"
-                value={nombre}
+                value={nombre} maxLength={LIMITES_CONTACTO.nombre}
                 onChange={(e) => setNombre(e.target.value)}
                 placeholder="Nombre"
                 className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 shadow-sm transition-all placeholder:text-slate-400 focus:border-clinico-azul focus:bg-white focus:outline-none focus:ring-4 focus:ring-clinico-azul/10"
@@ -88,7 +83,7 @@ export function Contacto() {
             <div>
               <input
                 type="email"
-                value={correo}
+                value={correo} maxLength={LIMITES_CONTACTO.correo}
                 onChange={(e) => setCorreo(e.target.value)}
                 placeholder="Correo"
                 className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 shadow-sm transition-all placeholder:text-slate-400 focus:border-clinico-azul focus:bg-white focus:outline-none focus:ring-4 focus:ring-clinico-azul/10"
@@ -98,7 +93,7 @@ export function Contacto() {
 
             <div>
               <textarea
-                value={mensaje}
+                value={mensaje} maxLength={LIMITES_CONTACTO.mensaje}
                 onChange={(e) => setMensaje(e.target.value)}
                 placeholder="Mensaje"
                 rows={4}

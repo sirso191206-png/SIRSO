@@ -63,29 +63,8 @@ export function useMiDia() {
     await recargar()
   }
 
-  // Al finalizar, si hay alguien "en espera" pasa automáticamente a ser
-  // el nuevo paciente en consulta — el odontólogo no tiene que volver a
-  // dar clic para avanzar a la fila.
-  const finalizarConsulta = async (citaId) => {
-    const siguienteEnEspera = datos?.siguientes
-      ?.filter((c) => c.id !== citaId && c.estado === 'en_espera')
-      ?.sort((a, b) => new Date(a.inicio) - new Date(b.inicio))[0]
-
-    if (!navigator.onLine) {
-      await encolarCambioEstadoCita(citaId, 'completada')
-      if (siguienteEnEspera) {
-        await encolarCambioEstadoCita(siguienteEnEspera.id, 'en_consulta')
-      }
-      await recargar()
-      return
-    }
-
-    await actualizarCita(citaId, { estado: 'completada' })
-    if (siguienteEnEspera) {
-      await actualizarCita(siguienteEnEspera.id, { estado: 'en_consulta' })
-    }
-    await recargar()
-  }
-
-  return { datos, cargando, error, recargar, iniciarConsulta, finalizarConsulta }
+  // OJO: aquí YA NO se completa ninguna cita. "Finalizar consulta" es un acto CLÍNICO (nota, verificación, seguimiento): se hace desde
+  // la pantalla de consulta (fn_finalizar_consulta). Marcar una cita como completada desde aquí dejaba consultas "completadas" sin
+  // nota. La base de datos (migración 090) tampoco lo permite ya. El avance de la fila ocurre al finalizar la consulta.
+  return { datos, cargando, error, recargar, iniciarConsulta }
 }

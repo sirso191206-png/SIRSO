@@ -6,6 +6,7 @@ import { HeaderPublico } from '../../components/layout/HeaderPublico'
 import { FooterPublico } from '../../components/layout/FooterPublico'
 import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Input'
+import { VisorDocumentoLegal } from '../../components/legal/VisorDocumentoLegal'
 
 const TIPOS = [
   { value: 'acceso', label: 'Acceso', descripcion: 'Quiero saber qué datos personales tienen sobre mí.' },
@@ -66,6 +67,10 @@ export function Arco() {
           Puedes solicitar Acceso, Rectificación, Cancelación u Oposición sobre tus datos personales. Responderemos
           al correo que nos indiques.
         </p>
+
+        <div className="mb-8 rounded-xl border border-slate-200 bg-white p-6">
+          <VisorDocumentoLegal tipo="arco_procedure" />
+        </div>
 
         {enviada ? (
           <div className="rounded-xl border border-green-200 bg-green-50 p-6 text-sm text-green-800">

@@ -15,6 +15,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 
 import { buildCorsHeaders } from '../_shared/cors.ts'
+import { exigirSinCambioPendiente, ErrorDeSolicitud, esUuid, fechaOpcional, leerCuerpoJson, responderError } from '../_shared/solicitud.ts'
 
 const ESTADOS = ['activa', 'suspendida']
 
@@ -28,15 +29,15 @@ serve(async (req) => {
   try {
     const authHeader = req.headers.get('Authorization')
     console.log('admin-actualizar-clinica: Authorization presente:', !!authHeader, '— empieza con Bearer:', !!authHeader?.startsWith('Bearer '))
-    if (!authHeader) throw new Error('Falta autenticación')
+    if (!authHeader) throw new ErrorDeSolicitud('Falta autenticación')
 
     const token = authHeader.replace(/^Bearer\s+/i, '').trim()
     console.log('admin-actualizar-clinica: token presente:', !!token, '— longitud:', token.length)
-    if (!token) throw new Error('Falta token de acceso')
+    if (!token) throw new ErrorDeSolicitud('Falta token de acceso')
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')
-    const anonKey = Deno.env.get('SUPABASE_ANON_KEY')
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
     // Cliente efímero: sin persistir/refrescar sesión propia — esta
     // función corre una sola vez por petición; el único propósito de
@@ -49,39 +50,41 @@ serve(async (req) => {
       console.error('admin-actualizar-clinica: error validando JWT:', userError.message, '— status:', userError.status)
     }
     console.log('admin-actualizar-clinica: usuario autenticado:', !!user)
-    if (userError || !user) throw new Error('Token inválido')
+    if (userError || !user) throw new ErrorDeSolicitud('Token inválido')
 
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey)
 
     // Autorización: SOLO super admin.
     const { data: perfilCaller, error: perfilError } = await supabaseAdmin
       .from('usuarios')
-      .select('es_super_admin')
+      .select('es_super_admin, debe_cambiar_password')
       .eq('id', user.id)
       .single()
-    if (perfilError || !perfilCaller) throw new Error('No se encontró tu perfil')
-    if (!perfilCaller.es_super_admin) throw new Error('No autorizado')
+    if (perfilError || !perfilCaller) throw new ErrorDeSolicitud('No se encontró tu perfil')
+    exigirSinCambioPendiente(perfilCaller)
+    if (!perfilCaller.es_super_admin) throw new ErrorDeSolicitud('No autorizado')
 
-    const body = await req.json()
+    const body = await leerCuerpoJson(req)
     const clinicaId = body?.clinicaId
-    if (!clinicaId) throw new Error('Falta clinicaId')
+    if (!clinicaId) throw new ErrorDeSolicitud('Falta clinicaId')
+    if (!esUuid(clinicaId)) throw new ErrorDeSolicitud('clinicaId inválido')
 
     // Se arma el update SOLO con los campos enviados (actualización parcial).
     const cambios: Record<string, unknown> = {}
 
     if (body.estado !== undefined) {
-      if (!ESTADOS.includes(body.estado)) throw new Error('Estado inválido')
+      if (!ESTADOS.includes(body.estado as string)) throw new ErrorDeSolicitud('Estado inválido')
       cambios.estado = body.estado
     }
     if (body.plan !== undefined || body.limiteUsuarios !== undefined || body.limitePacientes !== undefined) {
-      throw new Error(
+      throw new ErrorDeSolicitud(
         'El plan y los límites se cambian con "Cambiar plan" / "Ajustar condiciones" (suscripción de la clínica), no desde aquí.',
       )
     }
-    if (body.fechaInicio !== undefined) cambios.fecha_inicio = body.fechaInicio || null
-    if (body.fechaVencimiento !== undefined) cambios.fecha_vencimiento = body.fechaVencimiento || null
+    if (body.fechaInicio !== undefined) cambios.fecha_inicio = fechaOpcional(body.fechaInicio, 'La fecha de inicio')
+    if (body.fechaVencimiento !== undefined) cambios.fecha_vencimiento = fechaOpcional(body.fechaVencimiento, 'La fecha de vencimiento')
 
-    if (Object.keys(cambios).length === 0) throw new Error('No se enviaron cambios')
+    if (Object.keys(cambios).length === 0) throw new ErrorDeSolicitud('No se enviaron cambios')
 
     const { data: clinica, error: updateError } = await supabaseAdmin
       .from('clinicas')
@@ -90,7 +93,7 @@ serve(async (req) => {
       .select()
       .single()
     if (updateError) throw updateError
-    if (!clinica) throw new Error('Clínica no encontrada')
+    if (!clinica) throw new ErrorDeSolicitud('Clínica no encontrada')
 
     // Mantener la suscripción vigente alineada con lo que acaba de cambiar:
     // estado y fechas viven en las DOS tablas (clinicas es el espejo).
@@ -120,9 +123,6 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    return responderError(err, corsHeaders, 'admin-actualizar-clinica')
   }
 })

@@ -40,6 +40,7 @@ const ConsultaUnificada = pagina(() => import('./pages/ConsultaUnificada'), 'Con
 const Cookies = pagina(() => import('./pages/legal/Cookies'), 'Cookies')
 const PreferenciasCookies = pagina(() => import('./pages/legal/cookies/Preferencias'), 'PreferenciasCookies')
 const Arco = pagina(() => import('./pages/legal/Arco'), 'Arco')
+const Consentimientos = pagina(() => import('./pages/legal/Consentimientos'), 'Consentimientos')
 const Seguridad = pagina(() => import('./pages/legal/Seguridad'), 'Seguridad')
 const Retencion = pagina(() => import('./pages/legal/Retencion'), 'Retencion')
 const Proveedores = pagina(() => import('./pages/legal/Proveedores'), 'Proveedores')
@@ -72,6 +73,7 @@ export default function App() {
         <Route path="/legal/cookies" element={<Cookies />} />
         <Route path="/legal/cookies/preferencias" element={<PreferenciasCookies />} />
         <Route path="/legal/arco" element={<Arco />} />
+        <Route path="/legal/consentimientos" element={<Consentimientos />} />
         <Route path="/legal/seguridad" element={<Seguridad />} />
         <Route path="/legal/retencion" element={<Retencion />} />
         <Route path="/legal/proveedores" element={<Proveedores />} />

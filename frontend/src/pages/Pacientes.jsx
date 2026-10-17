@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePacientesLista } from '../hooks/usePacientesLista'
 import { crearPaciente, buscarPosiblesDuplicados, buscarPacientePorCurp } from '../services/pacientes'
+import { prepararPacienteNuevo } from '../lib/pacienteNuevo'
 import { validarEstructuraCurp, parsearCurp } from '../lib/curp'
 import { calcularEdad } from '../lib/fechas'
 import { mensajeErrorDePlan } from '../lib/planes'
@@ -275,15 +276,10 @@ function ModalNuevoPaciente({ abierto, onCerrar }) {
         setGuardando(false)
         return
       }
-      // primer_apellido/segundo_apellido van vacíos ('') cuando no se
-      // llenan — se convierten a null para no guardar cadenas vacías.
-      const payload = {
-        ...form,
-        primer_apellido: form.primer_apellido || null,
-        segundo_apellido: form.segundo_apellido || null
-      }
+      // Los opcionales que no se llenan van vacíos ('') — se envían como
+      // null (fecha, sexo, CURP y apellidos): ver lib/pacienteNuevo.js.
       const perfil = useAuthStore.getState().perfil
-      const paciente = await crearPaciente(payload, {
+      const paciente = await crearPaciente(prepararPacienteNuevo(form), {
         usuarioId: perfil?.id ?? null,
         clinicaId: perfil?.clinica_id ?? null,
         sucursalId: useSucursalStore.getState().sucursalActualId

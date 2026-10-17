@@ -13,6 +13,9 @@ import {
   obtenerSitioPeriodontalPorNombre
 } from '../services/periodontograma'
 import { actualizarCita, crearCita } from '../services/citas'
+import { finalizarConsulta } from '../services/consultas'
+import { esRechazoDefinitivo } from './finalizarConsulta'
+import { esErrorDeDatosDefinitivo, esRechazoDeIntegridad } from './erroresDatos'
 import { crearPacienteEnServidor, actualizarPacienteEnServidor } from '../services/pacientes'
 import { listarOperacionesPendientes, quitarOperacion, marcarIntentoFallido, marcarConflicto, marcarSincronizando, operacionEsDe } from './colaOffline'
 import { ordenarPorDependencias, estadoDeDependencias } from './dependenciasCola'
@@ -69,22 +72,15 @@ const EJECUTORES = {
   actualizar_pieza_periodontal: (payload) => actualizarPiezaPeriodontal(payload.piezaId, payload.cambios),
   actualizar_sitio_periodontal: (payload) => actualizarSitioPeriodontal(payload.sitioId, payload.cambios),
 
-  // "Finalizar consulta" no son piezas sueltas como las de arriba —
-  // es una secuencia con orden y dependencia real (motivo → nota →
-  // completar cita → seguimiento opcional), igual que ya hacía
-  // handleFinalizar en línea. Si el primer paso choca por
-  // concurrencia, NINGÚN paso siguiente se ejecuta — no queda una nota
-  // huérfana de una consulta que nunca se marcó completada.
-  finalizar_consulta: async (payload) => {
+  // "Finalizar consulta" no son piezas sueltas como las de arriba: es una secuencia con orden y dependencia real (motivo →
+  // nota → completar cita → seguimiento opcional). Corre como UNA sola transacción del servidor (fn_finalizar_consulta,
+  // migración 085): o se hace todo o no se hace nada — no queda una nota huérfana de una consulta que nunca se marcó
+  // completada, ni se duplica nada al reintentar (los ids de la nota y del seguimiento viajan en la operación). Si la cita
+  // cambió mientras no había conexión (candado actualizadoEnEsperado) responde CONFLICTO_CONCURRENCIA y no toca nada.
+  // Un plan sin notas clínicas/expediente no genera nota (viene null): cerrar la consulta no debe depender de ella.
+  finalizar_consulta: (payload) => {
     const { citaId, motivo, notaClinica, seguimientoPayload, actualizadoEnEsperado } = payload
-    const citaTrasMotivo = await actualizarCita(citaId, { motivo_consulta: motivo || null }, actualizadoEnEsperado)
-    // Un plan sin notas clínicas/expediente no genera nota (viene null): cerrar la
-    // consulta no debe depender de ella.
-    if (notaClinica) await crearNotaClinica(notaClinica)
-    await actualizarCita(citaId, { estado: 'completada' }, citaTrasMotivo.actualizado_en)
-    if (seguimientoPayload) {
-      await crearCita(seguimientoPayload)
-    }
+    return finalizarConsulta({ citaId, motivo, nota: notaClinica, seguimiento: seguimientoPayload, actualizadoEnEsperado })
   }
 }
 
@@ -279,6 +275,14 @@ export async function procesarColaOffline({ reintentarConflictos = false } = {})
           await marcarConflicto(operacion, MENSAJE_CONFLICTO_CURP)
           enConflicto.add(operacion.id)
           mensajesConflictoNuevos.add(MENSAJE_CONFLICTO_CURP)
+        } else if (esRechazoDefinitivo(err) || esErrorDeDatosDefinitivo(err) || esRechazoDeIntegridad(err)) {
+          // El servidor rechazó la consulta por una razón que repetirla no arregla (el paciente no está asignado, el horario
+          // del seguimiento está ocupado, el plan no lo incluye…). NO es una falla de red: se conserva el trabajo clínico
+          // (nada se pierde), no se reintenta solo y se explica por qué; el botón manual "Reintentar" lo vuelve a intentar.
+          const mensaje = `Un cambio hecho sin conexión no se pudo subir: ${err.message}`
+          await marcarConflicto(operacion, mensaje)
+          enConflicto.add(operacion.id)
+          mensajesConflictoNuevos.add(mensaje)
         } else if (esErrorDePlan(err)) {
           // Límite del plan o funcionalidad no incluida (PT402 / PT403, migración
           // 075). Reintentar igual no lo resuelve — hace falta ampliar el plan o

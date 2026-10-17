@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { verClinica, eliminarClinica } from '../services/admin'
+import { verClinica } from '../services/admin'
 import { useAuthStore } from '../store/useAuthStore'
-import { toastExito, toastError } from '../store/useToastStore'
-import { Modal } from '../components/ui/Modal'
 import { Icon } from '../components/ui/Icon'
-import { Button } from '../components/ui/Button'
 import { PanelSuscripcionClinica } from '../components/planes/PanelSuscripcionClinica'
+import { ModalEliminarClinica } from '../components/administracion/ModalEliminarClinica'
 
 export function AdministracionClinica() {
   const perfil = useAuthStore((s) => s.perfil)
@@ -18,8 +16,6 @@ export function AdministracionClinica() {
 
   // Eliminar clínica (irreversible)
   const [modalEliminar, setModalEliminar] = useState(false)
-  const [confirmarNombre, setConfirmarNombre] = useState('')
-  const [eliminando, setEliminando] = useState(false)
 
   // useCallback con [clinicaId]: el efecto sigue corriendo solo al cambiar de clínica; evita el bucle de renders.
   const cargar = useCallback(async () => {
@@ -38,25 +34,6 @@ export function AdministracionClinica() {
   useEffect(() => {
     cargar()
   }, [cargar])
-
-  async function handleEliminar() {
-    setEliminando(true)
-    try {
-      const resultado = await eliminarClinica(clinicaId, confirmarNombre)
-      if (resultado.advertencias?.length > 0) {
-        toastExito(`Clínica eliminada, con ${resultado.advertencias.length} advertencia(s) — revisa la consola.`)
-        console.warn('Advertencias al eliminar clínica:', resultado.advertencias)
-      } else {
-        toastExito('Clínica eliminada por completo.')
-      }
-      navigate('/administracion')
-    } catch (err) {
-      toastError('No se pudo eliminar la clínica: ' + err.message)
-    } finally {
-      setEliminando(false)
-      setModalEliminar(false)
-    }
-  }
 
   if (!perfil?.es_super_admin) {
     return <p className="text-slate-400">No autorizado.</p>
@@ -151,44 +128,18 @@ export function AdministracionClinica() {
         <p className="mb-4 text-sm text-red-800">
           Eliminar una clínica borra <strong>todo</strong>: sus usuarios (cuentas incluidas), pacientes,
           expedientes, citas, tratamientos, pagos, fotografías, documentos y consentimientos. No se puede
-          deshacer. Si solo quieres impedir el acceso temporalmente, usa "Suspendida" arriba en vez de esto.
+          deshacer, y solo se puede eliminar una clínica que ya esté <strong>suspendida</strong>. Si solo quieres impedir el acceso
+          temporalmente, usa "Suspendida" arriba en vez de esto.
         </p>
         <button
-          onClick={() => { setConfirmarNombre(''); setModalEliminar(true) }}
+          onClick={() => setModalEliminar(true)}
           className="rounded-lg border border-clinico-rojo px-4 py-2 text-sm font-medium text-clinico-rojo hover:bg-red-100"
         >
           Eliminar esta clínica
         </button>
       </div>
 
-      <Modal abierto={modalEliminar} onCerrar={() => !eliminando && setModalEliminar(false)} titulo="Eliminar clínica — no se puede deshacer">
-        <p className="mb-4 text-sm text-slate-600">
-          Esto elimina <strong>{datos.clinica.nombre}</strong> por completo: {datos.usuarios.length} usuario(s),
-          {' '}{datos.pacientes.length} paciente(s) y todo su historial clínico. Para confirmar, escribe el
-          nombre exacto de la clínica:
-        </p>
-        <input
-          type="text"
-          value={confirmarNombre}
-          onChange={(e) => setConfirmarNombre(e.target.value)}
-          placeholder={datos.clinica.nombre}
-          className="mb-4 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          autoFocus
-        />
-        <div className="flex gap-3">
-          <Button variante="secundario" onClick={() => setModalEliminar(false)} className="flex-1" disabled={eliminando}>
-            Cancelar
-          </Button>
-          <Button
-            variante="peligro"
-            onClick={handleEliminar}
-            className="flex-1"
-            disabled={eliminando || confirmarNombre !== datos.clinica.nombre}
-          >
-            {eliminando ? 'Eliminando…' : 'Eliminar definitivamente'}
-          </Button>
-        </div>
-      </Modal>
+      <ModalEliminarClinica abierto={modalEliminar} clinicaId={clinicaId} onCerrar={() => setModalEliminar(false)} onEliminada={() => navigate('/administracion')} />
     </div>
   )
 }

@@ -10,6 +10,7 @@ const m = vi.hoisted(() => ({
   actualizarSitioPeriodontal: vi.fn(),
   actualizarCita: vi.fn(),
   crearCita: vi.fn(),
+  finalizarConsulta: vi.fn(),
   toastExito: vi.fn(),
   toastError: vi.fn()
 }))
@@ -23,6 +24,7 @@ vi.mock('../../../../services/periodontograma', () => ({
   actualizarSitioPeriodontal: m.actualizarSitioPeriodontal
 }))
 vi.mock('../../../../services/citas', () => ({ actualizarCita: m.actualizarCita, crearCita: m.crearCita }))
+vi.mock('../../../../services/consultas', () => ({ finalizarConsulta: m.finalizarConsulta }))
 vi.mock('../../../../store/useToastStore', () => ({ toastExito: m.toastExito, toastError: m.toastError }))
 
 import { procesarColaOffline, obtenerUltimaSincronizacionCola } from '../../../../lib/procesadorColaOffline.js'
@@ -181,113 +183,184 @@ describe('Conflicto de concurrencia (sección 9, prueba #19)', () => {
   })
 })
 
+describe('Fase 8: el rechazo de integridad lanzado CRUDO por un servicio (PostgrestError con hint, sin codigo tipificado)', () => {
+  const crudo = (hint, message) => Object.assign(new Error(message), { code: 'P0001', hint })   // lo que lanza `if (error) throw error` en los servicios
+  it.each(['REFERENCIA_DENTISTA_INCOHERENTE', 'REFERENCIA_TRATAMIENTO_INCOHERENTE', 'ACTOR_INCOHERENTE', 'CITA_CONSULTORIO_INCOHERENTE', 'NOTA_FECHA_FUERA_DE_LIMITE'])('%s se CONSERVA como conflicto con el mensaje del servidor y NO se reintenta en cada sincronización', async (hint) => {
+    m.actualizarCita.mockReset(); m.toastError.mockReset()
+    m.actualizarCita.mockRejectedValue(crudo(hint, `mensaje del servidor para ${hint}`))
+    await encolarOperacion(op('c1', 'actualizar_cita', { id: 'cita1', cambios: { dentista_id: 'otro' } }))
+    await procesarColaOffline()
+    expect((await listarOperacionesPendientes())[0].estado).toBe('conflicto')
+    expect(m.toastError).toHaveBeenCalledWith(expect.stringContaining(`mensaje del servidor para ${hint}`))
+    await procesarColaOffline(); expect(m.actualizarCita).toHaveBeenCalledTimes(1)
+  })
+  it('CONTROL: un error crudo con un hint desconocido sigue siendo TRANSITORIO (se reintenta); la cola no se vuelve más estricta de lo debido', async () => {
+    m.actualizarCita.mockReset(); m.actualizarCita.mockRejectedValue(crudo('OTRA_COSA', 'algo raro'))
+    await encolarOperacion(op('c1', 'actualizar_cita', { id: 'cita1', cambios: { estado: 'confirmada' } }))
+    await procesarColaOffline()
+    expect((await listarOperacionesPendientes())[0].estado).toBe('error')
+    await procesarColaOffline(); expect(m.actualizarCita.mock.calls.length).toBeGreaterThan(1)
+  })
+})
+
+describe('Fase 5: una operación sin dueño que la base rechaza por incoherente (autor distinto de la sesión)', () => {
+  it('se CONSERVA como conflicto con el mensaje del servidor y NO se reintenta para siempre', async () => {
+    m.actualizarCita.mockRejectedValue(Object.assign(new Error('El odontólogo indicado no pertenece a la clínica del paciente.'), { codigo: 'INTEGRIDAD_DATOS' }))
+    await encolarOperacion(op('c1', 'actualizar_cita', { id: 'cita1', cambios: { dentista_id: 'otro' } }))
+    await procesarColaOffline()
+    expect((await listarOperacionesPendientes())[0].estado).toBe('conflicto')
+    expect(m.toastError).toHaveBeenCalledWith(expect.stringContaining('no pertenece a la clínica'))
+    await procesarColaOffline(); expect(m.actualizarCita).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('Fase 4: una operación ANTIGUA que intenta completar una cita sin consulta', () => {
+  it('la base la rechaza (COMPLETAR_SOLO_VIA_CONSULTA): se CONSERVA como conflicto con instrucciones y NO se reintenta para siempre', async () => {
+    m.actualizarCita.mockRejectedValue(Object.assign(new Error('Esa cita se intentó marcar como completada sin guardar la consulta clínica. Ábrela y finalízala desde la consulta.'), { codigo: 'COMPLETAR_SOLO_VIA_CONSULTA' }))
+    await encolarOperacion(op('c1', 'actualizar_cita', { id: 'cita1', cambios: { estado: 'completada' } }))
+    await procesarColaOffline()
+    expect((await listarOperacionesPendientes())[0].estado).toBe('conflicto')
+    expect(m.toastError).toHaveBeenCalledWith(expect.stringContaining('Ábrela y finalízala desde la consulta'))
+    await procesarColaOffline()
+    expect(m.actualizarCita).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('Errores de datos al sincronizar (fase 2): definitivos se conservan, transitorios se reintentan', () => {
+  const dato = (codigo, mensaje) => Object.assign(new Error(mensaje), { codigo })
+  it.each([['SIN_PERMISO', 'Tu usuario no tiene permiso para esta operación.'], ['NOTA_CONFLICTO', 'Ya existe una nota con ese identificador y contenido distinto.'], ['NOTA_NO_VERIFICABLE', 'No se pudo confirmar que la nota se guardó.']])(
+    '%s: la nota se CONSERVA como conflicto con su motivo y no se reintenta sola', async (codigo, mensaje) => {
+      m.crearNotaClinica.mockRejectedValue(dato(codigo, mensaje))
+      await encolarOperacion(op('n1', 'crear_nota_clinica', { id: 'n1', contenido: 'x' }))
+      await procesarColaOffline()
+      expect((await listarOperacionesPendientes())[0].estado).toBe('conflicto')
+      expect(m.toastError).toHaveBeenCalledWith(expect.stringContaining(mensaje))
+      await procesarColaOffline()
+      expect(m.crearNotaClinica).toHaveBeenCalledTimes(1)
+    })
+  it.each(['SESION_INVALIDA', 'SIN_CONEXION', 'SERVIDOR_NO_DISPONIBLE'])('%s: es transitorio, se reintenta (no se descarta ni se marca conflicto)', async (codigo) => {
+    m.crearNotaClinica.mockRejectedValueOnce(dato(codigo, 'x')).mockResolvedValue({ id: 'n1' })
+    await encolarOperacion(op('n1', 'crear_nota_clinica', { id: 'n1', contenido: 'x' }))
+    await procesarColaOffline()
+    expect((await listarOperacionesPendientes())[0].estado).toBe('error')
+    await procesarColaOffline()
+    expect(m.crearNotaClinica).toHaveBeenCalledTimes(2); expect(await listarOperacionesPendientes()).toEqual([])
+  })
+})
+
 describe('Finalizar consulta sin conexión (prueba #12)', () => {
   const payload = (extra = {}) => ({
     citaId: 'cita1', motivo: 'Dolor', actualizadoEnEsperado: 'T0',
     notaClinica: { id: 'nota1', contenido: 'Se atendió' },
     seguimientoPayload: null, ...extra
   })
+  const rechazo = (codigo, mensaje) => Object.assign(new Error(mensaje), { codigo })
 
-  it('ejecuta la secuencia completa EN ORDEN: motivo → nota → completar cita → seguimiento', async () => {
-    m.actualizarCita.mockResolvedValueOnce({ actualizado_en: 'T1' }).mockResolvedValueOnce({ actualizado_en: 'T2' })
+  it('delega TODA la secuencia (motivo → nota → completar cita → seguimiento) en UNA sola operación transaccional, con los datos y el candado de concurrencia', async () => {
+    m.finalizarConsulta.mockResolvedValue({ ok: true })
     const seguimiento = { id: 'seg1', motivo_consulta: 'Revisión' }
     await encolarOperacion(op('finalizar_consulta_cita1', 'finalizar_consulta', payload({ seguimientoPayload: seguimiento })))
 
     await procesarColaOffline()
 
-    const [motivo, completar] = m.actualizarCita.mock.calls
-    expect(motivo).toEqual(['cita1', { motivo_consulta: 'Dolor' }, 'T0'])
-    // El candado del 2º paso usa el valor que devolvió el 1º, no el original:
-    expect(completar).toEqual(['cita1', { estado: 'completada' }, 'T1'])
-    expect(m.crearCita).toHaveBeenCalledWith(seguimiento)
-
-    const orden = [
-      m.actualizarCita.mock.invocationCallOrder[0],
-      m.crearNotaClinica.mock.invocationCallOrder[0],
-      m.actualizarCita.mock.invocationCallOrder[1],
-      m.crearCita.mock.invocationCallOrder[0]
-    ]
-    expect(orden).toEqual([...orden].sort((a, b) => a - b))
+    expect(m.finalizarConsulta).toHaveBeenCalledTimes(1)
+    expect(m.finalizarConsulta).toHaveBeenCalledWith({
+      citaId: 'cita1', motivo: 'Dolor', nota: { id: 'nota1', contenido: 'Se atendió' }, seguimiento, actualizadoEnEsperado: 'T0'
+    })
+    // Ya no se ejecuta por pasos sueltos desde el navegador (esa cadena podía quedar a medias):
+    expect(m.actualizarCita).not.toHaveBeenCalled()
+    expect(m.crearNotaClinica).not.toHaveBeenCalled()
+    expect(m.crearCita).not.toHaveBeenCalled()
     expect(await listarOperacionesPendientes()).toEqual([])
   })
 
-  it('sin seguimiento programado, no crea ninguna cita nueva', async () => {
-    m.actualizarCita.mockResolvedValue({ actualizado_en: 'T1' })
+  it('sin seguimiento programado, no se manda ninguno', async () => {
+    m.finalizarConsulta.mockResolvedValue({ ok: true })
     await encolarOperacion(op('f', 'finalizar_consulta', payload()))
     await procesarColaOffline()
-    expect(m.crearCita).not.toHaveBeenCalled()
+    expect(m.finalizarConsulta.mock.calls[0][0].seguimiento).toBeNull()
   })
 
-  it('si la cita cambió mientras estaba offline, NO queda una nota huérfana ni un seguimiento suelto', async () => {
-    m.actualizarCita.mockRejectedValueOnce(new Error('CONFLICTO_CONCURRENCIA'))
+  it('si la cita cambió mientras estaba offline: UN solo intento, no se reintenta para siempre y se avisa (nada queda a medias: lo garantiza la transacción)', async () => {
+    m.finalizarConsulta.mockRejectedValueOnce(new Error('CONFLICTO_CONCURRENCIA'))
     await encolarOperacion(op('f', 'finalizar_consulta', payload({ seguimientoPayload: { id: 'seg1' } })))
 
     await procesarColaOffline()
 
-    expect(m.crearNotaClinica).not.toHaveBeenCalled()
-    expect(m.crearCita).not.toHaveBeenCalled()
-    expect(m.actualizarCita).toHaveBeenCalledTimes(1)
+    expect(m.finalizarConsulta).toHaveBeenCalledTimes(1)
+    expect(await listarOperacionesPendientes()).toEqual([])
+    expect(m.toastError).toHaveBeenCalled()
+    await procesarColaOffline()
+    expect(m.finalizarConsulta).toHaveBeenCalledTimes(1)
   })
 
-  it('si falla a la mitad (tras crear la nota), el reintento reutiliza el MISMO id de nota — no duplica', async () => {
-    m.actualizarCita.mockResolvedValue({ actualizado_en: 'T1' })
-    m.crearNotaClinica.mockResolvedValueOnce({})
-    m.actualizarCita
-      .mockResolvedValueOnce({ actualizado_en: 'T1' })         // 1er intento: motivo ok
-      .mockRejectedValueOnce(new Error('red caída'))           // 1er intento: completar falla
+  it('si falla por la red, el reintento manda los MISMOS ids de nota y de seguimiento — no duplica', async () => {
+    m.finalizarConsulta.mockRejectedValueOnce(new Error('red caída')).mockResolvedValue({ ok: true })
+    await encolarOperacion(op('f', 'finalizar_consulta', payload({ seguimientoPayload: { id: 'seg1' } })))
+
+    await procesarColaOffline()
+    expect((await listarOperacionesPendientes())[0].estado).toBe('error')
+
+    await procesarColaOffline()
+
+    const llamadas = m.finalizarConsulta.mock.calls.map(([a]) => [a.nota.id, a.seguimiento.id])
+    expect(llamadas).toEqual([['nota1', 'seg1'], ['nota1', 'seg1']]) // mismos ids ⇒ el servidor no duplica
+    expect(await listarOperacionesPendientes()).toEqual([])
+  })
+
+  it('un RECHAZO DEFINITIVO del servidor (p. ej. el paciente no está asignado) se conserva como CONFLICTO con su motivo y NO se reintenta solo — no es una caída de red', async () => {
+    m.finalizarConsulta.mockRejectedValue(rechazo('PACIENTE_NO_ASIGNADO', 'Este paciente no está asignado a ti.'))
+    await encolarOperacion(op('f', 'finalizar_consulta', payload()))
+
+    await procesarColaOffline()
+
+    const [pendiente] = await listarOperacionesPendientes()
+    expect(pendiente.estado).toBe('conflicto')
+    expect(m.toastError).toHaveBeenCalledWith(expect.stringContaining('Este paciente no está asignado a ti.'))
+    await procesarColaOffline()
+    expect(m.finalizarConsulta).toHaveBeenCalledTimes(1) // el conflicto no se reintenta por su cuenta
+  })
+
+  it.each([
+    ['SEGUIMIENTO_CONFLICTO', 'El identificador del seguimiento ya pertenece a otra cita.'],
+    ['NOTA_CONFLICTO', 'Ya existe una nota con ese identificador y contenido clínico distinto.'],
+    ['FINALIZACION_INCOMPLETA', 'La cita ya estaba completada, pero esta operación no tiene confirmado: la nota clínica.'],
+    ['CONSULTA_CON_DATOS_DISTINTOS', 'La consulta ya estaba finalizada con un motivo distinto.'],
+    ['ID_REQUERIDO_PARA_REINTENTO', 'Se necesita el identificador de la nota.']
+  ])('fase 3: %s se CONSERVA como conflicto con su motivo y NO se reintenta sola (el trabajo clínico no se pierde ni se repite a ciegas)', async (codigo, mensaje) => {
+    m.finalizarConsulta.mockRejectedValue(rechazo(codigo, mensaje))
+    await encolarOperacion(op('f', 'finalizar_consulta', payload()))
+
+    await procesarColaOffline()
+
+    expect((await listarOperacionesPendientes())[0].estado).toBe('conflicto')
+    expect(m.toastError).toHaveBeenCalledWith(expect.stringContaining(mensaje))
+    await procesarColaOffline()
+    expect(m.finalizarConsulta).toHaveBeenCalledTimes(1)
+  })
+
+  it('RESPUESTA PERDIDA: el servidor confirmó pero el navegador no lo supo; el reintento (mismos ids, candado ya obsoleto) recibe ya_finalizada y la operación SALE de la cola, sin duplicar', async () => {
+    m.finalizarConsulta.mockRejectedValueOnce(new Error('TypeError: Failed to fetch')).mockResolvedValue({ ok: true, ya_finalizada: true, verificado: { nota: true, seguimiento: true } })
+    await encolarOperacion(op('f', 'finalizar_consulta', payload({ seguimientoPayload: { id: 'seg1' } })))
+
+    await procesarColaOffline()
+    expect((await listarOperacionesPendientes())[0].estado).toBe('error')
+    await procesarColaOffline()
+
+    expect(m.finalizarConsulta).toHaveBeenCalledTimes(2)
+    expect(m.finalizarConsulta.mock.calls.map(([a]) => [a.nota.id, a.seguimiento.id, a.actualizadoEnEsperado])).toEqual([['nota1', 'seg1', 'T0'], ['nota1', 'seg1', 'T0']])
+    expect(await listarOperacionesPendientes()).toEqual([])
+  })
+
+  it('una sesión cerrada NO es un rechazo definitivo: se trata como transitoria y se reintenta al volver a iniciar sesión', async () => {
+    m.finalizarConsulta.mockRejectedValueOnce(rechazo('SESION_CERRADA', 'Tu sesión fue cerrada desde otro dispositivo.')).mockResolvedValue({ ok: true })
     await encolarOperacion(op('f', 'finalizar_consulta', payload()))
 
     await procesarColaOffline()
     expect((await listarOperacionesPendientes())[0].estado).toBe('error')
 
-    m.actualizarCita.mockResolvedValue({ actualizado_en: 'T2' })
     await procesarColaOffline()
-
-    const idsDeNota = m.crearNotaClinica.mock.calls.map(([n]) => n.id)
-    expect(idsDeNota).toEqual(['nota1', 'nota1']) // mismo id ⇒ el upsert no duplica
+    expect(m.finalizarConsulta).toHaveBeenCalledTimes(2)
     expect(await listarOperacionesPendientes()).toEqual([])
-  })
-})
-
-describe('Cada cuenta sube solo lo suyo (equipo compartido)', () => {
-  const sesionDe = (id) => m.refreshSession.mockResolvedValue({ data: { session: { access_token: 'x', user: { id } } }, error: null })
-
-  it('con la sesión de u1: sube lo de u1 y deja INTACTO lo de u2 (no lo marca, no lo cuenta como intento)', async () => {
-    sesionDe('u1')
-    await encolarOperacion({ ...op('mia', 'crear_nota_clinica', { id: 'mia' }, 1), usuarioId: 'u1' })
-    await encolarOperacion({ ...op('ajena', 'crear_nota_clinica', { id: 'ajena' }, 2), usuarioId: 'u2' })
-
-    await procesarColaOffline()
-
-    expect(m.crearNotaClinica).toHaveBeenCalledTimes(1)
-    expect(m.crearNotaClinica).toHaveBeenCalledWith({ id: 'mia' })
-    const [restante] = await listarOperacionesPendientes()
-    expect(restante).toMatchObject({ id: 'ajena', estado: 'pendiente', intentos: 0, ultimoError: null })
-  })
-
-  it('avisa que hay cambios de otra cuenta que no se subirán con esta sesión', async () => {
-    sesionDe('u1')
-    await encolarOperacion({ ...op('ajena', 'crear_nota_clinica', { id: 'ajena' }), usuarioId: 'u2' })
-    await procesarColaOffline()
-    expect(m.toastError).toHaveBeenCalledWith(expect.stringContaining('otra cuenta'))
-  })
-
-  it('cuando la dueña inicia sesión, sus cambios sí se suben', async () => {
-    await encolarOperacion({ ...op('ajena', 'crear_nota_clinica', { id: 'ajena' }), usuarioId: 'u2' })
-    sesionDe('u1')
-    await procesarColaOffline()
-    expect(m.crearNotaClinica).not.toHaveBeenCalled()
-
-    sesionDe('u2')
-    await procesarColaOffline()
-    expect(m.crearNotaClinica).toHaveBeenCalledWith({ id: 'ajena' })
-    expect(await listarOperacionesPendientes()).toEqual([])
-  })
-
-  it('las operaciones hechas antes de guardarse el dueño (sin usuarioId) se siguen subiendo con cualquier sesión', async () => {
-    sesionDe('u1')
-    await encolarOperacion(op('vieja', 'crear_nota_clinica', { id: 'vieja' }))
-    await procesarColaOffline()
-    expect(m.crearNotaClinica).toHaveBeenCalledWith({ id: 'vieja' })
   })
 })

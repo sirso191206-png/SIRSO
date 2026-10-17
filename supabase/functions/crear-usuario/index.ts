@@ -9,18 +9,10 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 
 import { buildCorsHeaders } from '../_shared/cors.ts'
+import { exigirSinCambioPendiente, ErrorDeSolicitud, generarPasswordTemporal, leerCuerpoJson, responderError } from '../_shared/solicitud.ts'
 
 // 'owner' NO está a propósito: un owner nace solo al dar de alta una clínica (superadmin).
 const ROLES_VALIDOS = ['dentista', 'recepcion', 'asistente']
-
-// Error con código HTTP propio (las fallas de autorización devuelven 403, no 400).
-class ErrorDeAutorizacion_ extends Error {
-  status: number
-  constructor(mensaje: string, status = 403) {
-    super(mensaje)
-    this.status = status
-  }
-}
 
 serve(async (req) => {
   // CORS por petición: refleja el Origin si está en la lista blanca.
@@ -32,15 +24,15 @@ serve(async (req) => {
   try {
     const authHeader = req.headers.get('Authorization')
     console.log('crear-usuario: Authorization presente:', !!authHeader, '— empieza con Bearer:', !!authHeader?.startsWith('Bearer '))
-    if (!authHeader) throw new Error('Falta autenticación')
+    if (!authHeader) throw new ErrorDeSolicitud('Falta autenticación')
 
     const token = authHeader.replace(/^Bearer\s+/i, '').trim()
     console.log('crear-usuario: token presente:', !!token, '— longitud:', token.length)
-    if (!token) throw new Error('Falta token de acceso')
+    if (!token) throw new ErrorDeSolicitud('Falta token de acceso')
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')
-    const anonKey = Deno.env.get('SUPABASE_ANON_KEY')
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
     // Cliente efímero: sin persistir/refrescar sesión propia — esta
     // función corre una sola vez por petición; el único propósito de
@@ -53,18 +45,19 @@ serve(async (req) => {
       console.error('crear-usuario: error validando JWT:', userError.message, '— status:', userError.status)
     }
     console.log('crear-usuario: usuario autenticado:', !!user)
-    if (userError || !user) throw new Error('Token inválido')
+    if (userError || !user) throw new ErrorDeSolicitud('Token inválido')
 
     // Cliente admin: el único que puede crear usuarios de Auth
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey)
 
     const { data: perfilCaller, error: perfilError } = await supabaseAdmin
       .from('usuarios')
-      .select('clinica_id, rol')
+      .select('clinica_id, rol, debe_cambiar_password')
       .eq('id', user.id)
       .single()
-    if (perfilError || !perfilCaller) throw new Error('No se encontró tu perfil')
-    if (perfilCaller.rol !== 'owner') throw new ErrorDeAutorizacion_('Solo el owner puede crear usuarios', 403)
+    if (perfilError || !perfilCaller) throw new ErrorDeSolicitud('No se encontró tu perfil')
+    exigirSinCambioPendiente(perfilCaller)
+    if (perfilCaller.rol !== 'owner') throw new ErrorDeSolicitud('Solo el owner puede crear usuarios', 403)
 
     // Clínica suspendida: ninguna acción administrativa, ni siquiera
     // crear otra clínica desde aquí. Esto se valida en el backend porque
@@ -75,22 +68,27 @@ serve(async (req) => {
       .select('estado')
       .eq('id', perfilCaller.clinica_id)
       .single()
-    if (clinicaCallerError || !clinicaCaller) throw new Error('No se encontró tu clínica')
+    if (clinicaCallerError || !clinicaCaller) throw new ErrorDeSolicitud('No se encontró tu clínica')
     if (clinicaCaller.estado === 'suspendida') {
-      throw new Error('Tu clínica está suspendida. No puedes crear usuarios en este momento.')
+      throw new ErrorDeSolicitud('Tu clínica está suspendida. No puedes crear usuarios en este momento.')
     }
 
-    const { correo, nombre, rol } = await req.json()
-    if (!correo || !nombre || !rol) throw new ErrorDeAutorizacion_('Faltan datos (correo, nombre, rol)', 400)
+    const { correo: correoCrudo, nombre: nombreCrudo, rol } = await leerCuerpoJson(req)
+    if (!correoCrudo || !nombreCrudo || !rol) throw new ErrorDeSolicitud('Faltan datos (correo, nombre, rol)', 400)
+    if (typeof correoCrudo !== 'string' || typeof nombreCrudo !== 'string' || typeof rol !== 'string') throw new ErrorDeSolicitud('Datos inválidos (correo, nombre y rol deben ser texto)', 400)
+    const correo = correoCrudo.trim().toLowerCase()
+    const nombre = nombreCrudo.trim()
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correo) || correo.length > 254) throw new ErrorDeSolicitud('El correo no es válido', 400)
+    if (!nombre || nombre.length > 120) throw new ErrorDeSolicitud('El nombre es obligatorio y no puede tener más de 120 caracteres', 400)
     // Un owner NO puede crear otro owner ni una clínica nueva (ni con nombreClinica, ni de
     // ninguna otra forma): dejaría una clínica fuera del sistema de planes.
     if (rol === 'owner') {
-      throw new ErrorDeAutorizacion_(
+      throw new ErrorDeSolicitud(
         'Solo el superadmin puede dar de alta una clínica nueva o un owner. Puedes agregar dentistas, recepción y asistentes a tu clínica.',
         403,
       )
     }
-    if (!ROLES_VALIDOS.includes(rol)) throw new ErrorDeAutorizacion_('Rol inválido', 400)
+    if (!ROLES_VALIDOS.includes(rol)) throw new ErrorDeSolicitud('Rol inválido', 400)
 
     // SIEMPRE la clínica del owner que llama — nunca una indicada por el cliente.
     const clinicaIdDestino = perfilCaller.clinica_id
@@ -101,21 +99,26 @@ serve(async (req) => {
 
     // Contraseña temporal — se le entrega al owner para compartirla; el
     // nuevo usuario debería cambiarla en su primer inicio de sesión.
-    const passwordTemporal = crypto.randomUUID().slice(0, 12)
+    const passwordTemporal = generarPasswordTemporal()
 
     const { data: nuevoAuth, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email: correo,
       password: passwordTemporal,
       email_confirm: true
     })
-    if (createError) throw createError
+    if (createError) {
+      // Un correo YA registrado revelaría que esa cuenta existe en CUALQUIER clínica (Auth es global): se responde lo mismo que ante cualquier otro fallo de alta.
+      console.error('crear-usuario: Auth no pudo crear la cuenta:', createError.message)
+      throw new ErrorDeSolicitud('No se pudo crear el usuario con ese correo. Verifica el dato o contacta a soporte.', 400, 'ALTA_NO_DISPONIBLE')
+    }
 
     const { error: insertError } = await supabaseAdmin.from('usuarios').insert({
       id: nuevoAuth.user.id,
       clinica_id: clinicaIdDestino,
       nombre,
       correo,
-      rol
+      rol,
+      debe_cambiar_password: true   // contraseña temporal: debe cambiarla antes de usar SIRO (migración 103)
     })
     if (insertError) {
       // Si falla el perfil, no dejamos un usuario de Auth huérfano
@@ -138,9 +141,6 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: err instanceof ErrorDeAutorizacion_ ? err.status : 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    })
+    return responderError(err, corsHeaders, 'crear-usuario')
   }
 })

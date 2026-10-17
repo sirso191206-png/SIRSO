@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { obtenerCitaPorId, actualizarCita, crearCita } from '../services/citas'
+import { obtenerCitaPorId, actualizarCita, avanzarSiguienteEnEspera } from '../services/citas'
+import { finalizarConsulta, completarConsultaPendiente } from '../services/consultas'
+import { mensajeErrorFinalizar } from '../lib/finalizarConsulta'
 import { obtenerDiagnosticosFrecuentes, crearNotaClinica } from '../services/expedientes'
 import { useExpediente } from './useExpediente'
 import { useTratamientos } from './useTratamientos'
@@ -31,6 +33,9 @@ export function useConsultaForm(citaId) {
 
   const [cita, setCita] = useState(null)
   const [cargandoCita, setCargandoCita] = useState(true)
+  // Por qué no cargó la cita (inexistente / sin acceso / sesión / sin conexión): la pantalla lo explica y ofrece reintentar.
+  const [errorCita, setErrorCita] = useState(null)
+  const [intentoCarga, setIntentoCarga] = useState(0)
   const [diagnosticosFrecuentes, setDiagnosticosFrecuentes] = useState([])
   const [modalExpediente, setModalExpediente] = useState(false)
   const [modalTratamiento, setModalTratamiento] = useState(false)
@@ -55,6 +60,12 @@ export function useConsultaForm(citaId) {
   const [guardando, setGuardando] = useState(false)
   const [guardandoBorrador, setGuardandoBorrador] = useState(false)
   const [finalizada, setFinalizada] = useState(false)
+  // Ids de la nota y del seguimiento, fijados UNA vez por consulta y conservados entre reintentos: si un intento falla o se
+  // repite (doble clic, corte de red), el servidor reconoce los mismos ids y no duplica nada.
+  const idsConsulta = useRef(null)
+  if (idsConsulta.current === null) idsConsulta.current = { nota: crypto.randomUUID(), seguimiento: crypto.randomUUID() }
+  // Candado síncrono contra el doble clic: `guardando` (estado) tarda un render en reflejarse; esto no.
+  const finalizando = useRef(false)
 
   const { expediente } = useExpediente(cita?.paciente_id)
   const { tratamientos, agregar: agregarTratamiento } = useTratamientos(cita?.paciente_id)
@@ -70,16 +81,26 @@ export function useConsultaForm(citaId) {
   const { recetas, agregar: agregarReceta } = useRecetas(cita?.paciente_id)
 
   useEffect(() => {
+    let activo = true
+    setCargandoCita(true)
+    setErrorCita(null)
     obtenerCitaPorId(citaId).then((data) => {
+      if (!activo) return
       setCita(data)
       setMotivo(data.motivo_consulta ?? '')
       setCargandoCita(false)
     }).catch((err) => {
-      toastError('No se pudo cargar la cita: ' + err.message)
+      if (!activo) return
+      // Sin cita no hay consulta: NO se queda en "Cargando…" ni se deja finalizar nada. Se explica la causa real.
+      setCita(null)
+      setErrorCita({ codigo: err?.codigo ?? null, mensaje: err?.message || 'No se pudo cargar la cita.' })
       setCargandoCita(false)
     })
-    obtenerDiagnosticosFrecuentes().then(setDiagnosticosFrecuentes)
-  }, [citaId])
+    obtenerDiagnosticosFrecuentes().then(setDiagnosticosFrecuentes).catch(() => {})
+    return () => { activo = false }
+  }, [citaId, intentoCarga])
+
+  const reintentarCarga = () => setIntentoCarga((n) => n + 1)
 
   const aplicarPlantillaNota = (plantilla) => {
     setNotaContenido(PLANTILLAS_NOTA[plantilla])
@@ -197,8 +218,44 @@ export function useConsultaForm(citaId) {
     }
   }
 
+  // La nota de la consulta tal como la entiende el servidor. Sin `expediente_id`/`usuario_id`: el servidor los toma del
+  // paciente de la cita y del usuario autenticado (el cliente no decide a quién ni de quién es una nota clínica).
+  const armarNotaConsulta = () => ({
+    id: idsConsulta.current.nota,
+    contenido: notaContenido || '(sin nota)',
+    tipo: 'consulta',
+    diagnostico: diagnostico || null,
+    diagnostico_cie10_codigo: diagnosticoCie10Codigo || null,
+    diagnostico_cie10_descripcion: diagnosticoCie10Descripcion || null,
+    interrogatorio_sistemas: Object.keys(interrogatorioSistemas).length > 0 ? interrogatorioSistemas : null,
+    exploracion_fisica: Object.keys(exploracionFisica).length > 0 ? exploracionFisica : null,
+    accion_salud_bucal: Object.keys(accionSaludBucal).length > 0 ? accionSaludBucal : null,
+    hallazgos: hallazgos || null,
+    creado_en: new Date().toISOString()
+  })
+
+  const armarSeguimiento = () => {
+    if (!programarSeguimiento) return null
+    const inicioDate = new Date(`${seguimiento.fecha}T${seguimiento.hora}`)
+    const finDate = new Date(inicioDate.getTime() + Number(seguimiento.duracion) * 60000)
+    return {
+      id: idsConsulta.current.seguimiento,
+      inicio: inicioDate.toISOString(),
+      fin: finDate.toISOString(),
+      motivo_consulta: seguimiento.motivo || 'Seguimiento'
+    }
+  }
+
+  // Una cita que ya estaba COMPLETADA (sin nota): aquí se completa la consulta de forma explícita; no se vuelve a "finalizar".
+  const modoRecuperacion = cita?.estado === 'completada'
+
   const handleFinalizar = async () => {
-    if (finalizada) return // evita doble envío si ya se guardó
+    if (finalizada || finalizando.current) return // ya se guardó, o ya hay un intento en curso (doble clic)
+    // Sin la cita cargada no hay nada que finalizar: jamás se declara guardada una consulta que no se pudo leer.
+    if (!cita) {
+      toastError('La consulta no se ha cargado: no se puede finalizar. Recarga la página e intenta de nuevo.')
+      return
+    }
     // Se valida ANTES de decidir online/offline — un seguimiento
     // incompleto es un error del formulario, no algo que dependa de si
     // hay conexión.
@@ -207,51 +264,39 @@ export function useConsultaForm(citaId) {
       return
     }
 
+    finalizando.current = true
     setGuardando(true)
     try {
+      const nota = notasIncluidas ? armarNotaConsulta() : null
+      const seguimientoPayload = armarSeguimiento()
+
+      if (modoRecuperacion) {
+        // Recuperación: la verificación es del servidor, así que requiere conexión (no se encola nada a ciegas).
+        if (!navigator.onLine) throw Object.assign(new Error('Completar una consulta pendiente requiere conexión: la verificación la hace el servidor.'), { local: true })
+        if (!nota && !seguimientoPayload) throw Object.assign(new Error('Tu plan no incluye notas clínicas y no pediste un seguimiento: no hay nada que completar.'), { local: true })
+        const recuperada = await completarConsultaPendiente({ citaId: cita.id, nota, seguimiento: seguimientoPayload })
+        setFinalizada(true)
+        toastExito(recuperada?.ya_existia ? 'La consulta ya estaba completa.' : 'Consulta completada: la nota quedó guardada.')
+        navigate('/')
+        return
+      }
+
       if (!navigator.onLine) {
-        if (notasIncluidas && !expediente) throw new Error('El expediente todavía está cargando, espera un momento e intenta de nuevo.')
-
-        // Mismos ids generados en el navegador que ya usan las notas y
-        // piezas encoladas — reintentar la subida nunca duplica nada.
-        const notaClinica = !notasIncluidas ? null : {
-          id: crypto.randomUUID(),
-          expediente_id: expediente.id,
-          cita_id: cita.id,
-          usuario_id: perfil.id,
-          contenido: notaContenido || '(sin nota)',
-          tipo: 'consulta',
-          diagnostico: diagnostico || null,
-          diagnostico_cie10_codigo: diagnosticoCie10Codigo || null,
-          diagnostico_cie10_descripcion: diagnosticoCie10Descripcion || null,
-          interrogatorio_sistemas: Object.keys(interrogatorioSistemas).length > 0 ? interrogatorioSistemas : null,
-          exploracion_fisica: Object.keys(exploracionFisica).length > 0 ? exploracionFisica : null,
-          accion_salud_bucal: Object.keys(accionSaludBucal).length > 0 ? accionSaludBucal : null,
-          hallazgos: hallazgos || null,
-          creado_en: new Date().toISOString()
-        }
-
-        let seguimientoPayload = null
-        if (programarSeguimiento) {
-          const inicioDate = new Date(`${seguimiento.fecha}T${seguimiento.hora}`)
-          const finDate = new Date(inicioDate.getTime() + Number(seguimiento.duracion) * 60000)
-          seguimientoPayload = {
-            id: crypto.randomUUID(),
-            paciente_id: cita.paciente_id,
-            dentista_id: cita.dentista_id,
-            inicio: inicioDate.toISOString(),
-            fin: finDate.toISOString(),
-            motivo_consulta: seguimiento.motivo || 'Seguimiento',
-            estado: 'agendada'
-          }
-        }
-
+        // Error LOCAL (no del servidor): se muestra tal cual, no se reemplaza por el mensaje genérico de red/servidor.
+        if (notasIncluidas && !expediente) throw Object.assign(new Error('El expediente todavía está cargando, espera un momento e intenta de nuevo.'), { local: true })
+        // Sin conexión se encola la MISMA operación que se haría en línea; al sincronizar corre la misma función del
+        // servidor (todo o nada, idempotente por los ids de arriba).
         await encolarOperacion({
           id: `finalizar_consulta_${cita.id}`,
           tipo: 'finalizar_consulta',
           entidad: 'citas',
           entidadId: cita.id,
-          payload: { citaId: cita.id, motivo, notaClinica, seguimientoPayload, actualizadoEnEsperado: cita.actualizado_en },
+          payload: {
+            citaId: cita.id, motivo,
+            notaClinica: nota && { ...nota, expediente_id: expediente.id, cita_id: cita.id, usuario_id: perfil.id },
+            seguimientoPayload: seguimientoPayload && { ...seguimientoPayload, paciente_id: cita.paciente_id, dentista_id: cita.dentista_id, estado: 'agendada' },
+            actualizadoEnEsperado: cita.actualizado_en
+          },
           creado_en: Date.now(),
           usuarioId: perfil?.id ?? null,
           clinicaId: perfil?.clinica_id ?? null,
@@ -265,35 +310,21 @@ export function useConsultaForm(citaId) {
         return
       }
 
-      await guardarNotaYMotivo()
-
-      // Se completa la cita actual ANTES de crear el seguimiento — no
-      // al revés. Mientras esta cita siga en un estado que el
-      // constraint de traslapes considera "activo" (en_consulta,
-      // agendada, etc.), un seguimiento para un horario cercano al
-      // actual choca legítimamente contra ella. Una vez completada,
-      // deja de contar como ocupación del horario del dentista.
-      await actualizarCita(cita.id, { estado: 'completada' })
-
-      if (programarSeguimiento) {
-        const inicioDate = new Date(`${seguimiento.fecha}T${seguimiento.hora}`)
-        const finDate = new Date(inicioDate.getTime() + Number(seguimiento.duracion) * 60000)
-        await crearCita({
-          paciente_id: cita.paciente_id,
-          dentista_id: cita.dentista_id,
-          inicio: inicioDate.toISOString(),
-          fin: finDate.toISOString(),
-          motivo_consulta: seguimiento.motivo || 'Seguimiento',
-          estado: 'agendada'
-        })
-      }
+      // En línea: una sola llamada transaccional (migración 085). Antes eran 3-4 escrituras sueltas desde el navegador,
+      // cada una con .single(): un fallo a medias dejaba nota creada y cita completada, y reintentar duplicaba la nota.
+      const resultado = await finalizarConsulta({ citaId: cita.id, motivo, nota, seguimiento: seguimientoPayload })
 
       setFinalizada(true)
-      toastExito('Consulta guardada correctamente.')
+      // Administrativo y de mejor esfuerzo: si hay alguien EN ESPERA hoy con este odontólogo, pasa a ser el siguiente en consulta.
+      // Un fallo aquí NUNCA afecta a la consulta ya guardada.
+      try { await avanzarSiguienteEnEspera({ dentistaId: cita.dentista_id, excluirCitaId: cita.id, sucursalId: cita.sucursal_id, sillonId: cita.sillon_id }) } catch { /* sin efecto sobre la consulta */ }
+      // `ya_finalizada` = el servidor ya la tenía guardada (doble clic o respuesta perdida) y VERIFICÓ que coincide con lo enviado.
+      toastExito(resultado?.ya_finalizada ? 'La consulta ya estaba guardada correctamente.' : 'Consulta guardada correctamente.')
       navigate('/')
     } catch (err) {
-      toastError('No se pudo finalizar la consulta: ' + err.message)
+      toastError(err?.local ? err.message : mensajeErrorFinalizar(err))
     } finally {
+      finalizando.current = false
       setGuardando(false)
     }
   }
@@ -301,6 +332,9 @@ export function useConsultaForm(citaId) {
   return {
     cita,
     cargandoCita,
+    errorCita,
+    reintentarCarga,
+    modoRecuperacion,
     diagnosticosFrecuentes,
     modalExpediente,
     setModalExpediente,

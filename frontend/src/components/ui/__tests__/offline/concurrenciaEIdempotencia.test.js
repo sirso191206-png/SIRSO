@@ -103,7 +103,6 @@ describe('Sin duplicados al reintentar (sección 8, prueba #18)', () => {
   // primera subida sí llegó pero la respuesta se perdió, el reintento
   // pisa la misma fila en vez de crear una segunda.
   it.each([
-    ['nota clínica', () => crearNotaClinica({ id: 'n1', contenido: 'x' }), 'notas_clinicas'],
     ['receta',       () => crearReceta({ id: 'r1', medicamentos: [] }),    'recetas'],
     ['cita (seguimiento)', () => crearCita({ id: 'c9', inicio: 'a', fin: 'b' }), 'citas']
   ])('%s: se crea con upsert (nunca insert) para que reintentar no duplique', async (_n, crear, tabla) => {
@@ -115,13 +114,27 @@ describe('Sin duplicados al reintentar (sección 8, prueba #18)', () => {
     expect(metodos).not.toContain('insert')
   })
 
+  // La NOTA CLÍNICA es la excepción, a propósito: es INMUTABLE (la migración 001 revoca UPDATE a `authenticated`) y un upsert
+  // incluye ON CONFLICT DO UPDATE, que exige ese privilegio — fallaba SIEMPRE con "permission denied for table notas_clinicas".
+  // Se crea con INSERT y un id fijado en el navegador; si el id ya existe (un reintento de algo que sí se guardó) el servicio
+  // devuelve la nota guardada en vez de duplicar (ver finalizarConsultaFrontend.test.js).
+  it('nota clínica: se crea con INSERT (nunca upsert ni update: las notas son inmutables)', async () => {
+    await crearNotaClinica({ id: 'n1', contenido: 'x' })
+    const { operaciones } = registro.find((r) => r.tabla === 'notas_clinicas')
+    const metodos = operaciones.map(([m]) => m)
+
+    expect(metodos).toContain('insert')
+    expect(metodos).not.toContain('upsert')
+    expect(metodos).not.toContain('update')
+  })
+
   it('reintentar la misma nota manda el MISMO id las dos veces', async () => {
     await crearNotaClinica({ id: 'n1', contenido: 'x' })
     await crearNotaClinica({ id: 'n1', contenido: 'x' })
 
     const ids = registro
       .filter((r) => r.tabla === 'notas_clinicas')
-      .map((r) => llamada(r.operaciones, 'upsert')[1][0].id)
+      .map((r) => llamada(r.operaciones, 'insert')[1][0].id)
     expect(ids).toEqual(['n1', 'n1'])
   })
 })

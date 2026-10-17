@@ -8,6 +8,8 @@ import { mensajeSesionCerrada } from '../../services/sesiones'
 import { PantallaDesbloqueoPin } from '../auth/PantallaDesbloqueoPin'
 import { AccesoNoAutorizado } from './AccesoNoAutorizado'
 import { AvisoSuscripcion } from '../planes/AvisoSuscripcion'
+import { CambioPasswordObligatorio } from '../auth/CambioPasswordObligatorio'
+import { AceptacionLegalObligatoria } from '../legal/AceptacionLegalObligatoria'
 import { puedeEntrarARuta } from '../../lib/accesoPorRol'
 import { Sidebar } from './Sidebar'
 
@@ -86,17 +88,24 @@ export function ProtectedRoute({ children }) {
     )
   }
 
+  // Contraseña TEMPORAL sin cambiar (usuarios.debe_cambiar_password, migración 103): lo único que se ve es la pantalla de cambio, sea cual sea la URL. Esto es
+  // interfaz; el bloqueo real de los datos y de las funciones lo aplican la base de datos y las Edge Functions.
+  if (perfil?.debe_cambiar_password === true) return <CambioPasswordObligatorio />
+
   // Acceso directo por URL: solo las pantallas de su rol (tabla única en lib/accesoPorRol.js). Es
   // protección de interfaz; los datos los protege la base de datos.
   const autorizado = puedeEntrarARuta(location.pathname, perfil)
 
+  // Aceptación de los documentos legales vigentes (migración 106): se solicita si falta; no bloquea el trabajo sin conexión ni ante un error de consulta.
   return (
-    <div className="flex">
-      <Sidebar />
-      <main className="flex-1 overflow-y-auto p-8">
-        <AvisoSuscripcion />
-        {autorizado ? children : <AccesoNoAutorizado rol={perfil?.rol} />}
-      </main>
-    </div>
+    <AceptacionLegalObligatoria perfil={perfil} sinConexion={Boolean(modoOffline) || conectado === false}>
+      <div className="flex">
+        <Sidebar />
+        <main className="flex-1 overflow-y-auto p-8">
+          <AvisoSuscripcion />
+          {autorizado ? children : <AccesoNoAutorizado rol={perfil?.rol} />}
+        </main>
+      </div>
+    </AceptacionLegalObligatoria>
   )
 }

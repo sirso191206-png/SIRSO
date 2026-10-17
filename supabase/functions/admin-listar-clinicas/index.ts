@@ -7,6 +7,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 
 import { buildCorsHeaders } from '../_shared/cors.ts'
+import { exigirSinCambioPendiente, ErrorDeSolicitud, responderError } from '../_shared/solicitud.ts'
 
 serve(async (req) => {
   // CORS por petición: refleja el Origin si está en la lista blanca.
@@ -18,15 +19,15 @@ serve(async (req) => {
   try {
     const authHeader = req.headers.get('Authorization')
     console.log('admin-listar-clinicas: Authorization presente:', !!authHeader, '— empieza con Bearer:', !!authHeader?.startsWith('Bearer '))
-    if (!authHeader) throw new Error('Falta autenticación')
+    if (!authHeader) throw new ErrorDeSolicitud('Falta autenticación')
 
     const token = authHeader.replace(/^Bearer\s+/i, '').trim()
     console.log('admin-listar-clinicas: token presente:', !!token, '— longitud:', token.length)
-    if (!token) throw new Error('Falta token de acceso')
+    if (!token) throw new ErrorDeSolicitud('Falta token de acceso')
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')
-    const anonKey = Deno.env.get('SUPABASE_ANON_KEY')
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
     // Cliente efímero, sin intento de persistir/refrescar sesión propia
     // (esta función corre una sola vez por petición, no tiene estado
@@ -39,17 +40,18 @@ serve(async (req) => {
       console.error('admin-listar-clinicas: error validando JWT:', userError.message, '— status:', userError.status)
     }
     console.log('admin-listar-clinicas: usuario autenticado:', !!user)
-    if (userError || !user) throw new Error('Token inválido')
+    if (userError || !user) throw new ErrorDeSolicitud('Token inválido')
 
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey)
 
     const { data: perfilCaller, error: perfilError } = await supabaseAdmin
       .from('usuarios')
-      .select('es_super_admin')
+      .select('es_super_admin, debe_cambiar_password')
       .eq('id', user.id)
       .single()
-    if (perfilError || !perfilCaller) throw new Error('No se encontró tu perfil')
-    if (!perfilCaller.es_super_admin) throw new Error('No autorizado')
+    if (perfilError || !perfilCaller) throw new ErrorDeSolicitud('No se encontró tu perfil')
+    exigirSinCambioPendiente(perfilCaller)
+    if (!perfilCaller.es_super_admin) throw new ErrorDeSolicitud('No autorizado')
 
     const { data: clinicas, error: clinicasError } = await supabaseAdmin
       .from('clinicas')
@@ -82,9 +84,6 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    })
+    return responderError(err, corsHeaders, 'admin-listar-clinicas')
   }
 })

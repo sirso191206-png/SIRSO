@@ -5,9 +5,11 @@ import { toastExito, toastError } from '../../store/useToastStore'
 import { infoEstado, ESTADOS_FINALES } from './constantes'
 import { Button } from '../ui/Button'
 import { ConfirmModal } from '../ui/ConfirmModal'
+import { useConsultasPendientes } from '../../hooks/useConsultasPendientes'
+import { CorregirCitaCompletada } from './CorregirCitaCompletada'
 import { Icon } from '../ui/Icon'
 
-export function PanelCita({ cita, onCerrar, onCambiarEstado, onReagendar, onDesagendar }) {
+export function PanelCita({ cita, onCerrar, onCambiarEstado, onReagendar, onDesagendar, onCorregida }) {
   const navigate = useNavigate()
   const perfil = useAuthStore((s) => s.perfil)
   const [reprogramando, setReprogramando] = useState(false)
@@ -16,6 +18,9 @@ export function PanelCita({ cita, onCerrar, onCambiarEstado, onReagendar, onDesa
   const [modalEliminar, setModalEliminar] = useState(false)
 
   const info = infoEstado(cita.estado)
+  // ¿Esta cita quedó completada SIN nota? (el servidor decide: roles, plan, clínica y sucursal)
+  const { pendientes } = useConsultasPendientes(365, cita.estado === 'completada')
+  const consultaPendiente = cita.estado === 'completada' && pendientes.some((p) => p.cita_id === cita.id)
   const finalizada = ESTADOS_FINALES.includes(cita.estado)
   const duracionMin = Math.round((new Date(cita.fin) - new Date(cita.inicio)) / 60000)
 
@@ -95,6 +100,17 @@ export function PanelCita({ cita, onCerrar, onCambiarEstado, onReagendar, onDesa
           {cita.notas && <Fila etiqueta="Notas" valor={cita.notas} />}
         </dl>
 
+        {consultaPendiente && (
+          <div role="alert" className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900" data-consulta-pendiente>
+            <div className="mb-1 font-semibold">Consulta sin nota clínica</div>
+            <p className="mb-2">Esta cita se marcó como completada sin guardar su nota. Complétala para que el expediente quede íntegro.</p>
+            <Button variante="secundario" onClick={() => navigate(`/consulta/${cita.id}`)}>Completar consulta</Button>
+          </div>
+        )}
+
+        {/* Corregir/reabrir una consulta YA completada: motivo obligatorio, por rol y con auditoría (migración 094). Recepción y asistente no ven nada. */}
+        {cita.estado === 'completada' && <CorregirCitaCompletada cita={cita} onCorregida={async () => { await onCorregida?.(); onCerrar() }} />}
+
         {!finalizada && !reprogramando && (
           <div className="mb-6 grid grid-cols-2 gap-2">
             {cita.estado === 'pendiente_confirmar' && (
@@ -113,8 +129,15 @@ export function PanelCita({ cita, onCerrar, onCambiarEstado, onReagendar, onDesa
               </Button>
             )}
             {cita.estado === 'en_consulta' && (
-              <Button onClick={() => ejecutar(() => onCambiarEstado(cita.id, 'completada'), 'Cita completada.')} disabled={procesando} className="inline-flex items-center justify-center gap-1.5">
-                <Icon.checkCircle /> Completar
+              // Finalizar es un acto CLÍNICO: abre la consulta (nota, verificación, seguimiento). La cita NUNCA se completa desde aquí.
+              <Button onClick={() => navigate(`/consulta/${cita.id}`)} disabled={procesando} className="inline-flex items-center justify-center gap-1.5">
+                <Icon.checkCircle /> Finalizar consulta
+              </Button>
+            )}
+            {['pendiente_confirmar', 'agendada', 'confirmada', 'en_espera'].includes(cita.estado) && (
+              // Inasistencia: acción ADMINISTRATIVA, no genera nota clínica.
+              <Button variante="secundario" onClick={() => ejecutar(() => onCambiarEstado(cita.id, 'no_asistio'), 'Cita marcada como no asistió.')} disabled={procesando} className="inline-flex items-center justify-center gap-1.5">
+                <Icon.x /> No asistió
               </Button>
             )}
             <Button variante="secundario" onClick={() => setReprogramando(true)} disabled={procesando} className="inline-flex items-center justify-center gap-1.5">

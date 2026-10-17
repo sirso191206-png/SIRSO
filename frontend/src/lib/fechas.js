@@ -10,6 +10,13 @@ export function finDeHoy() {
   return d
 }
 
+// "AAAA-MM-DD" de la fecha LOCAL (la del reloj de la clínica). No usar toISOString().slice(0, 10): da la fecha en UTC y,
+// en México (UTC−6), desde las 18:00 devuelve el día siguiente (H24).
+export function fechaInputLocal(fecha) {
+  const d = new Date(fecha)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 export function inicioDeMesActual() {
   const d = new Date()
   return new Date(d.getFullYear(), d.getMonth(), 1)

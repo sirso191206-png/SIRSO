@@ -1,0 +1,48 @@
+# Cambios de la integración legal (migración 106) respecto de SIRSO-DEFINITIVO-PRODUCCION-v2.zip
+# Generado comparando las dos extracciones archivo por archivo (sin node_modules ni dist).
+
+## NUEVOS
+docs/INTEGRACION_LEGAL_SIRO.md
+docs/LISTA_DE_CAMBIOS_INTEGRACION_LEGAL.txt
+frontend/src/components/legal/AceptacionLegalObligatoria.jsx
+frontend/src/components/ui/__tests__/aceptacionLegal.test.js
+frontend/src/components/ui/__tests__/documentosLegalesV1.test.js
+frontend/src/lib/aceptacionLegal.js
+frontend/src/pages/legal/Consentimientos.jsx
+supabase/migrations/106_sirso_documentos_legales_v1.sql
+supabase/rollback/106_rollback.sql
+supabase/tests/legal_documentos_v1_test.sql
+
+## MODIFICADOS
+docs/INFORME_FINAL_AUDITORIA.md
+docs/INSTALACION_COMPLETA.md
+docs/INVENTARIO_DE_MIGRACIONES.md
+docs/MATRIZ_REVISION_JURIDICA.md
+docs/PENDIENTES_LEGALES.md
+docs/RESULTADOS_DE_PRUEBAS.md
+docs/RESULTADO_PRUEBA_RESTAURACION.md
+docs/VERIFICACION_SUPABASE.md
+docs/evidencias_restauracion/controles_funcionales.txt
+docs/evidencias_restauracion/huella_destino.txt
+docs/evidencias_restauracion/huella_origen.txt
+docs/evidencias_restauracion/respaldo.dump.sha256
+docs/evidencias_restauracion/resultado.txt
+docs/evidencias_restauracion/resultado_fallo_simulado_dato.txt
+docs/evidencias_restauracion/resultado_fallo_simulado_politica.txt
+frontend/src/App.jsx
+frontend/src/components/layout/ProtectedRoute.jsx
+frontend/src/components/legal/__tests__/inventarioCookies.test.js
+frontend/src/components/ui/__tests__/migracionesYVerificacionSeguras.test.js
+frontend/src/lib/inventarioCookies.js
+frontend/src/pages/AdminLegal.jsx
+frontend/src/pages/Legal.jsx
+frontend/src/pages/legal/Arco.jsx
+supabase/restauracion/prueba_restauracion_local.sh
+supabase/rollback/verificar_rollbacks.sh
+supabase/tests/auditoria_migraciones.sh
+supabase/tests/postgrest/verificar_postgrest.mjs
+supabase/verificacion/estado_produccion_solo_lectura.sql
+supabase/verificacion/marcadores_de_migraciones_solo_lectura.sql
+
+## ELIMINADOS
+supabase/tests/legal_borradores_v2_test.sql

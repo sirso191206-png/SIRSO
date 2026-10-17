@@ -1,0 +1,34 @@
+== SIRO — ensayo de restauración local (2026-10-13T02:23:04Z) ==
+OK   107 migraciones aplicadas sin error en la base origen
+OK   datos sintéticos sembrados (2 clínicas, usuarios, pacientes, cita, metadatos de archivos, política y retención, un cambio de contraseña pendiente)
+OK   huella del ORIGEN calculada (49 tablas, 353 funciones, 159 políticas, 78 disparadores)
+OK   respaldo generado (654306 bytes) en 0.1 s
+OK   SHA-256 del respaldo registrado y verificado
+OK   un respaldo alterado (4 bytes) NO pasa la verificación de SHA-256
+OK   restauración completada sin errores en 0.6 s
+RESTAURACION_SEGUNDOS=0.6
+OK   funciones idénticos al origen
+OK   políticas RLS idénticos al origen
+OK   disparadores idénticos al origen
+OK   restricciones (incluidas las NOT VALID) idénticos al origen
+OK   privilegios de tablas idénticos al origen
+OK   RLS activado por tabla idénticos al origen
+OK   columnas idénticos al origen
+OK   índices idénticos al origen
+OK   vistas idénticos al origen
+OK   recuentos de objetos idénticos al origen
+OK   los DATOS de todas las tablas (public, auth, storage) son idénticos fila por fila (huella por tabla)
+OK   aislamiento: el propietario de A ve sus 1 pacientes y 0 de la clínica B
+OK   aislamiento: el propietario de B ve sus 1 pacientes y 0 de la clínica A
+OK   el usuario con cambio de contraseña pendiente SIGUE restringido tras restaurar (0 pacientes, indicador conservado)
+OK   una consulta clínica sintética se finaliza en la base restaurada y deja UNA nota
+OK   repetir la finalización es idempotente (ya_finalizada, sin duplicar)
+OK   política de conservación restaurada (plazo 6), retención legal activa conservada y ninguna eliminación automática
+OK   referencias a archivos: 0 fotografías y 0 documentos apuntan a un objeto de Storage inexistente (metadatos)
+OK   todos los usuarios de la aplicación tienen su cuenta de Auth y su clínica (5 usuarios)
+OK   la evidencia de aceptación legal (versión anterior, fecha original) se conserva TAL CUAL al restaurar
+OK   un propietario NO puede leer el historial de conservación (sin acceso para usuarios)
+OK   marcadores de migraciones 085–106: todos aplicados en la base restaurada
+OK   el respaldo (13489 líneas de SQL leídas) no contiene secretos reconocibles (JWT, claves privadas, claves sbp_/re_)
+OK   bases del ensayo y respaldo temporal eliminados
+FALLOS=0

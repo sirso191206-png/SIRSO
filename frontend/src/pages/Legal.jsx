@@ -9,7 +9,8 @@ const CATEGORIAS = [
     titulo: 'Privacidad',
     enlaces: [
       { to: '/legal/privacidad', label: 'Aviso de Privacidad' },
-      { to: '/legal/arco', label: 'Derechos ARCO' }
+      { to: '/legal/arco', label: 'Derechos ARCO' },
+      { to: '/legal/consentimientos', label: 'Consentimientos y autorizaciones' }
     ]
   },
   {
