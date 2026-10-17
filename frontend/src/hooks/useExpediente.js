@@ -9,6 +9,7 @@ import { encolarOperacion, listarOperacionesPendientes } from '../lib/colaOfflin
 import { esIdOffline } from '../lib/mapeoIdsOffline'
 import { useAuthStore } from '../store/useAuthStore'
 import { useSucursalStore } from '../store/useSucursalStore'
+import { esCeroFilas } from '../lib/erroresDatos'
 
 // Un paciente creado SIN conexión todavía no tiene expediente real —
 // lo crea un trigger en el servidor en cuanto el paciente se sube (ver
@@ -24,6 +25,7 @@ export function useExpediente(pacienteId) {
   const [expediente, setExpediente] = useState(null)
   const [notas, setNotas] = useState([])
   const [cargando, setCargando] = useState(true)
+  const [error, setError] = useState(null)
 
   const recargar = useCallback(async () => {
     setCargando(true)
@@ -39,8 +41,21 @@ export function useExpediente(pacienteId) {
       return
     }
 
-    const exp = await obtenerExpediente(pacienteId)
-    const listaNotas = await obtenerNotasClinicas(exp.id)
+    // H27: para un rol sin acceso clínico (recepción) RLS oculta el expediente y la lectura devuelve «0 filas» (PGRST116): eso NO es
+    // un fallo, simplemente no hay expediente visible. Cualquier otro error se expone en `error` (no se oculta) y la carga termina;
+    // antes el rechazo quedaba sin capturar y `cargando` nunca volvía a false.
+    let exp, listaNotas
+    try {
+      exp = await obtenerExpediente(pacienteId)
+      listaNotas = await obtenerNotasClinicas(exp.id)
+    } catch (err) {
+      setExpediente(null)
+      setNotas([])
+      setError(esCeroFilas(err) ? null : err)
+      setCargando(false)
+      return
+    }
+    setError(null)
     // Las notas creadas sin conexión y que todavía no se subieron no
     // existen aún en el servidor — se agregan encima para que no
     // desaparezcan de la vista mientras la cola termina de subirlas.
@@ -133,5 +148,5 @@ export function useExpediente(pacienteId) {
     await recargar()
   }
 
-  return { expediente, notas, cargando, agregarNota, guardarAntecedentes, recargar }
+  return { expediente, notas, cargando, error, agregarNota, guardarAntecedentes, recargar }
 }

@@ -23,8 +23,9 @@ export function usePagos(pacienteId) {
   }, [pacienteId, recargar])
 
   const agregar = async (pago) => {
-    await registrarPago({ ...pago, paciente_id: pacienteId })
+    const registrado = await registrarPago({ ...pago, paciente_id: pacienteId })
     await recargar()
+    return registrado
   }
 
   const anular = async (id, datos) => {

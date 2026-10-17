@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { usePagos } from '../../hooks/usePagos'
+import { operacionCobro } from '../../lib/operacionPago'
 import { useAuthStore } from '../../store/useAuthStore'
 import { toastExito, toastError } from '../../store/useToastStore'
 import { imprimirRecibo } from './imprimirRecibo'
@@ -24,6 +25,8 @@ export function SeccionPagos({ pacienteId, paciente }) {
   const [pagoAAnular, setPagoAAnular] = useState(null)
   const [pagoAEliminar, setPagoAEliminar] = useState(null)
   const [pagoAEditar, setPagoAEditar] = useState(null)
+  const operacionRef = useRef(null)
+  const enviandoRef = useRef(false)
   const perfil = useAuthStore((s) => s.perfil)
 
   if (cargando) return null
@@ -61,14 +64,24 @@ export function SeccionPagos({ pacienteId, paciente }) {
       <form
         onSubmit={async (e) => {
           e.preventDefault()
+          // H28: un segundo envío mientras el primero sigue en curso se ignora aquí mismo (no depende de que el botón ya se haya
+          // redibujado deshabilitado), y el id de la operación se conserva hasta que el cobro se confirma: si se pierde la respuesta
+          // y se vuelve a pulsar, el reintento es la MISMA operación y no crea un segundo cobro.
+          if (enviandoRef.current) return
+          enviandoRef.current = true
           setGuardando(true)
+          const datos = { paciente_id: pacienteId, monto: Number(monto), metodo, tipo: 'pago' }
+          const operacion = operacionCobro(operacionRef.current, datos)
+          operacionRef.current = operacion
           try {
-            await agregar({ monto: Number(monto), metodo, tipo: 'pago', registrado_por: perfil.id })
+            const registrado = await agregar({ id: operacion.id, monto: datos.monto, metodo, tipo: 'pago', registrado_por: perfil.id })
+            operacionRef.current = null
             setMonto('')
-            toastExito('Pago registrado.')
+            toastExito(registrado?.yaExistia ? 'Este pago ya estaba registrado; no se duplicó.' : 'Pago registrado.')
           } catch (err) {
             toastError('No se pudo registrar el pago: ' + err.message)
           } finally {
+            enviandoRef.current = false
             setGuardando(false)
           }
         }}
@@ -190,6 +203,8 @@ function ModalEditarPago({ pago, onCerrar, onCorregir, usuarioId }) {
   const [monto, setMonto] = useState('')
   const [metodo, setMetodo] = useState('efectivo')
   const [procesando, setProcesando] = useState(false)
+  const operacionRef = useRef(null)
+  const enviandoRef = useRef(false)
 
   // El formulario se precarga con los valores actuales cada vez que se
   // abre para un pago distinto — useState no se reinicia solo porque
@@ -199,17 +214,25 @@ function ModalEditarPago({ pago, onCerrar, onCorregir, usuarioId }) {
       setMonto(String(pago.monto))
       setMetodo(pago.metodo)
     }
+    operacionRef.current = null
   }, [pago])
 
   const handleConfirmar = async () => {
+    // H28: la corrección registra un cobro nuevo; su id de operación se conserva mientras se reintente la MISMA corrección.
+    if (enviandoRef.current) return
+    enviandoRef.current = true
     setProcesando(true)
+    const operacion = operacionCobro(operacionRef.current, { paciente_id: `${pago.paciente_id}|corrige:${pago.id}`, monto: Number(monto), metodo, tipo: pago.tipo, tratamiento_id: pago.tratamiento_id })
+    operacionRef.current = operacion
     try {
-      await onCorregir(pago, { monto: Number(monto), metodo }, { usuarioId })
+      await onCorregir(pago, { monto: Number(monto), metodo }, { usuarioId, idOperacion: operacion.id })
+      operacionRef.current = null
       toastExito('Pago corregido.')
       onCerrar()
     } catch (err) {
       toastError('No se pudo corregir: ' + err.message)
     } finally {
+      enviandoRef.current = false
       setProcesando(false)
     }
   }

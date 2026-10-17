@@ -1,4 +1,6 @@
 import { supabase } from '../lib/supabase'
+import { ErrorDeDatos } from '../lib/erroresDatos'
+import { esMismoCobro } from '../lib/operacionPago'
 
 // Todos los pagos de la clínica en un rango de fechas — no de un solo
 // paciente. Usado por el Corte de caja. RLS ya limita esto a la propia
@@ -58,17 +60,37 @@ export async function obtenerPagos(pacienteId) {
 // Por eso se exige conexión real para registrar un pago — igual que
 // pediría el documento de referencia, "no inventar un flujo
 // financiero offline inseguro".
+//
+// IDEMPOTENCIA (H28): el botón deshabilitado evita el doble clic, pero NO un reintento después de perder la respuesta (la escritura
+// llegó, el aviso no): eso creaba un segundo cobro. Ahora cada operación lleva un `id` (lib/operacionPago.js; quien llama lo conserva
+// mientras reintenta la MISMA operación). La clave primaria impide la segunda fila, y un 23505 de `pagos_pkey` se resuelve LEYENDO el
+// cobro: solo si es exactamente el mismo (paciente, monto, método, tipo, tratamiento, quien lo registra) se devuelve como
+// `{ ...cobro, yaExistia: true }`. Si es otro → PAGO_CONFLICTO; si no se puede leer → PAGO_NO_VERIFICABLE. Nunca un éxito falso.
 export async function registrarPago(pago) {
   if (!navigator.onLine) {
     throw new Error('Los pagos requieren conexión a internet.')
   }
+  const cobro = pago?.id ? pago : { ...pago, id: crypto.randomUUID() }
   const { data, error } = await supabase
     .from('pagos')
-    .insert(pago)
+    .insert(cobro)
     .select()
     .single()
+  if (!error) return data
+  if (error.code === '23505' && /pagos_pkey/.test(`${error.message ?? ''} ${error.details ?? ''}`)) return confirmarCobroExistente(cobro)
+  throw error
+}
+
+async function confirmarCobroExistente(cobro) {
+  const { data: existente, error } = await supabase.from('pagos').select('*').eq('id', cobro.id).maybeSingle()
   if (error) throw error
-  return data
+  if (!existente) {
+    throw new ErrorDeDatos('PAGO_NO_VERIFICABLE', 'No se pudo confirmar el cobro: ese identificador ya existe pero no puedes ver el registro. No se registró nada nuevo; revisa los pagos del paciente.')
+  }
+  if (!esMismoCobro(existente, cobro)) {
+    throw new ErrorDeDatos('PAGO_CONFLICTO', 'Ya existe un cobro con ese identificador y datos distintos. No se registró nada nuevo; revisa los pagos del paciente.')
+  }
+  return { ...existente, yaExistia: true }
 }
 
 // Anular deja el registro (nunca se borra ni se edita el monto) — un
@@ -99,9 +121,12 @@ export async function eliminarPago(id) {
 // quien lo usa no tenga que hacerlo a mano en dos pasos. El pago nuevo
 // obtiene su propio folio (`numero_recibo`) — el recibo viejo, si ya
 // se imprimió, queda anulado, no reemplazado.
-export async function corregirPago(pagoOriginal, cambios, { usuarioId, motivo }) {
+// `idOperacion` (H28): el mismo en cada reintento de esta corrección, así el pago corregido no se registra dos veces. Volver a anular
+// el original en el reintento solo vuelve a marcarlo anulado (el trigger permite tocar únicamente los campos de anulación).
+export async function corregirPago(pagoOriginal, cambios, { usuarioId, motivo, idOperacion }) {
   await anularPago(pagoOriginal.id, { usuarioId, motivo: motivo || 'Corrección de monto/método' })
   return registrarPago({
+    ...(idOperacion ? { id: idOperacion } : {}),
     paciente_id: pagoOriginal.paciente_id,
     tratamiento_id: pagoOriginal.tratamiento_id,
     tipo: pagoOriginal.tipo,

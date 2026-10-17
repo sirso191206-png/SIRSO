@@ -29,7 +29,8 @@ beforeEach(() => {
       const upd = operaciones.find(([m]) => m === 'update')
       if (upd) { updatesVistos.push(upd[1][0]); return ok({ id: pagoOriginal.id, ...pagoOriginal, ...upd[1][0] }) }
       const ins = operaciones.find(([m]) => m === 'insert')
-      if (ins) { insertsVistos.push(ins[1][0]); return ok({ id: 'pago-nuevo', numero_recibo: 'REC-00099', ...ins[1][0] }) }
+      // Como Postgres: el id lo genera la base SOLO si el cliente no lo envía (desde H28 el cliente siempre envía el id de la operación).
+      if (ins) { insertsVistos.push(ins[1][0]); return ok({ numero_recibo: 'REC-00099', ...ins[1][0], id: ins[1][0].id ?? 'pago-nuevo' }) }
       return ok(null)
     }, [])
   )
@@ -48,7 +49,10 @@ describe('corregirPago', () => {
     expect(insertsVistos[0].monto).toBe(200)
     expect(insertsVistos[0].metodo).toBe('tarjeta')
     expect(insertsVistos[0].registrado_por).toBe('u-editor')
-    expect(nuevo.id).toBe('pago-nuevo')
+    // Devuelve el pago NUEVO recién insertado (con su id de operación y su folio), nunca el original anulado.
+    expect(nuevo.id).toBe(insertsVistos[0].id)
+    expect(nuevo.id).not.toBe(pagoOriginal.id)
+    expect(nuevo.numero_recibo).toBe('REC-00099')
   })
 
   it('conserva paciente, tratamiento y tipo del pago original — solo cambia monto/método', async () => {
