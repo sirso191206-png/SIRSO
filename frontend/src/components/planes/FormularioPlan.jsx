@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
-import { guardarPlan, guardarFuncionalidadesDePlan, funcionalidadesDePlan } from '../../services/planes'
+import { configurarStripePlan, guardarPlan, guardarFuncionalidadesDePlan, funcionalidadesDePlan } from '../../services/planes'
 import { agruparFuncionalidades, formularioDesdePlan, planDesdeFormulario, validarFormularioPlan } from '../../lib/planes'
 import { toastExito, toastError } from '../../store/useToastStore'
 
@@ -34,6 +34,9 @@ function Casilla({ etiqueta, checked, onChange, deshabilitada = false }) {
   )
 }
 
+// Precios de Stripe del plan (migración 114).
+const stripeDe = (p) => ({ mensual: p?.stripe_price_mensual ?? '', anual: p?.stripe_price_anual ?? '' })
+
 // Crea (plan = null) o edita un plan. Las funcionalidades del plan se guardan
 // aparte (sa_set_plan_funcionalidades) con su propia auditoría.
 export function FormularioPlan({ abierto, onCerrar, plan, pestanaInicial = 'datos', onGuardado }) {
@@ -43,11 +46,14 @@ export function FormularioPlan({ abierto, onCerrar, plan, pestanaInicial = 'dato
   const [funcs, setFuncs] = useState(null)
   const [errores, setErrores] = useState({})
   const [guardando, setGuardando] = useState(false)
+  // Precios de Stripe (migración 114): se guardan aparte, con sa_configurar_stripe_plan.
+  const [stripe, setStripe] = useState(() => stripeDe(plan))
 
   useEffect(() => {
     if (!abierto) return
     setPestana(pestanaInicial)
     setForm(formularioDesdePlan(plan))
+    setStripe(stripeDe(plan))
     setErrores({})
     setFuncs(null)
     // Plan nuevo: se pide con un código que no existe → todas las funcionalidades, sin marcar.
@@ -70,6 +76,10 @@ export function FormularioPlan({ abierto, onCerrar, plan, pestanaInicial = 'dato
     try {
       const payload = planDesdeFormulario(form)
       await guardarPlan(payload)
+      const stripeAntes = stripeDe(plan)
+      if (stripe.mensual.trim() !== stripeAntes.mensual || stripe.anual.trim() !== stripeAntes.anual) {
+        await configurarStripePlan(payload.codigo, stripe.mensual.trim() || null, stripe.anual.trim() || null)
+      }
       if (funcs) {
         // Las del núcleo no se envían: están siempre incluidas y la base no deja desactivarlas.
         const mapa = Object.fromEntries(funcs.filter((f) => !f.nucleo).map((f) => [f.codigo, !!f.habilitada]))
@@ -145,6 +155,18 @@ export function FormularioPlan({ abierto, onCerrar, plan, pestanaInicial = 'dato
           <p className="rounded-lg bg-slate-50 p-3 text-xs text-slate-500">
             Cambiar un precio aplica a contrataciones NUEVAS. Cada clínica conserva el precio que contrató.
           </p>
+          <div className="rounded-lg border border-slate-200 p-3">
+            <div className="mb-2 text-sm font-medium text-slate-700">Pago en línea (Stripe)</div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Campo etiqueta="Price mensual" ayuda="Identificador del precio en Stripe (price_…). Vacío = no se paga en línea.">
+                <input className={CLASE_INPUT} value={stripe.mensual} placeholder="price_…" onChange={(e) => setStripe((s) => ({ ...s, mensual: e.target.value }))} />
+              </Campo>
+              <Campo etiqueta="Price anual">
+                <input className={CLASE_INPUT} value={stripe.anual} placeholder="price_…" onChange={(e) => setStripe((s) => ({ ...s, anual: e.target.value }))} />
+              </Campo>
+            </div>
+            <p className="mt-2 text-xs text-slate-500">El monto del price en Stripe debe coincidir con el precio de arriba: lo que se cobra es lo que diga Stripe.</p>
+          </div>
         </div>
       )}
 

@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase'
+import { invocarFuncionAutenticada, supabase } from '../lib/supabase'
 import { guardarMetadato, leerMetadato } from '../lib/cacheLectura'
 import { esErrorDeRed } from '../lib/errorDeRed'
 import { claveCacheSuscripcion, identidadSuscripcion } from '../lib/planes'
@@ -87,3 +87,25 @@ export async function obtenerMiSuscripcion() {
     throw err
   }
 }
+
+// ---------- Pago en línea con Stripe (migración 114) ----------
+// Solo el owner. La base decide qué planes se pueden pagar y con qué precio; aquí solo se elige.
+export const obtenerMiCobro = () => rpc('mi_cobro')
+
+// Devuelve la URL de Stripe Checkout; la pantalla redirige ahí. El plan se aplica cuando Stripe confirma el pago (webhook).
+export async function iniciarPagoEnLinea(plan, modalidad) {
+  const data = await invocarFuncionAutenticada('stripe-checkout', { body: { plan, modalidad } })
+  if (typeof data?.url !== 'string' || !data.url.startsWith('https://checkout.stripe.com/')) throw new Error('Stripe no devolvió una página de pago válida.')
+  return data.url
+}
+
+// Portal de Stripe: tarjeta, cambio de plan, cancelación y recibos.
+export async function abrirPortalDePago() {
+  const data = await invocarFuncionAutenticada('stripe-portal', { body: {} })
+  if (typeof data?.url !== 'string' || !data.url.startsWith('https://billing.stripe.com/')) throw new Error('Stripe no devolvió el portal de pago.')
+  return data.url
+}
+
+// Superadmin: asocia un plan con sus precios de Stripe (null = ese plan/modalidad no se paga en línea).
+export const configurarStripePlan = (plan, priceMensual, priceAnual) =>
+  rpc('sa_configurar_stripe_plan', { p_plan: plan, p_price_mensual: priceMensual, p_price_anual: priceAnual })
