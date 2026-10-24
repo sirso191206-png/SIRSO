@@ -57,7 +57,11 @@ export function FormularioPlan({ abierto, onCerrar, plan, pestanaInicial = 'dato
     setErrores({})
     setFuncs(null)
     // Plan nuevo: se pide con un código que no existe → todas las funcionalidades, sin marcar.
-    funcionalidadesDePlan(plan?.plan ?? '__nuevo__').then(setFuncs).catch((e) => toastError('No se pudieron cargar las funcionalidades: ' + e.message))
+    // Solo las ACTIVAS del catálogo: las desactivadas (082: roles, administracion_avanzada) no se muestran ni se
+    // reenvían al guardar — sa_set_plan_funcionalidades las rechaza y se perdía todo el guardado.
+    funcionalidadesDePlan(plan?.plan ?? '__nuevo__')
+      .then((lista) => setFuncs((lista ?? []).filter((f) => f.activo !== false)))
+      .catch((e) => toastError('No se pudieron cargar las funcionalidades: ' + e.message))
   }, [abierto, plan, pestanaInicial])
 
   const cambiar = (campo, valor) => setForm((f) => ({ ...f, [campo]: valor }))
