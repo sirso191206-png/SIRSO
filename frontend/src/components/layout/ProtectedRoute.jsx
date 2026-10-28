@@ -8,6 +8,9 @@ import { mensajeSesionCerrada } from '../../services/sesiones'
 import { PantallaDesbloqueoPin } from '../auth/PantallaDesbloqueoPin'
 import { AccesoNoAutorizado } from './AccesoNoAutorizado'
 import { AvisoSuscripcion } from '../planes/AvisoSuscripcion'
+import { BloqueoPorPago } from '../planes/BloqueoPorPago'
+import { useSuscripcionAlDia } from '../../hooks/useSuscripcionAlDia'
+import { usePlanActual } from '../../hooks/useFuncionalidad'
 import { CambioPasswordObligatorio } from '../auth/CambioPasswordObligatorio'
 import { AceptacionLegalObligatoria } from '../legal/AceptacionLegalObligatoria'
 import { puedeEntrarARuta } from '../../lib/accesoPorRol'
@@ -30,6 +33,11 @@ export function ProtectedRoute({ children }) {
     logout()
   }, [logout])
   useEscucharCierreSesion(sesionActualId, alCerrarRemota)
+
+  // Suscripción de la clínica al día (antes en el Sidebar): también hace falta cuando la clínica está bloqueada
+  // por falta de pago y el Sidebar no se muestra.
+  useSuscripcionAlDia()
+  const { suscripcion } = usePlanActual()
 
   // Re-consulta el estado de la clínica en cada navegación, para que una
   // suspensión aplicada mientras la sesión ya estaba abierta se note sin
@@ -91,6 +99,12 @@ export function ProtectedRoute({ children }) {
   // Contraseña TEMPORAL sin cambiar (usuarios.debe_cambiar_password, migración 103): lo único que se ve es la pantalla de cambio, sea cual sea la URL. Esto es
   // interfaz; el bloqueo real de los datos y de las funciones lo aplican la base de datos y las Edge Functions.
   if (perfil?.debe_cambiar_password === true) return <CambioPasswordObligatorio />
+
+  // Suspendida POR FALTA DE PAGO (migración 115: vencida tras la gracia). La base ya bloquea los datos; aquí se muestra
+  // cómo pagar (el propietario paga en esta misma pantalla y el acceso vuelve solo). El superadmin no se bloquea.
+  if (suscripcion?.bloqueada_por_pago && !perfil?.es_super_admin) {
+    return <BloqueoPorPago perfil={perfil} fechaFin={suscripcion.fecha_fin} onCerrarSesion={logout} />
+  }
 
   // Acceso directo por URL: solo las pantallas de su rol (tabla única en lib/accesoPorRol.js). Es
   // protección de interfaz; los datos los protege la base de datos.

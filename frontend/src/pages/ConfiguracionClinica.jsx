@@ -25,7 +25,7 @@ export function ConfiguracionClinica() {
   const [subiendoLogo, setSubiendoLogo] = useState(false)
   // Secciones plegadas para no tener que bajar tanto. Al volver de Stripe (?pago=…) se abre la de pago.
   const [params] = useSearchParams()
-  const [pagoAbierto, setPagoAbierto] = useState(() => params.has('pago'))
+  const [pagoAbierto, setPagoAbierto] = useState(() => params.has('pago') || params.get('seccion') === 'pago')
   const [datosAbiertos, setDatosAbiertos] = useState(false)
   const [pagoDisponible, setPagoDisponible] = useState(false)
   const irAPago = useCallback(() => {

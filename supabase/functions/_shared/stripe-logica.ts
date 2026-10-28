@@ -91,5 +91,18 @@ export function urlsDeRegreso(origenPermitido: string): { exito: string; cancela
   }
 }
 
+// Periodo de prueba (115): la clínica registra su tarjeta durante la prueba y el PRIMER cobro es al terminar
+// (fecha_fin de su suscripción, fin del día en la Ciudad de México, UTC-6 sin horario de verano desde 2022).
+// Stripe Checkout exige que trial_end esté al menos 48 h en el futuro (y como máximo 730 días): fuera de eso, sin prueba
+// y se cobra al pagar. Devuelve segundos Unix o null.
+export function finDePruebaStripe(finPrueba: unknown, ahoraMs: number): number | null {
+  if (typeof finPrueba !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(finPrueba)) return null
+  const fin = Date.parse(`${finPrueba}T23:59:00-06:00`)
+  if (Number.isNaN(fin)) return null
+  const horas = (fin - ahoraMs) / 3_600_000
+  if (horas < 49 || horas > 730 * 24) return null
+  return Math.floor(fin / 1000)
+}
+
 export const MODALIDADES = ['mensual', 'anual']
 export const CODIGO_PLAN = /^[a-z0-9_]{1,40}$/

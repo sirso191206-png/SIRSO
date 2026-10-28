@@ -31,7 +31,7 @@ describe('las cuentas nuevas con contraseña temporal nacen con el cambio pendie
   it('admin-crear-clinica inserta al DUEÑO con debe_cambiar_password = true', async () => {
     const db = ({ tabla, op, filtro }) => tabla === 'usuarios' && filtro.id === 'caller' ? perfil({ es_super_admin: true }) : tabla === 'planes_catalogo' ? { data: { plan: 'esencial', activo: true }, error: null } : tabla === 'clinicas' && op === 'select' ? { data: { id: CL, nombre: 'QA' }, error: null } : { data: null, error: null }
     const e = cargarEdge('admin-crear-clinica', { db, rpc: () => ({ data: { clinica_id: CL, suscripcion: {} }, error: null }) })
-    const r = await e.pedir({ nombreClinica: 'QA', ownerNombre: 'D', ownerCorreo: 'd@x.mx', planCodigo: 'esencial', modalidad: 'mensual' }); expect(r.status).toBe(200)
+    const r = await e.pedir({ nombreClinica: 'QA', ownerNombre: 'D', ownerCorreo: 'd@x.mx', planCodigo: 'esencial', modalidad: 'mensual', fechaFin: '2099-12-31' }); expect(r.status).toBe(200)
     expect(e.llamadas.find((l) => l[0] === 'insert' && l[1] === 'usuarios')[3]).toMatchObject({ rol: 'owner', debe_cambiar_password: true })
   })
 })

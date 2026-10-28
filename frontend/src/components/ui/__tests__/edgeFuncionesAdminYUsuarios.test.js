@@ -68,8 +68,8 @@ describe('admin-actualizar-clinica', () => {
 describe('admin-crear-clinica', () => {
   const db = ({ tabla, op, filtro }) => tabla === 'usuarios' && esCaller(filtro) ? perfilSuper() : tabla === 'planes_catalogo' ? { data: { plan: 'esencial', activo: true }, error: null } : tabla === 'clinicas' && op === 'select' ? { data: { id: CL, nombre: 'QA' }, error: null } : { data: null, error: null }
   const rpc = () => ({ data: { clinica_id: CL, suscripcion: { ok: 1 } }, error: null })
-  const base = { nombreClinica: 'QA', ownerNombre: 'Dueña', ownerCorreo: ' Dueña@Example.com ', planCodigo: 'esencial', modalidad: 'mensual' }
-  it.each([[{ autoRenovacion: 'si' }], [{ fechaFin: 'mañana' }], [{ nombreClinica: 'n'.repeat(151) }], [{ ownerNombre: 'n'.repeat(121) }], [{ ownerCorreo: 'sin-arroba' }], [{ nombreClinica: 123 }]])('entrada inválida %j → 400 y no se crea nada', async (extra) => {
+  const base = { nombreClinica: 'QA', ownerNombre: 'Dueña', ownerCorreo: ' Dueña@Example.com ', planCodigo: 'esencial', modalidad: 'mensual', fechaFin: '2099-12-31' }
+  it.each([[{ autoRenovacion: 'si' }], [{ fechaFin: 'mañana' }], [{ fechaFin: null }], [{ fechaFin: '2020-01-01' }], [{ nombreClinica: 'n'.repeat(151) }], [{ ownerNombre: 'n'.repeat(121) }], [{ ownerCorreo: 'sin-arroba' }], [{ nombreClinica: 123 }]])('entrada inválida %j → 400 y no se crea nada', async (extra) => {
     const e = cargarEdge('admin-crear-clinica', { db, rpc }); const r = await e.pedir({ ...base, ...extra }); expect(r.status).toBe(400); expect(e.escrituras()).toEqual([])
   })
   it.each([['null'], ['[]'], ['5'], ['{no json']])('cuerpo %s → 400 «Solicitud inválida»', async (crudo) => { const r = await cargarEdge('admin-crear-clinica', { db, rpc }).pedir(null, 'token-valido', crudo); expect(r.status).toBe(400); expect(r.json.error).toBe('Solicitud inválida') })

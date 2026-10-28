@@ -51,13 +51,18 @@ serve(async (req) => {
       if (sub) resultado = await sincronizar(sub, evento.id)
     } else if (EVENTOS_FACTURA.includes(evento.type)) {
       const f = datosFactura(objeto, evento.type)
-      const { data, error } = await admin.rpc('fn_stripe_registrar_pago', {
-        p_evento: evento.id, p_tipo: evento.type, p_customer: f.customer, p_subscription: f.subscription, p_invoice: f.invoice,
-        p_estado: f.estado, p_monto_centavos: f.montoCentavos, p_moneda: f.moneda, p_periodo_inicio: f.periodoInicio,
-        p_periodo_fin: f.periodoFin, p_url: f.url,
-      })
-      if (error) throw error
-      resultado = { pago: data?.resultado, suscripcion: f.subscription ? await sincronizar(f.subscription, `${evento.id}:suscripcion`) : null }
+      // La factura de $0 que Stripe emite al iniciar un periodo de prueba (115) no es un cobro: no va al historial.
+      let pago: unknown = 'sin_cargo'
+      if (!(f.estado === 'pagado' && f.montoCentavos === 0)) {
+        const { data, error } = await admin.rpc('fn_stripe_registrar_pago', {
+          p_evento: evento.id, p_tipo: evento.type, p_customer: f.customer, p_subscription: f.subscription, p_invoice: f.invoice,
+          p_estado: f.estado, p_monto_centavos: f.montoCentavos, p_moneda: f.moneda, p_periodo_inicio: f.periodoInicio,
+          p_periodo_fin: f.periodoFin, p_url: f.url,
+        })
+        if (error) throw error
+        pago = data?.resultado
+      }
+      resultado = { pago, suscripcion: f.subscription ? await sincronizar(f.subscription, `${evento.id}:suscripcion`) : null }
     }
 
     console.log('stripe-webhook:', evento.type, evento.id, JSON.stringify(resultado))

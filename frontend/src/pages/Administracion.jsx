@@ -3,9 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import { listarTodasLasClinicas, crearClinicaConOwner } from '../services/admin'
 import { useAuthStore } from '../store/useAuthStore'
 import { SelectorPlan } from '../components/planes/SelectorPlan'
+import { fechaFinDePrueba } from '../lib/planes'
 
 // planCodigo vacío = el selector elige el recomendado (o el primero activo) al cargar.
-const FORM_VACIO = { nombreClinica: '', ownerNombre: '', ownerCorreo: '', planCodigo: '', modalidad: 'mensual' }
+// diasPrueba: obligatorio (115). La suscripción vence al terminar la prueba; si para entonces no paga (más la gracia),
+// la clínica queda suspendida hasta que pague.
+const FORM_VACIO = { nombreClinica: '', ownerNombre: '', ownerCorreo: '', planCodigo: '', modalidad: 'mensual', diasPrueba: '' }
+
 
 export function Administracion() {
   const perfil = useAuthStore((s) => s.perfil)
@@ -53,7 +57,10 @@ export function Administracion() {
     setFormError(null)
     try {
       if (!form.planCodigo) throw new Error('Elige un plan para la clínica.')
-      const data = await crearClinicaConOwner(form)
+      const dias = Number(form.diasPrueba)
+      if (!Number.isInteger(dias) || dias < 1 || dias > 365) throw new Error('Indica los días de prueba (de 1 a 365).')
+      const { diasPrueba: _dias, ...datos } = form
+      const data = await crearClinicaConOwner({ ...datos, fechaFin: fechaFinDePrueba(dias) })
       setResultado({ correo: data.correo, passwordTemporal: data.passwordTemporal })
       cerrarForm()
       await cargar()
@@ -165,6 +172,24 @@ export function Administracion() {
               valor={{ planCodigo: form.planCodigo, modalidad: form.modalidad }}
               onChange={(v) => setForm((f) => ({ ...f, ...v }))}
             />
+            <label className="mt-3 block text-sm">
+              <span className="mb-1 block text-slate-500">Días de prueba</span>
+              <input
+                type="number"
+                min="1"
+                max="365"
+                value={form.diasPrueba}
+                onChange={(e) => cambiar('diasPrueba', e.target.value)}
+                className="w-32 rounded-lg border border-slate-200 px-3 py-2"
+                placeholder="15"
+                required
+              />
+              <span className="mt-1 block text-xs text-slate-500">
+                {Number(form.diasPrueba) >= 1
+                  ? `La prueba termina el ${fechaFinDePrueba(Number(form.diasPrueba)).split('-').reverse().join('/')}. Si no paga, tras la gracia el acceso se suspende hasta que pague.`
+                  : 'Cuenta desde hoy. Al terminar, la clínica debe pagar con tarjeta; si no, tras la gracia se suspende el acceso.'}
+              </span>
+            </label>
           </div>
 
           {formError && <p className="mt-3 text-sm text-clinico-rojo">{formError}</p>}

@@ -1,5 +1,5 @@
 // Pruebas de la lógica pura del cobro con Stripe — corren con `deno test` (como sis-cifrado.test.ts).
-import { datosFactura, datosSuscripcion, idDe, urlsDeRegreso } from './stripe-logica.ts'
+import { datosFactura, datosSuscripcion, finDePruebaStripe, idDe, urlsDeRegreso } from './stripe-logica.ts'
 
 function assertEquals(actual: unknown, esperado: unknown, mensaje?: string) {
   const a = JSON.stringify(actual)
@@ -70,4 +70,14 @@ Deno.test('idDe y urlsDeRegreso', () => {
     cancelado: 'https://sirso.vercel.app/configuracion?pago=cancelado',
     portal: 'https://sirso.vercel.app/configuracion',
   })
+})
+
+Deno.test('finDePruebaStripe — fin del día en CDMX, solo si faltan ≥ 49 h y ≤ 730 días', () => {
+  const ahora = Date.parse('2026-10-27T12:00:00-06:00')
+  assertEquals(finDePruebaStripe('2026-11-10', ahora), Math.floor(Date.parse('2026-11-10T23:59:00-06:00') / 1000))
+  assertEquals(finDePruebaStripe('2026-10-29', ahora), Math.floor(Date.parse('2026-10-29T23:59:00-06:00') / 1000)) // 59 h
+  assertEquals(finDePruebaStripe('2026-10-28', ahora), null) // 35 h: Stripe no lo acepta → se cobra al pagar
+  assertEquals(finDePruebaStripe('2026-10-20', ahora), null) // ya pasó
+  assertEquals(finDePruebaStripe('2029-01-01', ahora), null) // más de 730 días
+  assertEquals([finDePruebaStripe(null, ahora), finDePruebaStripe('10/11/2026', ahora), finDePruebaStripe('2026-13-40', ahora)], [null, null, null])
 })

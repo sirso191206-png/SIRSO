@@ -6,7 +6,7 @@ import { identidadSuscripcion } from '../lib/planes'
 const REFRESCO_AL_VOLVER_MS = 60 * 1000
 const REFRESCO_PERIODICO_MS = 5 * 60 * 1000
 
-// Mantiene la suscripción de la clínica ACTUAL al día. Se monta una vez (Sidebar).
+// Mantiene la suscripción de la clínica ACTUAL al día. Se monta una vez (ProtectedRoute).
 // Carga al iniciar sesión o cuando cambia la identidad (usuario/clínica) — el store
 // ya descartó lo anterior — y vuelve a pedirla al recuperar la conexión, al volver
 // a la pestaña (máx. 1 vez por minuto) y cada 5 min, para que un cambio de plan

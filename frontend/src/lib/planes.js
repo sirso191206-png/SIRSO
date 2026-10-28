@@ -324,7 +324,8 @@ export function puedeVerSucursales(suscripcion) {
 
 // ---------------------------------------------------------------------------
 // Vencimiento: la base calcula el estado efectivo (activa | gracia | vencida | suspendida). Aquí solo se
-// convierte en un aviso. Vencer NO bloquea ni borra nada: solo informa.
+// convierte en un aviso. Desde la 115, al terminar la gracia (vencida) se SUSPENDE el acceso hasta que se pague;
+// nunca se borra información.
 // ---------------------------------------------------------------------------
 const DIAS_AVISO_PREVIO = 7
 
@@ -349,19 +350,39 @@ export function avisoSuscripcion(suscripcion) {
     const hasta = sumarDias(fin, Number(suscripcion.dias_gracia ?? 0))
     return {
       nivel: 'alerta', estado,
-      mensaje: `Tu suscripción venció el ${fechaLarga(fin)}. Tienes hasta el ${fechaLarga(hasta)} para renovarla. No se borra ninguna información.`
+      mensaje: `Tu suscripción venció el ${fechaLarga(fin)}. Tienes hasta el ${fechaLarga(hasta)} para pagarla; después se suspende el acceso hasta que pagues. No se borra ninguna información.`
     }
   }
   if (estado === 'vencida' && fin) {
     return {
       nivel: 'critico', estado,
-      mensaje: `Tu suscripción está vencida desde el ${fechaLarga(fin)}. Tu información se conserva. Contacta a SIRO para renovarla.`
+      mensaje: `Tu suscripción está vencida desde el ${fechaLarga(fin)} y el acceso está suspendido hasta que se pague. Tu información se conserva.`
     }
   }
+  // Con pago automático, la renovación la cobra Stripe sola: no hay nada que avisar antes del vencimiento.
+  if (estado === 'activa' && suscripcion.pago_automatico) return null
   const dias = suscripcion.dias_para_vencer
   if (estado === 'activa' && typeof dias === 'number' && dias >= 0 && dias <= DIAS_AVISO_PREVIO) {
     const cuando = dias === 0 ? 'hoy' : dias === 1 ? 'mañana' : `en ${dias} días`
-    return { nivel: 'info', estado, mensaje: `Tu suscripción vence ${cuando} (${fechaLarga(fin)}). Contacta a SIRO para renovarla.` }
+    return { nivel: 'info', estado, mensaje: `Tu suscripción vence ${cuando} (${fechaLarga(fin)}). Paga con tarjeta para no perder el acceso.` }
   }
   return null
+}
+
+// Después del PRIMER paciente, si la clínica todavía no tiene pago automático y su plan tiene fecha de fin (periodo de
+// prueba), se le pide registrar su método de pago. No se cobra antes de esa fecha (la prueba se respeta en Stripe).
+export function avisoMetodoDePago(suscripcion) {
+  if (!suscripcion || suscripcion.sin_suscripcion || suscripcion.pago_automatico) return null
+  if (suscripcion.estado_efectivo !== 'activa' || !suscripcion.fecha_fin) return null
+  if (Number(suscripcion.uso?.pacientes ?? 0) < 1) return null
+  return {
+    nivel: 'info', estado: 'activa',
+    mensaje: `Tu plan actual termina el ${fechaLarga(suscripcion.fecha_fin)}. Agrega tu método de pago para no perder el acceso; no se te cobra antes de esa fecha.`
+  }
+}
+
+// Fin del periodo de prueba al dar de alta una clínica (115): hoy + N días, en fecha local (AAAA-MM-DD).
+export function fechaFinDePrueba(dias, hoy = new Date()) {
+  const f = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + dias)
+  return `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, '0')}-${String(f.getDate()).padStart(2, '0')}`
 }

@@ -72,3 +72,12 @@ Cuando todo funcione, repite los pasos 2 a 6 del alta en **modo real**, con `sk_
 
 ## Rollback
 `rollback_114.sql` deja el esquema como 001–113. Se niega a ejecutarse si ya hay cobros o vínculos con Stripe, para no perder el historial.
+
+## Prueba gratuita y bloqueo por falta de pago (migración 115)
+- **Alta:** el superadmin crea la clínica indicando los **días de prueba** (obligatorio). La suscripción vence al terminar la prueba.
+- **Durante la prueba:** después del primer paciente, el owner ve el aviso «Agrega tu método de pago». Si paga con tarjeta durante la prueba, Stripe **no cobra hasta que termina** (`trial_end` = fin de la prueba; Stripe exige al menos 48 h por delante).
+- **Si no paga:** al vencer empiezan los días de gracia (`dias_gracia_suscripcion`, 7). Terminada la gracia, la clínica queda **suspendida por completo**: la base de datos bloquea todos sus datos (`auth_clinica_id()` → RLS). El owner ve una pantalla con «Pago en línea» y, **en cuanto Stripe confirma el pago, el acceso vuelve solo**. Los demás usuarios ven que el propietario debe pagar.
+- **Nunca se borra información.** El superadmin no se bloquea y puede extender la fecha de fin de cualquier clínica.
+- **Clínicas sin fecha de fin** (convenios, clínicas anteriores a la 115) **nunca vencen**.
+- **Interruptor de emergencia:** `plataforma_config.bloqueo_por_falta_de_pago = 'off'` desactiva el bloqueo al instante.
+- **Suspensión manual:** sigue siendo independiente. Solo el superadmin la quita, y Stripe no la levanta.

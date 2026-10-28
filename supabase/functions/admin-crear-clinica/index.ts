@@ -74,6 +74,9 @@ serve(async (req) => {
     const modalidad = (body?.modalidad ?? 'mensual').toString().trim().toLowerCase()
     const precioContratado = body?.precioContratado ?? null      // opcional: convenio a la medida
     const fechaFin = fechaOpcional(body?.fechaFin, 'La fecha de fin')
+    // 115: toda clínica nueva nace con fecha de fin (= fin de su periodo de prueba); si no paga, tras la gracia se suspende.
+    if (!fechaFin) throw new ErrorDeSolicitud('Indica los días de prueba (la fecha en que termina la prueba).')
+    if (fechaFin.slice(0, 10) < new Date().toISOString().slice(0, 10)) throw new ErrorDeSolicitud('La prueba no puede terminar en una fecha pasada.')
     const autoRenovacion = body?.autoRenovacion ?? true
     if (typeof autoRenovacion !== 'boolean') throw new ErrorDeSolicitud('autoRenovacion debe ser verdadero o falso')
     if (nombreClinica.length > 150) throw new ErrorDeSolicitud('El nombre de la clínica no puede tener más de 150 caracteres')

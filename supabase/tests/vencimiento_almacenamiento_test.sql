@@ -66,7 +66,12 @@ update suscripciones set fecha_fin = current_date - 3 where clinica_id = 'c40000
 select pg_temp.t('M3 venció hace 3 días: gracia (dias_para_vencer = -3)', pg_temp.est(current_setting('t.oa')::uuid) = 'gracia' and pg_temp.dias(current_setting('t.oa')::uuid) = '-3');
 update suscripciones set fecha_fin = current_date - 30 where clinica_id = 'c4000000-0000-0000-0000-00000000000a' and estado <> 'reemplazada';
 select pg_temp.t('M4 venció hace 30 días: vencida', pg_temp.est(current_setting('t.oa')::uuid) = 'vencida');
-select pg_temp.t('M5 VENCER NO BORRA NI BLOQUEA: el owner de una suscripción vencida sigue leyendo y creando pacientes',
+-- Desde la 115 (decisión del responsable, 27/10/2026), VENCIDA tras la gracia BLOQUEA por completo hasta que se paga; nada se borra.
+select pg_temp.t('M5 (115) VENCIDA BLOQUEA SIN BORRAR: el owner no puede crear pacientes; al renovar (fecha_fin futura) vuelve a crear y leer',
+  pg_temp.como(current_setting('t.oa')::uuid, format('insert into pacientes (clinica_id, nombre_completo) values (%L, ''Bloqueada'')', 'c4000000-0000-0000-0000-00000000000a')) <> 'OK:1'
+  and pg_temp.val(current_setting('t.oa')::uuid, 'select count(*)::text from pacientes') = '0');
+update suscripciones set fecha_fin = current_date + 30 where clinica_id = 'c4000000-0000-0000-0000-00000000000a' and estado <> 'reemplazada';
+select pg_temp.t('M5b al renovar se desbloquea al instante y se trabaja normal',
   pg_temp.como(current_setting('t.oa')::uuid, format('insert into pacientes (clinica_id, nombre_completo) values (%L, ''Sigue funcionando'')', 'c4000000-0000-0000-0000-00000000000a')) = 'OK:1'
   and pg_temp.val(current_setting('t.oa')::uuid, 'select count(*)::text from pacientes') = '1');
 update suscripciones set estado = 'suspendida' where clinica_id = 'c4000000-0000-0000-0000-00000000000b' and estado <> 'reemplazada';
@@ -75,7 +80,7 @@ set local session_replication_role = replica;
 insert into usuarios (id, clinica_id, nombre, correo, rol) values ('a4000000-0000-0000-0000-000000000005','c4000000-0000-0000-0000-00000000000c','x','u5@x.mx','dentista') on conflict do nothing;
 set local session_replication_role = origin;
 select pg_temp.t('M7 clínica heredada sin suscripción: activa (no se le inventa un vencimiento)', pg_temp.est(current_setting('t.oh')::uuid) = 'activa' and pg_temp.dias(current_setting('t.oh')::uuid) is null);
-select pg_temp.t('M8 cada clínica ve el estado de SU suscripción (A vencida, B suspendida)', pg_temp.est(current_setting('t.oa')::uuid) = 'vencida' and pg_temp.est(current_setting('t.ob')::uuid) = 'suspendida');
+select pg_temp.t('M8 cada clínica ve el estado de SU suscripción (A renovada en M5b: activa; B suspendida)', pg_temp.est(current_setting('t.oa')::uuid) = 'activa' and pg_temp.est(current_setting('t.ob')::uuid) = 'suspendida');
 
 -- ============================================================ C. Almacenamiento: medición exacta
 insert into pacientes (id, clinica_id, nombre_completo) values

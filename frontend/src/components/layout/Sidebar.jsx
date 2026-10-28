@@ -8,7 +8,6 @@ import { useColaOffline } from '../../hooks/useColaOffline'
 import { usePrecargaAutomaticaDelDia } from '../../hooks/usePrecargaAutomaticaDelDia'
 import { useSincronizacionClinica } from '../../hooks/useSincronizacionClinica'
 import { useDisponibilidad, usePuedeVerSucursales } from '../../hooks/useFuncionalidad'
-import { useSuscripcionAlDia } from '../../hooks/useSuscripcionAlDia'
 import { enlacesVisibles } from '../../lib/planes'
 import { rolesDeRuta } from '../../lib/accesoPorRol'
 import { useCierreSesionSeguro } from '../../hooks/useCierreSesionSeguro'
@@ -148,7 +147,6 @@ export function Sidebar() {
   // Sucursales se oculta si el plan no la incluye Y la clínica no tiene ninguna (si ya las tiene, conserva el acceso).
   const veSucursales = usePuedeVerSucursales()
   const disponible = (codigo) => (codigo === 'multisucursal' ? veSucursales : disponibleBase(codigo))
-  useSuscripcionAlDia()
   const [modalAbierto, setModalAbierto] = useState(false)
   const [modalPerfilAbierto, setModalPerfilAbierto] = useState(false)
   const [menuUsuarioAbierto, setMenuUsuarioAbierto] = useState(false)

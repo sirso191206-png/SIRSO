@@ -8,7 +8,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { buildCorsHeaders } from '../_shared/cors.ts'
 import { ErrorDeSolicitud, leerCuerpoJson, responderError } from '../_shared/solicitud.ts'
 import { clienteAdmin, clienteStripe, perfilDelLlamante } from '../_shared/stripe.ts'
-import { CODIGO_PLAN, MODALIDADES, urlsDeRegreso } from '../_shared/stripe-logica.ts'
+import { CODIGO_PLAN, finDePruebaStripe, MODALIDADES, urlsDeRegreso } from '../_shared/stripe-logica.ts'
 
 serve(async (req) => {
   const corsHeaders = buildCorsHeaders(req.headers.get('Origin'))
@@ -43,13 +43,15 @@ serve(async (req) => {
     }
 
     const urls = urlsDeRegreso(corsHeaders['Access-Control-Allow-Origin'])
+    const finPrueba = finDePruebaStripe(datos.fin_prueba, Date.now())
     const sesion = await stripe.checkout.sessions.create({
       mode: 'subscription',
       customer,
       line_items: [{ price: datos.price, quantity: 1 }],
       client_reference_id: datos.clinica_id,
       metadata: { clinica_id: datos.clinica_id },
-      subscription_data: { metadata: { clinica_id: datos.clinica_id } },
+      // Prueba (115): si la clínica aún está en su periodo de prueba, registra la tarjeta hoy y el primer cobro es al terminar.
+      subscription_data: { metadata: { clinica_id: datos.clinica_id }, ...(finPrueba ? { trial_end: finPrueba } : {}) },
       locale: 'es',
       success_url: urls.exito,
       cancel_url: urls.cancelado,

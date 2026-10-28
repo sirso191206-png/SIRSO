@@ -15,6 +15,9 @@ vi.mock('../../../services/sesiones', () => ({ mensajeSesionCerrada: () => '' })
 vi.mock('../../auth/PantallaDesbloqueoPin', () => ({ PantallaDesbloqueoPin: () => React.createElement('div', null, 'PIN') }))
 vi.mock('../../layout/AccesoNoAutorizado', () => ({ AccesoNoAutorizado: () => React.createElement('div', null, 'NO-AUTORIZADO') }))
 vi.mock('../../planes/AvisoSuscripcion', () => ({ AvisoSuscripcion: () => React.createElement('div', null, 'AVISO') }))
+vi.mock('../../planes/BloqueoPorPago', () => ({ BloqueoPorPago: () => React.createElement('div', null, 'BLOQUEO-PAGO') }))
+vi.mock('../../../hooks/useSuscripcionAlDia', () => ({ useSuscripcionAlDia: () => {} }))
+vi.mock('../../../hooks/useFuncionalidad', () => ({ usePlanActual: () => ({ suscripcion: h.suscripcion ?? null }) }))
 vi.mock('../../layout/Sidebar', () => ({ Sidebar: () => React.createElement('nav', null, 'MENU-LATERAL') }))
 vi.mock('../../../lib/accesoPorRol', () => ({ puedeEntrarARuta: () => true }))
 
@@ -78,6 +81,14 @@ describe('ProtectedRoute con el cambio de contraseña pendiente', () => {
   it('una clínica suspendida sigue mostrando su aviso (no se altera ese flujo); sin sesión no hay pantalla de cambio', () => {
     h.estado = base({ id: 'u1', rol: 'owner', debe_cambiar_password: true }); h.estado.clinicaEstado = 'suspendida'; expect(texto(montar('/'))).toContain('Clínica suspendida')
     h.estado = { ...base(null), session: null }; expect(texto(montar('/'))).not.toContain('cambio-password-obligatorio')
+  })
+  it('115: clínica bloqueada por falta de pago → solo la pantalla de pago (sin menú ni contenido); el superadmin entra normal', () => {
+    h.suscripcion = { bloqueada_por_pago: true, fecha_fin: '2026-10-01' }
+    h.estado = base({ id: 'u1', rol: 'owner' }); let t = texto(montar('/pacientes'))
+    expect(t).toContain('BLOQUEO-PAGO'); expect(t).not.toContain('CONTENIDO-PROTEGIDO'); expect(t).not.toContain('MENU-LATERAL')
+    h.estado = base({ id: 'u1', rol: 'owner', es_super_admin: true }); t = texto(montar('/pacientes'))
+    expect(t).toContain('CONTENIDO-PROTEGIDO'); expect(t).not.toContain('BLOQUEO-PAGO')
+    h.suscripcion = null
   })
   it('la guardia está colocada ANTES de renderizar el menú y el contenido en el código fuente', () => {
     const src = readFileSync(new URL('../../layout/ProtectedRoute.jsx', import.meta.url), 'utf8'); expect(src.indexOf('debe_cambiar_password')).toBeGreaterThan(-1)

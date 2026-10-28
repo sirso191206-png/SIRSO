@@ -193,12 +193,14 @@ const render = (el) => renderToStaticMarkup(h(StaticRouter, { location: '/' }, e
 
 describe('aviso de suscripción en pantalla (solo el propietario y la plataforma)', () => {
   beforeEach(() => { useAuthStore.setState({ perfil: null }); usePlanStore.getState().limpiar() })
-  it('el OWNER ve el aviso de gracia con el botón de contacto', () => {
+  it('el OWNER ve el aviso de gracia y lo lleva a pagar en línea (115)', () => {
     conPlan('owner')
     const r = render(h(AvisoSuscripcion))
     expect(r).toContain('venció el 10 de octubre de 2026')
+    expect(r).toContain('se suspende el acceso hasta que pagues')
     expect(r).toContain('data-nivel="alerta"')
-    expect(r).toContain('Contactar a SIRO')
+    expect(r).toContain('href="/configuracion?seccion=pago"')
+    expect(r).toContain('Agregar método de pago')
   })
   it('dentista, recepción y asistente NO ven temas de cobro', () => {
     for (const rol of ['dentista', 'recepcion', 'asistente']) { conPlan(rol); expect(render(h(AvisoSuscripcion)), rol).toBe('') }
@@ -217,9 +219,19 @@ describe('aviso de suscripción en pantalla (solo el propietario y la plataforma
     usePlanStore.setState({ claveSuscripcion: 'otro:otra' })
     expect(render(h(AvisoSuscripcion))).toBe('')
   })
-  it('activa lejos del vencimiento: sin aviso', () => {
-    conPlan('owner', { estado_efectivo: 'activa', fecha_fin: '2027-12-01', dias_para_vencer: 400, excesos: [] })
+  it('activa lejos del vencimiento y con pago automático: sin aviso', () => {
+    conPlan('owner', { estado_efectivo: 'activa', fecha_fin: '2027-12-01', dias_para_vencer: 400, excesos: [], pago_automatico: true })
     expect(render(h(AvisoSuscripcion))).toBe('')
+  })
+  it('115: tras el primer paciente y SIN método de pago, pide agregarlo (aunque falte mucho); sin pacientes, no', () => {
+    conPlan('owner', { estado_efectivo: 'activa', fecha_fin: '2027-12-01', dias_para_vencer: 400, excesos: [], uso: { pacientes: 1 } })
+    const r = render(h(AvisoSuscripcion))
+    expect(r).toContain('Agrega tu método de pago')
+    expect(r).toContain('no se te cobra antes de esa fecha')
+    conPlan('owner', { estado_efectivo: 'activa', fecha_fin: '2027-12-01', dias_para_vencer: 400, excesos: [], uso: { pacientes: 0 } })
+    expect(render(h(AvisoSuscripcion))).toBe('')
+    conPlan('owner', { estado_efectivo: 'activa', fecha_fin: null, dias_para_vencer: null, excesos: [], uso: { pacientes: 5 } })
+    expect(render(h(AvisoSuscripcion))).toBe('') // sin fecha de fin (convenio): no se le pide pagar
   })
 })
 
