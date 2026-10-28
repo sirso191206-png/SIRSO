@@ -9,7 +9,8 @@ import { etiquetaPeriodo, formatearLimite, formatearPrecio, mensajeExceso } from
 
 // "Plan actual" de la propia clínica: lo CONTRATADO (su snapshot), el uso real y
 // qué incluye. Los números vienen de mi_suscripcion() — nada está escrito aquí.
-export function PlanActualClinica() {
+// onMejorarPlan: si la clínica puede pagar en línea, «Mejorar plan» abre esa sección; si no, lleva a Contacto.
+export function PlanActualClinica({ onMejorarPlan = null } = {}) {
   // Solo la suscripción de ESTA cuenta y clínica (nunca la de otra identidad).
   const { suscripcion, esOffline, ultimaActualizacion, cargada } = usePlanActual()
   const cargar = usePlanStore((s) => s.cargar)
@@ -37,9 +38,15 @@ export function PlanActualClinica() {
             <div className="text-sm text-slate-500">Tu clínica todavía no tiene un plan contratado registrado.</div>
           )}
         </div>
-        <Link to="/contacto" className="rounded-xl bg-clinico-azul px-4 py-2 text-sm font-medium text-white hover:opacity-90">
-          Mejorar plan
-        </Link>
+        {onMejorarPlan ? (
+          <button type="button" onClick={onMejorarPlan} className="rounded-xl bg-clinico-azul px-4 py-2 text-sm font-medium text-white hover:opacity-90">
+            Mejorar plan
+          </button>
+        ) : (
+          <Link to="/contacto" className="rounded-xl bg-clinico-azul px-4 py-2 text-sm font-medium text-white hover:opacity-90">
+            Mejorar plan
+          </Link>
+        )}
       </div>
 
       {esOffline && (
@@ -73,8 +80,13 @@ export function PlanActualClinica() {
         </div>
       )}
 
-      <div className="mb-2 text-sm font-medium text-slate-700">Tu plan incluye:</div>
-      <ListaFuncionalidades funcionalidades={funcionalidades} />
+      <details className="group">
+        <summary className="cursor-pointer list-none text-sm font-medium text-slate-700 [&::-webkit-details-marker]:hidden">
+          Tu plan incluye: <span className="font-normal text-slate-500">{funcionalidades.filter((f) => f.habilitada).length} de {funcionalidades.length} funcionalidades</span>
+          <span aria-hidden="true" className="ml-1 inline-block text-slate-400 transition-transform group-open:rotate-180">⌄</span>
+        </summary>
+        <div className="mt-2"><ListaFuncionalidades funcionalidades={funcionalidades} /></div>
+      </details>
     </div>
   )
 }

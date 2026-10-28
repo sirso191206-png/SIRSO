@@ -236,6 +236,18 @@ describe('panel "Plan actual" de la clínica', () => {
     expect(html).toContain('Nombre de periodontograma') // aparece con ✕ (no incluida)
   })
 
+  it('lo que incluye el plan va plegado, con el conteo; «Mejorar plan» lleva a Contacto o, si hay pago en línea, es un botón', () => {
+    conPlan(base())
+    const html = render(h(PlanActualClinica))
+    expect(html).toMatch(/<details[^>]*>\s*<summary[^>]*>Tu plan incluye:/)
+    expect(html).toContain('1 de 2 funcionalidades')
+    expect(html).not.toMatch(/<details[^>]*open/)
+    expect(html).toMatch(/<a[^>]*href="\/contacto"[^>]*>Mejorar plan/)
+    const conPago = render(h(PlanActualClinica, { onMejorarPlan: () => {} }))
+    expect(conPago).toMatch(/<button[^>]*>Mejorar plan/)
+    expect(conPago).not.toContain('href="/contacto"')
+  })
+
   it('al bajar de plan muestra el aviso EXACTO para pacientes, usuarios y sucursales — sin borrar nada', () => {
     conPlan(susc([f('pagos', true)], {
       uso: { pacientes: 2300, usuarios: 5, sucursales: 3 },

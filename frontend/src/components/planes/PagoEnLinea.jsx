@@ -3,12 +3,15 @@ import { useSearchParams } from 'react-router-dom'
 import { abrirPortalDePago, iniciarPagoEnLinea, obtenerMiCobro } from '../../services/planes'
 import { usePlanStore } from '../../store/usePlanStore'
 import { etiquetaPeriodo, formatearPrecio } from '../../lib/planes'
+import { SeccionDesplegable } from '../ui/SeccionDesplegable'
 
 const fecha = (v) => (v ? new Date(`${String(v).slice(0, 10)}T12:00:00`).toLocaleDateString('es-MX') : '—')
 
 // Pago de la suscripción con tarjeta (Stripe). Solo para el owner: los planes, precios y
 // qué se puede pagar en línea vienen de mi_cobro() — nada está escrito aquí.
-export function PagoEnLinea() {
+// Sección desplegable: `abierta`/`onCambiar` la controla la pantalla (sin ellos empieza abierta);
+// `onDisponible(bool)` avisa si hay algo que pagar o administrar (para que «Mejorar plan» la abra).
+export function PagoEnLinea({ abierta, onCambiar, onDisponible } = {}) {
   const [cobro, setCobro] = useState(null)
   const [error, setError] = useState('')
   const [ocupado, setOcupado] = useState(false)
@@ -24,6 +27,11 @@ export function PagoEnLinea() {
   useEffect(() => {
     cargar()
   }, [cargar])
+
+  const disponible = !!cobro && (cobro.disponible || cobro.tiene_cliente) && !cobro.suspendida
+  useEffect(() => {
+    if (cobro) onDisponible?.(disponible)
+  }, [cobro, disponible, onDisponible])
 
   // Al volver de Stripe el webhook tarda unos segundos en aplicar el plan: se vuelve a leer dos veces.
   useEffect(() => {
@@ -58,8 +66,8 @@ export function PagoEnLinea() {
   const sinConexion = typeof navigator !== 'undefined' && navigator.onLine === false
 
   return (
-    <div className="mb-6 max-w-3xl rounded-xl border border-slate-200 bg-white p-6">
-      <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Pago en línea</div>
+    <SeccionDesplegable id="pago-en-linea" titulo="Pago en línea" abierta={abierta} abiertaInicial onCambiar={onCambiar}
+      resumen={cobro.suspendida ? 'No disponible: clínica suspendida' : cobro.pago_automatico ? 'Pago automático con tarjeta activo' : 'Paga o cambia tu plan con tarjeta'}>
 
       {resultadoPago === 'exito' && (
         <p className="mb-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800" role="status">
@@ -122,6 +130,6 @@ export function PagoEnLinea() {
           </table>
         </div>
       )}
-    </div>
+    </SeccionDesplegable>
   )
 }

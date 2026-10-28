@@ -116,6 +116,13 @@ export function PanelSuscripcionClinica({ clinicaId, onCambio }) {
         </div>
       )}
 
+      {v?.stripe_subscription_id && v?.auto_renovacion && (
+        <p className="mb-4 rounded-lg bg-sky-50 p-3 text-sm text-sky-800">
+          Esta clínica paga su plan con tarjeta (Stripe). Si cambias el plan aquí, el próximo cobro de Stripe volverá a aplicar el plan que
+          paga. Para un cambio permanente, que la clínica lo cambie en «Administrar pago», o cancela su suscripción en Stripe primero.
+        </p>
+      )}
+
       <div className="rounded-lg bg-slate-50 p-3">
         <div className="mb-2 text-sm font-medium text-slate-700">{v ? 'Cambiar plan' : 'Asignar plan'}</div>
         <div className="grid gap-3 sm:grid-cols-4">

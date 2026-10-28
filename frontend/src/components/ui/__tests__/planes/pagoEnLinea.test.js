@@ -62,6 +62,23 @@ describe('services/planes — pago en línea', () => {
 })
 
 describe('pantalla PagoEnLinea', () => {
+  it('es una sección desplegable: abierta por defecto, controlable, y avisa si hay algo que pagar', async () => {
+    const avisos = []
+    h.rpc.mockResolvedValue({ data: cobroBase, error: null })
+    let r
+    await act(async () => { r = TestRenderer.create(React.createElement(MemoryRouter, null, React.createElement(PagoEnLinea, { onDisponible: (v) => avisos.push(v) }))) })
+    expect(r.root.findByType('details').props.open).toBe(true)
+    expect(avisos.at(-1)).toBe(true)
+    await act(async () => { r.update(React.createElement(MemoryRouter, null, React.createElement(PagoEnLinea, { abierta: false }))) })
+    expect(r.root.findByType('details').props.open).toBe(false)
+    expect(texto(r)).toContain('Paga o cambia tu plan con tarjeta')
+  })
+  it('clínica suspendida: avisa que NO hay nada que pagar (Mejorar plan sigue yendo a Contacto)', async () => {
+    const avisos = []
+    h.rpc.mockResolvedValue({ data: { ...cobroBase, suspendida: true }, error: null })
+    await act(async () => { TestRenderer.create(React.createElement(MemoryRouter, null, React.createElement(PagoEnLinea, { onDisponible: (v) => avisos.push(v) }))) })
+    expect(avisos.at(-1)).toBe(false)
+  })
   it('sin planes pagables ni cliente de Stripe no se muestra nada', async () => {
     const r = await montar({ ...cobroBase, disponible: false })
     expect(r.toJSON()).toBeNull()
