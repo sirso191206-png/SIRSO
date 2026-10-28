@@ -56,3 +56,5 @@ Confirmar los 5 años y su fuente; plazos de todas las demás categorías; defin
 
 ## 7. Pruebas
 `conservacion_retencion_test.sql` (22 verificaciones, con datos sintéticos): estructura y permisos, último acto médico (incluida una cita completada reciente frente a un tratamiento antiguo), piso de 5 años, sin plazo nada es suprimible, retención por paciente y por clínica, supresión autorizada y rechazada, historial inmutable, eliminación automática prohibida, andamiaje en blanco. Mutaciones sobre la 104: 11 de 11 detectadas. La regresión de la eliminación de clínicas (86) y las guardas de «tabla nueva» pasan.
+
+Desde la 108 las tres baterías (`conservacion_retencion_test.sql` 22, `conservacion_categorias_test.sql` 35, `eliminar_clinica_test.sql` 33) prueban la regla vigente: solo una política válida y **aprobada** fija plazo (el valor legado de `plataforma_config` ya no autoriza nada), y sin las decisiones de plataforma (quién aprueba, qué es fiscal, si lo contractual bloquea) se bloquea con un código propio. Mientras el abogado y el contador no definan las políticas, ninguna clínica con datos clínicos o pagos se puede eliminar.

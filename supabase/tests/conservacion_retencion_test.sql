@@ -1,4 +1,6 @@
 -- Migración 104: política de conservación por categoría, retención legal y supresión autorizada.
+-- Actualizada a la regla de la 108: solo una política válida y APROBADA fija el plazo (el valor legado ya no autoriza nada) y los
+-- códigos de bloqueo son los de fn_evaluar_politica (POLITICA_NO_DEFINIDA, DENTRO_PLAZO_CONSERVACION, ...).
 \set ON_ERROR_STOP on
 \set QUIET on
 begin;
@@ -114,21 +116,25 @@ set local session_replication_role = origin;
 select pg_temp.t('K5c el último acto médico considera TODOS los registros clínicos, no solo los tratamientos: una cita completada de hace 1 año prevalece sobre un tratamiento de hace 9',
   fn_ultimo_acto_medico('e0000000-0000-0000-0000-0000000000b5') > now() - interval '1 year 2 days' and fn_ultimo_acto_medico('e0000000-0000-0000-0000-0000000000b5') < now() - interval '364 days');
 select pg_temp.t('K6 SIN plazo definido nada es suprimible: ni un expediente de hace 30 años (no se inventa un plazo); un paciente sin registros sí se puede borrar',
-  (fn_conservacion_paciente('e0000000-0000-0000-0000-000000000004') ->> 'puede_suprimirse')::boolean = false and fn_conservacion_paciente('e0000000-0000-0000-0000-000000000004') ->> 'motivo_bloqueo' = 'PLAZO_CLINICO_NO_DEFINIDO'
+  (fn_conservacion_paciente('e0000000-0000-0000-0000-000000000004') ->> 'puede_suprimirse')::boolean = false and fn_conservacion_paciente('e0000000-0000-0000-0000-000000000004') ->> 'motivo_bloqueo' = 'POLITICA_NO_DEFINIDA'
   and (fn_conservacion_paciente('e0000000-0000-0000-0000-000000000003') ->> 'puede_suprimirse')::boolean and fn_plazo_expediente_anios() is null);
 insert into plataforma_config (clave, valor) values ('retencion_expediente_anios', '4');
 select set_config('t.pz4', coalesce(fn_plazo_expediente_anios()::text, 'null'), false);
 update plataforma_config set valor = '7' where clave = 'retencion_expediente_anios';
 select set_config('t.pz7', coalesce(fn_plazo_expediente_anios()::text, 'null'), false);
-select pg_temp.t('K7 un plazo legado por debajo del piso (4 años) NO vale (= sin plazo); uno válido (7) sí; y un plazo por debajo de 5 se rechaza en la política (violación de CHECK)', current_setting('t.pz4') = 'null' and current_setting('t.pz7') = '7'
+select pg_temp.t('K7 (108) un plazo LEGADO no vale nunca: ni por debajo del piso (4 años) ni uno válido (7) fijan plazo; y un plazo por debajo de 5 se rechaza en la política (violación de CHECK)', current_setting('t.pz4') = 'null' and current_setting('t.pz7') = 'null'
   and pg_temp.ej($q$select fn_establecer_plazo_conservacion('expediente_clinico', 3, 'PENDIENTE_DE_ABOGADO', 'intento de bajar el plazo por debajo del piso', null)$q$) like 'ERR|23514|%');
 select fn_establecer_plazo_conservacion('expediente_clinico', 6, 'APROBADA_POR_RESPONSABLE', 'Decisión del responsable: 6 años, pendiente de revisión jurídica', current_setting('t.o')::uuid);
-select pg_temp.t('K8 la política prevalece sobre el valor legado (6 frente a 7); el cambio queda en el HISTORIAL con plazo anterior y nuevo, actor y motivo',
-  fn_plazo_expediente_anios() = 6 and exists (select 1 from conservacion_historial where accion = 'politica_actualizada' and (valor_nuevo ->> 'plazo_anios')::int = 6 and valor_anterior ->> 'plazo_anios' is null and actor = current_setting('t.o')::uuid)
+select set_config('t.pz_sin_decision', coalesce(fn_plazo_expediente_anios()::text, 'null'), false);
+insert into plataforma_config (clave, valor) values ('conservacion_aprobaciones_validas', 'ABOGADO');
+select set_config('t.pz_solo_abogado', coalesce(fn_plazo_expediente_anios()::text, 'null'), false);
+update plataforma_config set valor = 'ABOGADO_O_RESPONSABLE' where clave = 'conservacion_aprobaciones_validas';
+select pg_temp.t('K8 la política aprobada por el responsable vale SOLO si la plataforma admite esa aprobación (sin decisión o exigiendo abogado: sin plazo); entonces prevalece sobre el valor legado (6 frente a 7); el cambio queda en el HISTORIAL con plazo anterior y nuevo, actor y motivo',
+  current_setting('t.pz_sin_decision') = 'null' and current_setting('t.pz_solo_abogado') = 'null' and fn_plazo_expediente_anios() = 6 and exists (select 1 from conservacion_historial where accion = 'politica_actualizada' and (valor_nuevo ->> 'plazo_anios')::int = 6 and valor_anterior ->> 'plazo_anios' is null and actor = current_setting('t.o')::uuid)
   and exists (select 1 from conservacion_historial where accion = 'motivo_de_decision' and motivo like 'Decisión del responsable%' and actor = current_setting('t.o')::uuid));
-select pg_temp.t('K9 con plazo de 6 años: el expediente de hace 6 años (A) y el de hace 30 (D) son suprimibles; el de hace 2 años (B) NO (DENTRO_DEL_PLAZO_DE_CONSERVACION)',
+select pg_temp.t('K9 con plazo de 6 años: el expediente de hace 6 años (A) y el de hace 30 (D) son suprimibles; el de hace 2 años (B) NO (DENTRO_PLAZO_CONSERVACION)',
   (fn_conservacion_paciente('e0000000-0000-0000-0000-000000000001') ->> 'puede_suprimirse')::boolean and (fn_conservacion_paciente('e0000000-0000-0000-0000-000000000004') ->> 'puede_suprimirse')::boolean
-  and not (fn_conservacion_paciente('e0000000-0000-0000-0000-000000000002') ->> 'puede_suprimirse')::boolean and fn_conservacion_paciente('e0000000-0000-0000-0000-000000000002') ->> 'motivo_bloqueo' = 'DENTRO_DEL_PLAZO_DE_CONSERVACION'
+  and not (fn_conservacion_paciente('e0000000-0000-0000-0000-000000000002') ->> 'puede_suprimirse')::boolean and fn_conservacion_paciente('e0000000-0000-0000-0000-000000000002') ->> 'motivo_bloqueo' = 'DENTRO_PLAZO_CONSERVACION'
   and not (fn_conservacion_paciente('e0000000-0000-0000-0000-0000000000b5') ->> 'puede_suprimirse')::boolean);   -- E: tratamiento de hace 9 años pero cita completada de hace 1: NO es suprimible
 select set_config('t.d_a', pg_temp.ej($q$delete from pacientes where id = 'e0000000-0000-0000-0000-000000000001'$q$), false), set_config('t.d_b', pg_temp.ej($q$delete from pacientes where id = 'e0000000-0000-0000-0000-000000000004'$q$), false), set_config('t.d_c', pg_temp.ej($q$delete from pacientes where id = 'e0000000-0000-0000-0000-000000000003'$q$), false);
 select pg_temp.t('K10 el BORRADO FÍSICO directo de un paciente con registros clínicos se rechaza (EXPEDIENTE_SUJETO_A_CONSERVACION) aunque su plazo esté vencido: solo procede por el procedimiento autorizado; el que no tiene registros sí se borra',
@@ -160,8 +166,8 @@ select pg_temp.t('K14 liberar la retención la levanta (queda historial); libera
   and pg_temp.ej(format($q$select fn_liberar_retencion_legal(%L, 'corto', null)$q$, :'hold_clinica')) like 'ERR|MOTIVO_REQUERIDO|%' and exists (select 1 from conservacion_historial where accion = 'retencion_legal_liberada'));
 select set_config('t.s_b', pg_temp.ej($q$select (fn_suprimir_paciente_autorizado('e0000000-0000-0000-0000-000000000002', 'Intento de supresión dentro del plazo (sintético)', null) ->> 'motivo_bloqueo')$q$), false),
        set_config('t.s_c', pg_temp.ej($q$select fn_suprimir_paciente_autorizado('e0000000-0000-0000-0000-000000000001', 'corto', null)$q$), false);
-select pg_temp.t('K15 la supresión autorizada se rechaza dentro del plazo (DENTRO_DEL_PLAZO_DE_CONSERVACION, queda en el historial) y sin motivo suficiente (mínimo 20 caracteres); el paciente sigue existiendo',
-  current_setting('t.s_b') = 'ok:DENTRO_DEL_PLAZO_DE_CONSERVACION' and current_setting('t.s_c') like 'ERR|MOTIVO_REQUERIDO|%' and exists (select 1 from pacientes where id = 'e0000000-0000-0000-0000-000000000002')
+select pg_temp.t('K15 la supresión autorizada se rechaza dentro del plazo (DENTRO_PLAZO_CONSERVACION, queda en el historial) y sin motivo suficiente (mínimo 20 caracteres); el paciente sigue existiendo',
+  current_setting('t.s_b') = 'ok:DENTRO_PLAZO_CONSERVACION' and current_setting('t.s_c') like 'ERR|MOTIVO_REQUERIDO|%' and exists (select 1 from pacientes where id = 'e0000000-0000-0000-0000-000000000002')
   and exists (select 1 from conservacion_historial where accion = 'supresion_rechazada' and paciente_id = 'e0000000-0000-0000-0000-000000000002'));
 select set_config('t.s_a', pg_temp.ej($q$select (fn_suprimir_paciente_autorizado('e0000000-0000-0000-0000-000000000001', 'Supresión autorizada de un expediente sintético con plazo vencido', current_setting('t.o')::uuid) ->> 'puede_suprimirse')$q$), false);
 select pg_temp.t('K16 con plazo VENCIDO, sin retención legal y con motivo, la supresión autorizada se ejecuta: borra al paciente y sus registros (en cascada), deja historial con el estado que la justificó y NO deja activada la autorización',

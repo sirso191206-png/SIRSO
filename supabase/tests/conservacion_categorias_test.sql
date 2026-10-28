@@ -1,4 +1,6 @@
 -- Migración 089: conservación POR CATEGORÍAS (clínica, fiscal, contractual), fechas por fuente, fronteras, y trazabilidad de la limpieza.
+-- Actualizada a la regla de la 108: cada categoría la autoriza solo una política válida y APROBADA en politicas_conservacion, más las
+-- decisiones explícitas de plataforma (quién aprueba, qué es fiscal, si lo contractual bloquea). El valor legado ya no autoriza nada.
 \set ON_ERROR_STOP on
 \set QUIET on
 begin;
@@ -24,7 +26,7 @@ $$;
 create function pg_temp.huella(p uuid) returns jsonb language plpgsql as $$
 declare r record; n bigint; salida jsonb := '{}';
 begin
-  for r in select table_name from information_schema.columns where table_schema = 'public' and column_name = 'clinica_id' and table_name not like 'v\_%' and table_name <> 'auditoria' order by 1 loop
+  for r in select table_name from information_schema.columns where table_schema = 'public' and column_name = 'clinica_id' and table_name not like 'v\_%' and table_name not in ('auditoria', 'eliminaciones_clinica', 'eliminaciones_clinica_limpieza') order by 1 loop
     execute format('select count(*) from %I where clinica_id = $1', r.table_name) into n using p; salida := salida || jsonb_build_object('clinica:' || r.table_name, n); end loop;
   for r in select table_name from information_schema.columns where table_schema = 'public' and column_name = 'paciente_id' and table_name not like 'v\_%' and table_name not like 'zz\_%' order by 1 loop
     execute format('select count(*) from %I where paciente_id in (select id from pacientes where clinica_id = $1)', r.table_name) into n using p; salida := salida || jsonb_build_object('paciente:' || r.table_name, n); end loop;
@@ -37,7 +39,9 @@ end $$;
 create function pg_temp.prev(p_clinica text default null) returns jsonb language sql as $$
   select pg_temp.j(pg_temp.con_rol('service_role', format('select fn_clinica_resumen_eliminacion(%L::uuid, %L::uuid)::text', coalesce(p_clinica, current_setting('t.A')), current_setting('t.sa'))))
 $$;
-create function pg_temp.codigos(p jsonb) returns text language sql as $$ select coalesce(string_agg(b ->> 'codigo', ',' order by b ->> 'codigo'), '') from jsonb_array_elements(p -> 'bloqueos') b $$;
+-- Código de cada bloqueo; los de política llevan además @categoría (clínico y fiscal pueden dar el mismo código).
+create function pg_temp.codigos(p jsonb) returns text language sql as $$
+  select coalesce(string_agg(x, ',' order by x), '') from (select (b ->> 'codigo') || coalesce('@' || (b ->> 'categoria'), '') x from jsonb_array_elements(p -> 'bloqueos') b) s $$;
 -- Pone TODA la actividad clínica de una clínica en una fecha (se salta los triggers que reescriben las marcas de tiempo).
 create function pg_temp.envejecer_vieja(p uuid, ts timestamptz) returns void language plpgsql as $$
 declare pac uuid[];
@@ -63,9 +67,18 @@ end $$;
 create function pg_temp.no_ceros(h jsonb) returns integer language sql as $$ select count(*)::int from jsonb_each_text(h) where value::int <> 0 $$;
 
 
+-- Valor LEGADO en plataforma_config (desde la 108 solo se informa como aviso) y decisiones de plataforma.
 create function pg_temp.politica(p_clave text, p_valor text) returns void language plpgsql as $$ begin
   if p_valor is null then delete from plataforma_config where clave = p_clave;
   else insert into plataforma_config (clave, valor) values (p_clave, p_valor) on conflict (clave) do update set valor = excluded.valor; end if; end $$;
+-- (108) Las políticas solo cambian por fn_establecer_plazo_conservacion, que exige que NO haya un usuario autenticado: se limpian las claims antes.
+create function pg_temp.plazo(p_categoria text, p_anios integer, p_estado text default 'APROBADA_POR_ABOGADO') returns void language plpgsql as $$ begin
+  perform set_config('request.jwt.claims', '{}', true);
+  perform fn_establecer_plazo_conservacion(p_categoria, p_anios, p_estado, 'Prueba automatizada de conservación', null);
+end $$;
+create function pg_temp.plazo_err(p_categoria text, p_anios integer, p_estado text default 'APROBADA_POR_ABOGADO') returns text language plpgsql as $$ begin
+  perform pg_temp.plazo(p_categoria, p_anios, p_estado); return 'OK';
+exception when others then return 'ERR|' || sqlstate; end $$;
 -- Pone TODA la actividad clínica de una clínica en `ts` y reinicia las citas completadas (se salta los triggers que reescriben marcas de tiempo).
 create function pg_temp.envejecer(p uuid, ts timestamptz) returns void language plpgsql as $$
 declare pac uuid[];
@@ -143,33 +156,46 @@ select set_config('t.hY0', pg_temp.huella(current_setting('t.Y')::uuid)::text, f
 update clinicas set estado = 'suspendida' where id in ('c5000000-0000-0000-0000-00000000000a', 'c5000000-0000-0000-0000-00000000000d');
 select pg_temp.todo_viejo(current_setting('t.X')::uuid);
 create function pg_temp.codigos_x() returns text language sql as $$ select pg_temp.codigos(pg_temp.prev(current_setting('t.X'))) $$;
-select pg_temp.t('R0 la siembra: X tiene filas en TODAS las fuentes (si no, no probaría nada) y todo está viejo (sin políticas, solo bloquea la falta de política)',
-  (select count(*) from jsonb_each_text(pg_temp.huella(current_setting('t.X')::uuid)) where value::int > 0) >= 16 and pg_temp.codigos_x() = 'POLITICA_CONSERVACION_NO_DEFINIDA,POLITICA_FISCAL_NO_DEFINIDA');
+select pg_temp.t('R0 la siembra: X tiene filas en TODAS las fuentes (si no, no probaría nada) y todo está viejo; SIN políticas ni decisiones de plataforma bloquean las tres categorías, cada una con su código (nada se asume por omisión)',
+  (select count(*) from jsonb_each_text(pg_temp.huella(current_setting('t.X')::uuid)) where value::int > 0) >= 16
+  and pg_temp.codigos_x() = 'DECISION_CONTRACTUAL_NO_CONFIGURADA@contratos,DECISION_FISCAL_NO_CONFIGURADA,POLITICA_NO_DEFINIDA@expediente_clinico');
+-- Decisiones de plataforma para el resto de la batería: aprueba el abogado; lo fiscal son los pagos; lo contractual solo avisa si no hay política.
+select pg_temp.politica('conservacion_aprobaciones_validas', 'ABOGADO'), pg_temp.politica('conservacion_categorias_fiscales', 'pagos'),
+       pg_temp.politica('conservacion_contractual_bloquea', 'no');
 
--- ===== R7: política CLÍNICA inexistente / inválida / válida =====
+-- ===== R7: política CLÍNICA inexistente / legada / pendiente / aprobada =====
+select pg_temp.plazo('pagos', 5);
 do $$ declare v text; mal text := ''; r jsonb; begin
-  perform pg_temp.politica('retencion_fiscal_anios', '5'); perform pg_temp.politica('retencion_expediente_anios', null);
   r := pg_temp.prev(current_setting('t.X'));
-  if pg_temp.codigos(r) <> 'POLITICA_CONSERVACION_NO_DEFINIDA' then mal := mal || '[ausente]'; end if;
-  foreach v in array array['', '   ', '0', '-3', '1.5', 'abc', '5 años', '9999', '+5', '5,0'] loop
+  if pg_temp.codigos(r) <> 'POLITICA_NO_DEFINIDA@expediente_clinico' then mal := mal || '[ausente]'; end if;
+  foreach v in array array['', '   ', '0', '-3', '1.5', 'abc', '5 años', '9999', '+5', '5,0', '5', '7', '100'] loop
     perform pg_temp.politica('retencion_expediente_anios', v);
-    if pg_temp.codigos(pg_temp.prev(current_setting('t.X'))) <> 'POLITICA_CONSERVACION_NO_DEFINIDA' or (pg_temp.prev(current_setting('t.X')) ->> 'politica_anios') is not null then mal := mal || '[' || quote_literal(v) || ']'; end if;
+    r := pg_temp.prev(current_setting('t.X'));
+    if pg_temp.codigos(r) <> 'POLITICA_NO_DEFINIDA@expediente_clinico' or (r ->> 'politica_anios') is not null then mal := mal || '[' || quote_literal(v) || ']'; end if;
   end loop;
+  perform pg_temp.politica('retencion_expediente_anios', null);
   perform set_config('t.r7mal', mal, false);
 end $$;
-select pg_temp.t('R7 una política clínica AUSENTE, vacía, de espacios, 0, negativa, decimal, con texto, de más de 3 cifras, con signo o con coma NO es una política: bloquea con POLITICA_CONSERVACION_NO_DEFINIDA (la fila no puede ser NULL: la columna es NOT NULL)', current_setting('t.r7mal') = '');
-do $$ declare v record; mal text := ''; r jsonb; esperado text; begin
-  for v in select * from (values ('5', 5), ('05', 5), (' 7 ', 7), ('1', 1), ('100', 100), ('999', 999)) x(texto, anios) loop
-    perform pg_temp.politica('retencion_expediente_anios', v.texto);
+select pg_temp.t('R7 sin política clínica bloquea con POLITICA_NO_DEFINIDA, y ningún valor LEGADO la sustituye: ni uno inválido (vacío, espacios, 0, negativo, decimal, texto, 4 cifras, signo, coma) ni uno válido (5, 7, 100)', current_setting('t.r7mal') = '');
+do $$ declare v record; mal text := ''; r jsonb; begin
+  for v in select * from (values (5, 'APROBADA_POR_ABOGADO', 'ABOGADO', ''), (7, 'APROBADA_POR_ABOGADO', 'ABOGADO', ''), (100, 'APROBADA_POR_ABOGADO', 'ABOGADO', 'DENTRO_PLAZO_CONSERVACION'),
+                                 (5, 'PENDIENTE_DE_ABOGADO', 'ABOGADO', 'POLITICA_PENDIENTE_DE_APROBACION@expediente_clinico'),
+                                 (5, 'APROBADA_POR_RESPONSABLE', 'ABOGADO', 'POLITICA_PENDIENTE_DE_APROBACION@expediente_clinico'),
+                                 (5, 'APROBADA_POR_RESPONSABLE', 'ABOGADO_O_RESPONSABLE', '')) x(anios, estado, aprueba, esperado) loop
+    perform pg_temp.politica('conservacion_aprobaciones_validas', v.aprueba);
+    perform pg_temp.plazo('expediente_clinico', v.anios, v.estado);
     r := pg_temp.prev(current_setting('t.X'));
-    -- los datos de X tienen 20 años: una política de 100 o 999 años SÍ los retiene todavía
-    esperado := case when v.anios > 20 then 'DENTRO_PLAZO_CONSERVACION' else '' end;
-    if (r ->> 'politica_anios')::int <> v.anios or pg_temp.codigos(r) <> esperado then mal := mal || '[' || quote_literal(v.texto) || ']'; end if;
+    -- los datos de X tienen 20 años: una política de 100 años SÍ los retiene todavía
+    if pg_temp.codigos(r) <> v.esperado or (v.esperado not like '%PENDIENTE%' and (r ->> 'politica_anios')::int is distinct from v.anios)
+      then mal := mal || '[' || v.anios || ' ' || v.estado || ' ' || v.aprueba || ' -> ' || pg_temp.codigos(r) || ']'; end if;
   end loop;
+  perform pg_temp.politica('conservacion_aprobaciones_validas', 'ABOGADO');
   perform set_config('t.r7bmal', mal, false);
 end $$;
-select pg_temp.t('R7b los valores válidos (entero positivo de 1 a 3 cifras, con espacios o ceros a la izquierda) se interpretan exactamente como esos años: 1-7 años ya vencieron para datos de 20 años; 100 y 999 todavía los retienen', current_setting('t.r7bmal') = '');
-select pg_temp.politica('retencion_expediente_anios', '5');
+select pg_temp.t('R7b solo una política APROBADA autoriza, por exactamente esos años (5 y 7 ya vencieron para datos de 20 años; 100 todavía los retiene); pendiente de abogado, o aprobada por el responsable cuando se exige abogado, bloquea; si la plataforma admite al responsable, vale', current_setting('t.r7bmal') = '');
+select pg_temp.t('R7c una política por DEBAJO del mínimo legal (4 < 5 años) o fuera de rango ni siquiera se puede guardar (CHECK): no existe forma de aprobar un plazo menor',
+  pg_temp.plazo_err('expediente_clinico', 4) = 'ERR|23514' and pg_temp.plazo_err('expediente_clinico', 0) = 'ERR|23514' and pg_temp.plazo_err('expediente_clinico', 101) = 'ERR|23514');
+select pg_temp.plazo('expediente_clinico', 5);
 
 -- ===== R1-R5: cada fuente aporta SU fecha (se comprueba la fecha exacta, no solo que bloquee) =====
 do $$ declare t record; mal text := ''; v_x uuid := current_setting('t.X')::uuid; ts timestamptz; i int := 0; r jsonb; begin
@@ -261,11 +287,16 @@ end $$;
 select pg_temp.t('R9 una solicitud ARCO bloquea en recibida/en_revision/requiere_informacion/aprobada y NO en atendida/cerrada/rechazada; un incidente bloquea en detectado/en_investigacion/contenido y NO en resuelto/cerrado', current_setting('t.r9mal') = '');
 
 -- ===== R12: FISCAL (solo si hay pagos) =====
-select pg_temp.politica('retencion_fiscal_anios', null);
-select pg_temp.t('R12 la clínica tiene pagos y NO hay política fiscal: POLITICA_FISCAL_NO_DEFINIDA aunque lo clínico esté en regla (obligaciones separadas)', pg_temp.codigos_x() = 'POLITICA_FISCAL_NO_DEFINIDA');
-select pg_temp.politica('retencion_fiscal_anios', 'abc');
-select pg_temp.t('R12b una política fiscal inválida bloquea igual', pg_temp.codigos_x() = 'POLITICA_FISCAL_NO_DEFINIDA');
-select pg_temp.politica('retencion_fiscal_anios', '5');
+select pg_temp.plazo('pagos', null, 'PENDIENTE_DE_ABOGADO');
+select pg_temp.t('R12 la clínica tiene pagos y NO hay política fiscal: POLITICA_NO_DEFINIDA de pagos aunque lo clínico esté en regla (obligaciones separadas)', pg_temp.codigos_x() = 'POLITICA_NO_DEFINIDA@pagos');
+select pg_temp.plazo('pagos', 5);
+select pg_temp.politica('conservacion_categorias_fiscales', 'pagos,inventada');
+select set_config('t.r12b1', pg_temp.codigos_x(), false);
+select pg_temp.politica('conservacion_categorias_fiscales', 'pagos,facturas');
+select set_config('t.r12b2', pg_temp.codigos_x(), false);
+select pg_temp.t('R12b una decisión fiscal con una categoría inexistente bloquea (DECISION_FISCAL_INVALIDA); y si incluye una categoría sin política (facturas), esa bloquea aunque pagos esté en regla',
+  current_setting('t.r12b1') = 'DECISION_FISCAL_INVALIDA' and current_setting('t.r12b2') = 'POLITICA_NO_DEFINIDA@facturas');
+select pg_temp.politica('conservacion_categorias_fiscales', 'pagos');
 select pg_temp.t('R12c con política fiscal y pagos antiguos: sin bloqueo', pg_temp.codigos_x() = '');
 do $$ declare t record; mal text := ''; ts timestamptz; r jsonb; i int := 0; begin
   for t in select * from (values ('pagos.creado_en', 'update pagos set creado_en = $2 where paciente_id in (select id from pacientes where clinica_id = $1)'),
@@ -283,7 +314,14 @@ select pg_temp.t('R12d el último pago Y la última anulación aportan su fecha 
 -- ===== R13: CONTRACTUAL (avisa si no hay política; bloquea si la hay y está en plazo) =====
 select pg_temp.t('R13 sin política contractual NO bloquea (toda clínica tiene suscripción: bloquearía hasta una clínica de pruebas) pero AVISA con CONTRACTUAL_NO_EVALUADO, y el aviso viaja en la vista previa',
   (pg_temp.prev(current_setting('t.X')) -> 'advertencias' -> 0 ->> 'codigo') = 'CONTRACTUAL_NO_EVALUADO' and (pg_temp.prev(current_setting('t.X')) ->> 'puede_eliminar') = 'true');
-select pg_temp.politica('retencion_contractual_anios', '3');
+select pg_temp.politica('conservacion_contractual_bloquea', null);
+select set_config('t.r13a1', pg_temp.codigos_x(), false);
+select pg_temp.politica('conservacion_contractual_bloquea', 'si');
+select set_config('t.r13a2', pg_temp.codigos_x(), false);
+select pg_temp.politica('conservacion_contractual_bloquea', 'no');
+select pg_temp.t('R13a si la plataforma no decidió si lo contractual bloquea, bloquea (DECISION_CONTRACTUAL_NO_CONFIGURADA); si decidió que SÍ, la falta de política contractual bloquea como la clínica',
+  current_setting('t.r13a1') = 'DECISION_CONTRACTUAL_NO_CONFIGURADA@contratos' and current_setting('t.r13a2') = 'POLITICA_NO_DEFINIDA@contratos');
+select pg_temp.plazo('contratos', 3);
 select pg_temp.envejecer_contractual(current_setting('t.X')::uuid, now() - interval '20 years');
 select pg_temp.t('R13b con política contractual y todo antiguo: sin bloqueo ni aviso', pg_temp.codigos_x() = '' and jsonb_array_length(pg_temp.prev(current_setting('t.X')) -> 'advertencias') = 0);
 do $$ declare t record; mal text := ''; ts timestamptz; r jsonb; i int := 0; begin
@@ -310,10 +348,10 @@ select pg_temp.envejecer(current_setting('t.X')::uuid, now() - interval '10 days
 select pg_temp.t('R14d las tres a la vez → los tres códigos, cada uno con su mensaje', pg_temp.codigos_x() = 'DENTRO_PLAZO_CONSERVACION,DENTRO_PLAZO_CONTRACTUAL,DENTRO_PLAZO_FISCAL');
 select pg_temp.todo_viejo(current_setting('t.X')::uuid);
 -- ===== R6: clínica SIN pacientes ni datos =====
-select pg_temp.politica('retencion_expediente_anios', null); select pg_temp.politica('retencion_fiscal_anios', null); select pg_temp.politica('retencion_contractual_anios', null);
+select pg_temp.plazo('expediente_clinico', null, 'PENDIENTE_DE_ABOGADO'); select pg_temp.plazo('pagos', null, 'PENDIENTE_DE_ABOGADO'); select pg_temp.plazo('contratos', null, 'PENDIENTE_DE_ABOGADO');
 select pg_temp.t('R6 una clínica sin pacientes ni datos clínicos ni pagos no necesita ninguna política: sin bloqueos (solo el aviso contractual); mientras X, con datos y sin políticas, sigue bloqueada',
   pg_temp.codigos(pg_temp.prev(current_setting('t.Z'))) = '' and (pg_temp.prev(current_setting('t.Z')) ->> 'puede_eliminar') = 'true' and (pg_temp.prev(current_setting('t.Z')) -> 'conservacion' -> 'clinico' ->> 'ultimo_registro') is null
-  and pg_temp.codigos_x() = 'POLITICA_CONSERVACION_NO_DEFINIDA,POLITICA_FISCAL_NO_DEFINIDA');
+  and pg_temp.codigos_x() = 'POLITICA_NO_DEFINIDA@expediente_clinico,POLITICA_NO_DEFINIDA@pagos');
 insert into arco_solicitudes (clinica_id, tipo, solicitante_nombre, solicitante_correo, descripcion, estado) values (current_setting('t.Z')::uuid, 'acceso', 'Z', 'z@x.mx', 'datos', 'recibida');
 select pg_temp.t('R6b una ARCO pendiente bloquea también a una clínica SIN datos clínicos', pg_temp.codigos(pg_temp.prev(current_setting('t.Z'))) = 'ARCO_PENDIENTE');
 update arco_solicitudes set estado = 'cerrada' where clinica_id = current_setting('t.Z')::uuid;
@@ -339,7 +377,7 @@ select pg_temp.t('R17 un intento RECHAZADO (sin política) falla, no borra nada 
   and pg_temp.hint(current_setting('t.r17c')) = 'NO_AUTORIZADO');
 
 -- ===== Eliminación real de X cuando TODO se cumple =====
-select pg_temp.politica('retencion_expediente_anios', '5'); select pg_temp.politica('retencion_fiscal_anios', '7'); select pg_temp.politica('retencion_contractual_anios', '3');
+select pg_temp.plazo('expediente_clinico', 5); select pg_temp.plazo('pagos', 7); select pg_temp.plazo('contratos', 3);
 select pg_temp.todo_viejo(current_setting('t.X')::uuid);
 select set_config('t.eliminar', pg_temp.eliminar(current_setting('t.X'), current_setting('t.sa'), 'Clínica X', true), false);
 select pg_temp.t('R11 clínica suspendida con TODAS las políticas definidas y cumplidas, sin ARCO ni incidentes, con nombre y confirmación: SE ELIMINA, y Y queda intacta',
@@ -348,8 +386,10 @@ select pg_temp.t('R11 clínica suspendida con TODAS las políticas definidas y c
 select pg_temp.t('R18 la auditoría de la eliminación conserva lo necesario para investigarla: quién, qué clínica, conteos, lo que se conserva, las políticas y fechas evaluadas EN EL SERVIDOR, la confirmación, y las LISTAS COMPLETAS de archivos y cuentas pendientes',
   exists (select 1 from auditoria a where a.accion = 'eliminar_clinica' and a.entidad_id = current_setting('t.X')::uuid and a.usuario_id = current_setting('t.sa')::uuid
      and a.detalle ->> 'nombre' = 'Clínica X' and (a.detalle -> 'conteos' ->> 'pacientes') = '1' and a.detalle -> 'se_conserva' is not null and (a.detalle -> 'conservacion' -> 'clinico' ->> 'politica_anios') = '5'
-     and (a.detalle -> 'conservacion' -> 'fiscal' ->> 'politica_anios') = '7' and a.detalle ->> 'confirmo_datos_clinicos' = 'true' and a.detalle -> 'limpieza' ->> 'estado' = 'pendiente'
-     and a.detalle -> 'limpieza' -> 'archivos' = pg_temp.j(current_setting('t.eliminar')) -> 'rutas_storage' and a.detalle -> 'limpieza' -> 'cuentas_auth' = pg_temp.j(current_setting('t.eliminar')) -> 'cuentas_auth'));
+     and (a.detalle -> 'conservacion' -> 'fiscal' ->> 'politica_anios') = '7' and a.detalle ->> 'confirmo_datos_clinicos' = 'true' and a.detalle ->> 'registro' = 'eliminaciones_clinica')
+  -- (108) las LISTAS de la limpieza viven en el registro confiable, no en la auditoría (que no dirige la limpieza)
+  and exists (select 1 from eliminaciones_clinica e where e.clinica_id = current_setting('t.X')::uuid and e.solicitante = current_setting('t.sa')::uuid
+     and e.archivos = pg_temp.j(current_setting('t.eliminar')) -> 'rutas_storage' and to_jsonb(e.cuentas_auth) = pg_temp.j(current_setting('t.eliminar')) -> 'cuentas_auth'));
 -- ===== Limpieza de Auth y Storage: pendiente → parcial → completa =====
 select set_config('t.p0', pg_temp.con_rol('service_role', format('select fn_limpieza_pendiente_clinica(%L::uuid)::text', current_setting('t.X'))), false);
 select pg_temp.t('R19 inmediatamente tras la eliminación TODO está pendiente (2 cuentas, fotos, documentos y logo) y NO se declara completa; la lista sobrevive aunque la Edge Function nunca vuelva a ejecutarse',
@@ -374,7 +414,7 @@ select pg_temp.t('R22 al registrar TODO lo que faltaba, la limpieza queda comple
 -- Z se elimina sin políticas (no tiene nada que conservar) y la auditoría de Y sigue igual
 select pg_temp.t('R23a con la política contractual DEFINIDA, una clínica recién creada (suscripción de hoy) queda bloqueada por DENTRO_PLAZO_CONTRACTUAL: es la consecuencia buscada de definirla, y por eso sin política solo se avisa',
   pg_temp.codigos(pg_temp.prev(current_setting('t.Z'))) = 'DENTRO_PLAZO_CONTRACTUAL');
-select pg_temp.politica('retencion_contractual_anios', null);
+select pg_temp.plazo('contratos', null, 'PENDIENTE_DE_ABOGADO');
 select set_config('t.r23', pg_temp.eliminar(current_setting('t.Z'), current_setting('t.sa'), 'Clínica Z (sin pacientes)', false), false);
 select pg_temp.t('R23 Z (sin pacientes ni pagos), SIN política contractual: se elimina SIN políticas clínica/fiscal y sin confirmar datos clínicos; la auditoría de la eliminación de X sobrevive; Y intacta',
   pg_temp.hint(current_setting('t.r23')) = 'OK' and not exists (select 1 from clinicas where id = current_setting('t.Z')::uuid)
