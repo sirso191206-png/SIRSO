@@ -20,8 +20,13 @@ cd /trabajo
 pg_dump --schema-only --schema=auth -f auth_schema.sql
 pg_dump --schema-only --schema=storage -f storage_schema.sql
 pg_dump --schema-only --schema=public -f schema.sql
+# Todo proyecto de Supabase ya tiene el esquema public: sin esta línea el script se puede restaurar tal cual.
+sed -i '/^CREATE SCHEMA public;$/d' schema.sql
+# Un volcado por esquema (-n) no incluye las extensiones de las que depende (p. ej. btree_gist en public): se anteponen.
+psql -X -q -At -v ON_ERROR_STOP=1 -c "select 'CREATE SCHEMA IF NOT EXISTS ' || quote_ident(n.nspname) || '; CREATE EXTENSION IF NOT EXISTS ' || quote_ident(e.extname) || ' WITH SCHEMA ' || quote_ident(n.nspname) || ';' from pg_extension e join pg_namespace n on n.oid = e.extnamespace where e.extname <> 'plpgsql' order by e.extname" > extensiones.sql
+cat extensiones.sql schema.sql > schema_con_extensiones.sql && mv schema_con_extensiones.sql schema.sql && rm extensiones.sql
 pg_dump --data-only --schema=public --schema=auth --schema=storage -f data.sql
-psql -X -q -At -v ON_ERROR_STOP=1 -c "select bucket_id || E'\t' || name || E'\t' || coalesce(metadata->>'size', '') || E'\t' || coalesce(metadata->>'eTag', '') from storage.objects order by 1, 2" > storage_objetos.tsv
+psql -X -q -At -v ON_ERROR_STOP=1 -c "select bucket_id || E'\t' || name || E'\t' || coalesce(metadata->>'size', '') || E'\t' || coalesce(metadata->>'eTag', '') from storage.objects order by bucket_id, name" > storage_objetos.tsv
 
 # Filas por tabla según el PROPIO volcado (consistente: un solo pg_dump = una sola instantánea).
 awk '/^COPY /{t=$2; n=0; dentro=1; next} dentro && /^\\\.$/{print t "|" n; dentro=0; next} dentro{n++}' data.sql | tr -d '"' | sort > conteos_volcado.txt

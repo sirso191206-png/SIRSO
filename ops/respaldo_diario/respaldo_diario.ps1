@@ -17,6 +17,7 @@ param(
   [int]$DiasNube = 30
 )
 $ErrorActionPreference = 'Stop'
+[Console]::OutputEncoding = [Text.Encoding]::UTF8   # para leer bien los acentos que imprime Docker
 $REF = 'mhqdgvdcupzhatrryapw'
 $IMG = 'postgres:17.6-bookworm'
 $IMG_SUPABASE = 'public.ecr.aws/supabase/postgres:17.6.1.165'
