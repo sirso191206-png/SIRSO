@@ -2,6 +2,7 @@ import { supabase } from './supabase'
 import { crearNotaClinica, obtenerExpediente, actualizarExpedienteEnServidor } from '../services/expedientes'
 import { crearReceta } from '../services/recetas'
 import { crearTratamiento, actualizarTratamiento, registrarSesionEnServidor } from '../services/tratamientos'
+import { registrarMovimiento } from '../services/inventario'
 import { agregarListaEspera, marcarAtendidoListaEspera } from '../services/listaEspera'
 import { crearHorarioBloqueado, eliminarHorarioBloqueado } from '../services/horariosBloqueados'
 import { agregarSignosVitales } from '../services/signosVitales'
@@ -54,6 +55,9 @@ const EJECUTORES = {
   actualizar_tratamiento: (payload) => actualizarTratamiento(payload.id, payload.cambios),
   // No recibe el cálculo ya hecho a propósito — ver registrarSesionEnServidor.
   registrar_sesion_tratamiento: (payload) => registrarSesionEnServidor(payload.tratamientoId),
+  // Entrada o salida de inventario (117): el id viaja en la operación y la base lo reconoce al reintentar — nunca suma dos
+  // veces. Un rechazo definitivo (material inexistente, plan sin inventario…) llega como INTEGRIDAD_DATOS → conflicto.
+  registrar_movimiento_inventario: (payload) => registrarMovimiento(payload),
   crear_lista_espera: (payload) => agregarListaEspera(payload),
   marcar_atendido_lista_espera: (payload) => marcarAtendidoListaEspera(payload.id),
   crear_horario_bloqueado: (payload) => crearHorarioBloqueado(payload),

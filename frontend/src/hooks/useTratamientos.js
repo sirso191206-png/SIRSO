@@ -9,9 +9,24 @@ import {
   eliminarTratamiento
 } from '../services/tratamientos'
 import { encolarOperacion, listarOperacionesPendientes } from '../lib/colaOffline'
+import { obtenerAvisosTratamiento } from '../services/inventario'
+import { textoAvisoInventario } from '../lib/inventario'
+import { toastAviso } from '../store/useToastStore'
 import { esIdOffline } from '../lib/mapeoIdsOffline'
 import { useAuthStore } from '../store/useAuthStore'
 import { useSucursalStore } from '../store/useSucursalStore'
+
+// Tras registrar una sesión o completar un tratamiento, la base ya descontó sus materiales (migración 117). Si alguno quedó
+// agotado o bajo su mínimo se AVISA — nunca se bloquea la atención. Sin plan de inventario o sin receta la lista llega
+// vacía; un fallo al consultar los avisos no afecta lo que ya se guardó.
+async function avisarInventario(tratamientoId) {
+  try {
+    const texto = textoAvisoInventario(await obtenerAvisosTratamiento(tratamientoId))
+    if (texto) toastAviso(texto)
+  } catch {
+    // El aviso es informativo: si no se pudo consultar, la sesión ya quedó registrada.
+  }
+}
 
 export function useTratamientos(pacienteId) {
   const [tratamientos, setTratamientos] = useState([])
@@ -112,6 +127,7 @@ export function useTratamientos(pacienteId) {
     }
     await cambiarEstadoTratamiento(id, estado)
     await recargar()
+    if (estado === 'completado') await avisarInventario(id)
   }
 
   const cancelar = async (id, datos) => {
@@ -165,6 +181,7 @@ export function useTratamientos(pacienteId) {
     }
     await registrarSesion(tratamiento)
     await recargar()
+    await avisarInventario(tratamiento.id)
   }
 
   // Borrado real, a propósito solo online — a diferencia de crear/

@@ -68,7 +68,8 @@ export function useConsultaForm(citaId) {
   const finalizando = useRef(false)
 
   const { expediente } = useExpediente(cita?.paciente_id)
-  const { tratamientos, agregar: agregarTratamiento } = useTratamientos(cita?.paciente_id)
+  const { tratamientos, agregar: agregarTratamiento, sumarSesion } = useTratamientos(cita?.paciente_id)
+  const [registrandoSesion, setRegistrandoSesion] = useState(null)
   const { catalogo } = useCatalogoTratamientos()
   const { registros: signosVitales, agregar: agregarSignosVitales } = useSignosVitales(cita?.paciente_id)
   // La nota clínica de la consulta necesita las funcionalidades "notas_clinicas" y
@@ -101,6 +102,21 @@ export function useConsultaForm(citaId) {
   }, [citaId, intentoCarga])
 
   const reintentarCarga = () => setIntentoCarga((n) => n + 1)
+
+  // Sesión realizada en esta consulta: suma la sesión del tratamiento y la base descuenta sus materiales en la misma
+  // operación (migración 117). Sin stock suficiente la sesión se registra igual y se avisa (useTratamientos).
+  const registrarSesionTratamiento = async (tratamiento) => {
+    if (registrandoSesion) return
+    setRegistrandoSesion(tratamiento.id)
+    try {
+      await sumarSesion(tratamiento)
+      toastExito(navigator.onLine ? 'Sesión registrada.' : 'Sesión guardada sin conexión: se subirá al reconectar.')
+    } catch (err) {
+      toastError('No se pudo registrar la sesión: ' + err.message)
+    } finally {
+      setRegistrandoSesion(null)
+    }
+  }
 
   const aplicarPlantillaNota = (plantilla) => {
     setNotaContenido(PLANTILLAS_NOTA[plantilla])
@@ -370,6 +386,8 @@ export function useConsultaForm(citaId) {
     expediente,
     tratamientos,
     agregarTratamiento,
+    registrarSesionTratamiento,
+    registrandoSesion,
     catalogo,
     signosVitales,
     signosVitalesForm,

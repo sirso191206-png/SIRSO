@@ -174,11 +174,20 @@ export function ConsultaUnificada() {
         <div className="mt-3 space-y-2">
           {f.tratamientos.length === 0 && <p className="text-sm text-slate-400">Sin tratamientos agregados en esta consulta.</p>}
           {f.tratamientos.slice(0, 5).map((t) => (
-            <div key={t.id} className="flex items-center justify-between rounded-lg border border-slate-200 p-2 text-sm">
-              <span>{t.descripcion} {t.pieza_dental && `(pieza ${t.pieza_dental})`}</span>
+            <div key={t.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 p-2 text-sm">
+              <span>
+                {t.descripcion} {t.pieza_dental && `(pieza ${t.pieza_dental})`}
+                {t.numero_sesiones > 1 && <span className="ml-1 text-xs text-slate-400">· sesión {t.sesiones_completadas} de {t.numero_sesiones}</span>}
+              </span>
               <div className="flex items-center gap-2">
                 <span className="text-slate-500">${formatearMoneda(t.costo)}</span>
                 <Badge estado={t.estado} />
+                {/* Registrar la sesión de hoy descuenta los materiales de su receta (inventario) */}
+                {!t._pendiente && !['completado', 'cancelado'].includes(t.estado) && t.sesiones_completadas < t.numero_sesiones && (
+                  <Button variante="secundario" onClick={() => f.registrarSesionTratamiento(t)} disabled={!!f.registrandoSesion} data-registrar-sesion={t.id}>
+                    {f.registrandoSesion === t.id ? 'Registrando…' : 'Registrar sesión de hoy'}
+                  </Button>
+                )}
               </div>
             </div>
           ))}

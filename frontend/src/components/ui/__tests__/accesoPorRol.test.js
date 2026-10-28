@@ -39,6 +39,7 @@ const MATRIZ = [
   ['/consulta/xyz', ['owner', 'dentista', 'asistente']],
   ['/catalogo', ['owner', 'dentista']],
   ['/corte-de-caja', ['owner', 'recepcion']],
+  ['/inventario', ['owner', 'asistente']],
   ['/reportes', ['owner']],
   ['/auditoria', ['owner']],
   ['/usuarios', ['owner']],

@@ -13,10 +13,10 @@ export function ToastContainer() {
           key={t.id}
           onClick={() => quitar(t.id)}
           className={`flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium shadow-lg cursor-pointer animate-[fadeIn_0.15s_ease-out] ${
-            t.tipo === 'error' ? 'bg-red-600 text-white' : 'bg-slate-800 text-white'
+            t.tipo === 'error' ? 'bg-red-600 text-white' : t.tipo === 'aviso' ? 'bg-amber-500 text-slate-900' : 'bg-slate-800 text-white'
           }`}
         >
-          {t.tipo === 'error' ? <Icon.xCircle /> : <Icon.checkCircle />}
+          {t.tipo === 'error' ? <Icon.xCircle /> : t.tipo === 'aviso' ? <Icon.alertTriangle /> : <Icon.checkCircle />}
           {t.mensaje}
         </div>
       ))}

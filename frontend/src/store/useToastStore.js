@@ -8,7 +8,8 @@ export const useToastStore = create((set, get) => ({
   mostrar: (mensaje, tipo = 'exito') => {
     const id = siguienteId++
     set({ toasts: [...get().toasts, { id, mensaje, tipo }] })
-    setTimeout(() => get().quitar(id), 3500)
+    // Un aviso (p. ej. inventario insuficiente) se queda más tiempo: hay que alcanzar a leerlo.
+    setTimeout(() => get().quitar(id), tipo === 'aviso' ? 8000 : 3500)
   },
 
   quitar: (id) => {
@@ -19,3 +20,4 @@ export const useToastStore = create((set, get) => ({
 // Atajos para no repetir 'exito' / 'error' en cada llamada
 export const toastExito = (mensaje) => useToastStore.getState().mostrar(mensaje, 'exito')
 export const toastError = (mensaje) => useToastStore.getState().mostrar(mensaje, 'error')
+export const toastAviso = (mensaje) => useToastStore.getState().mostrar(mensaje, 'aviso')

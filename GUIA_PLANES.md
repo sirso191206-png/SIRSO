@@ -65,6 +65,7 @@ no aflojan nada) — sin la funcionalidad, el usuario **no ve ni escribe** esas 
 | `reserva_en_linea` | reserva_config, reserva_servicios, solicitudes_cita (117); además el enlace público (`reserva_*`) rechaza a la clínica sin ella |
 | `expediente_clinico` | expedientes, signos_vitales |
 | `multisucursal` | trigger de sucursales (2.ª sucursal activa en adelante) |
+| `inventario` (migración 118) | materiales, movimientos_inventario, receta_materiales; sin ella el descuento automático de la consulta no descuenta |
 
 Los triggers que crean solos el expediente/odontograma/periodontograma al dar de alta un paciente son
 `SECURITY DEFINER`, así que **crear pacientes sigue funcionando en cualquier plan** (hay prueba).
@@ -100,9 +101,10 @@ El personal de plataforma (superadmin) conserva acceso de soporte.
 | `offline` | sección "PIN para trabajar sin conexión" (Seguridad) | no |
 | `sincronizacion` | las **réplicas de lectura** en segundo plano (precarga del día y lista de pacientes/agenda) | no |
 | `multisucursal` | botón "+ Nueva sucursal" (Sucursales): sin la funcionalidad no se ofrece | sí (migración 079: sin ella no se crea NINGUNA sucursal) |
+| `inventario` | menú Inventario + **ruta** `/inventario` (propietario y asistente); alerta de stock bajo de Mi día; avisos al registrar una sesión | sí (118) |
 
 - **Sin conectar a ninguna pantalla** (el flag existe y se puede asignar a planes, pero hoy no restringe nada en la interfaz):
-  `inventario` (no existe el módulo; ni siquiera está en el catálogo), `administracion_avanzada` (no hay una pantalla
+  `administracion_avanzada` (no hay una pantalla
   de clínica que le corresponda; ARCO e incidentes de seguridad son obligaciones legales y **no** se ocultan por plan),
   `auditoria` (no hay pantalla de auditoría para la clínica), `roles` (el selector de rol es indispensable para crear
   usuarios), `reportes` (la pantalla `ReporteSis` no está en ninguna ruta; "Reportes" del menú es `estadisticas`).
