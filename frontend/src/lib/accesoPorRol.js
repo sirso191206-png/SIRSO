@@ -14,6 +14,7 @@ export const ACCESO_RUTAS = [
   { patron: '/consulta', roles: ['owner', 'dentista', 'asistente'] }, // la consulta es clínica: recepción no entra
   { patron: '/catalogo', roles: ['owner', 'dentista'] },
   { patron: '/corte-de-caja', roles: ['owner', 'recepcion'] },
+  { patron: '/inventario', roles: ['owner', 'asistente'] },
   { patron: '/reportes', roles: ['owner'] },
   { patron: '/auditoria', roles: ['owner'] },
   { patron: '/usuarios', roles: ['owner'] },

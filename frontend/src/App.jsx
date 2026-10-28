@@ -33,6 +33,7 @@ const SuperAdminPlanes = pagina(() => import('./pages/SuperAdminPlanes'), 'Super
 const SuperAdminErrores = pagina(() => import('./pages/SuperAdminErrores'), 'SuperAdminErrores')
 const CatalogoTratamientos = pagina(() => import('./pages/CatalogoTratamientos'), 'CatalogoTratamientos')
 const CorteDeCaja = pagina(() => import('./pages/CorteDeCaja'), 'CorteDeCaja')
+const Inventario = pagina(() => import('./pages/Inventario'), 'Inventario')
 const ConfiguracionClinica = pagina(() => import('./pages/ConfiguracionClinica'), 'ConfiguracionClinica')
 const ConfiguracionSeguridad = pagina(() => import('./pages/ConfiguracionSeguridad'), 'ConfiguracionSeguridad')
 const Sucursales = pagina(() => import('./pages/Sucursales'), 'Sucursales')
@@ -88,6 +89,7 @@ export default function App() {
         <Route path="/usuarios" element={<ProtectedRoute><Usuarios /></ProtectedRoute>} />
         <Route path="/catalogo" element={<ProtectedRoute><RutaConFuncionalidad funcionalidad="tratamientos"><CatalogoTratamientos /></RutaConFuncionalidad></ProtectedRoute>} />
         <Route path="/corte-de-caja" element={<ProtectedRoute><RutaConFuncionalidad funcionalidad="caja"><CorteDeCaja /></RutaConFuncionalidad></ProtectedRoute>} />
+        <Route path="/inventario" element={<ProtectedRoute><RutaConFuncionalidad funcionalidad="inventario"><Inventario /></RutaConFuncionalidad></ProtectedRoute>} />
         <Route path="/configuracion" element={<ProtectedRoute><ConfiguracionClinica /></ProtectedRoute>} />
         <Route path="/configuracion/seguridad" element={<ProtectedRoute><ConfiguracionSeguridad /></ProtectedRoute>} />
         <Route path="/ayuda" element={<ProtectedRoute><Ayuda /></ProtectedRoute>} />

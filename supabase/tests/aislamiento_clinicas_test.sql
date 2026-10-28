@@ -40,7 +40,7 @@ insert into pacientes (id, clinica_id, nombre_completo, dentista_responsable_id)
  ('b6000000-0000-0000-0000-00000000000a','c6000000-0000-0000-0000-00000000000a','Paciente de A','a6000000-0000-0000-0000-000000000002'),
  ('b6000000-0000-0000-0000-00000000000b','c6000000-0000-0000-0000-00000000000b','Paciente de B','a6000000-0000-0000-0000-000000000006');
 create function pg_temp.sembrar(p_pac uuid, p_cl uuid, p_dent uuid) returns void language plpgsql as $$
-declare v_exp uuid;
+declare v_exp uuid; v_cat uuid; v_mat uuid;
 begin
   insert into citas (paciente_id, inicio, fin, dentista_id) values (p_pac, now(), now() + interval '1 hour', p_dent);
   insert into tratamientos (paciente_id, descripcion, costo) values (p_pac, 'Trat', 100);
@@ -55,6 +55,11 @@ begin
   insert into sucursales (clinica_id, nombre) values (p_cl, 'Sucursal '||p_cl::text);
   select id into v_exp from expedientes where paciente_id = p_pac;
   insert into notas_clinicas (expediente_id, contenido, usuario_id) values (v_exp, 'Nota', p_dent);
+  -- Inventario (117): material con un movimiento y una receta del catálogo
+  insert into catalogo_tratamientos (clinica_id, nombre) values (p_cl, 'Resina') returning id into v_cat;
+  insert into materiales (clinica_id, nombre) values (p_cl, 'Material') returning id into v_mat;
+  insert into receta_materiales (clinica_id, catalogo_id, material_id, cantidad) values (p_cl, v_cat, v_mat, 1);
+  perform fn_inventario_aplicar(v_mat, 5, 'entrada', 'Siembra', 'manual', null);
   insert into storage.objects (bucket_id, name) values ('fotos-clinicas', p_pac||'/f.jpg'), ('documentos-clinicos', p_pac||'/d.pdf'), ('logos-clinicas', p_cl||'/logo.png');
 end $$;
 select pg_temp.sembrar('b6000000-0000-0000-0000-00000000000a','c6000000-0000-0000-0000-00000000000a','a6000000-0000-0000-0000-000000000002');
@@ -109,6 +114,9 @@ insert into _tablas (tabla, filtro_b, filtro_a) select * from (values
  ('usuarios',                   format('clinica_id = %L', current_setting('t.cb')),    format('clinica_id = %L', current_setting('t.ca'))),
  ('clinicas',                   format('id = %L', current_setting('t.cb')),            format('id = %L', current_setting('t.ca'))),
  ('suscripciones',              format('clinica_id = %L', current_setting('t.cb')),    format('clinica_id = %L', current_setting('t.ca'))),
+ ('materiales',                 format('clinica_id = %L', current_setting('t.cb')),    format('clinica_id = %L', current_setting('t.ca'))),   -- 117
+ ('movimientos_inventario',     format('clinica_id = %L', current_setting('t.cb')),    format('clinica_id = %L', current_setting('t.ca'))),   -- 117
+ ('receta_materiales',          format('clinica_id = %L', current_setting('t.cb')),    format('clinica_id = %L', current_setting('t.ca'))),   -- 117
  ('auditoria',                  format('clinica_id = %L', current_setting('t.cb')),    format('clinica_id = %L', current_setting('t.ca'))),
  ('consultorios',               format('sucursal_id = %L', current_setting('t.suc_b')), format('sucursal_id = %L', current_setting('t.suc_a'))),
  ('sillones',                   format('consultorio_id = %L', current_setting('t.con_b')), format('consultorio_id = %L', current_setting('t.con_a'))),
@@ -183,7 +191,12 @@ begin
     format('delete from auditoria where clinica_id = %L', current_setting('t.cb')),
     format('delete from recetas where paciente_id = %L', current_setting('t.pb')),
     format('delete from fotografias where paciente_id = %L', current_setting('t.pb')),
-    format('delete from documentos_clinicos where paciente_id = %L', current_setting('t.pb'))
+    format('delete from documentos_clinicos where paciente_id = %L', current_setting('t.pb')),
+    format('update materiales set nombre = ''x'', stock_minimo = 99 where clinica_id = %L', current_setting('t.cb')),
+    format('update movimientos_inventario set cantidad = 0 where clinica_id = %L', current_setting('t.cb')),
+    format('delete from movimientos_inventario where clinica_id = %L', current_setting('t.cb')),
+    format('update receta_materiales set cantidad = 9 where clinica_id = %L', current_setting('t.cb')),
+    format('delete from receta_materiales where clinica_id = %L', current_setting('t.cb'))
   ]) loop
     r := pg_temp.como(p_uid, s);
     -- bien = rechazado (ERR) o 0 filas afectadas (OK:0); mal = tocó filas
@@ -208,18 +221,21 @@ begin
     format('insert into sucursales (clinica_id, nombre) values (%L, ''Intrusa'')', current_setting('t.cb')),
     format('insert into horarios_bloqueados (clinica_id, tipo, inicio, fin) values (%L, ''x'', now(), now() + interval ''1 hour'')', current_setting('t.cb')),
     format('insert into lista_espera (clinica_id, paciente_id) values (%L, %L)', current_setting('t.cb'), current_setting('t.pb')),
-    format('insert into suscripciones (clinica_id, plan, modalidad) values (%L, ''empresarial'', ''mensual'')', current_setting('t.cb'))
+    format('insert into suscripciones (clinica_id, plan, modalidad) values (%L, ''empresarial'', ''mensual'')', current_setting('t.cb')),
+    format('insert into materiales (clinica_id, nombre) values (%L, ''Intruso'')', current_setting('t.cb')),
+    format('insert into receta_materiales (clinica_id, catalogo_id, material_id, cantidad) values (%L, (select id from catalogo_tratamientos where clinica_id = %L limit 1), (select id from materiales where clinica_id = %L limit 1), 1)', current_setting('t.cb'), current_setting('t.cb'), current_setting('t.cb')),
+    format('select fn_inventario_registrar_movimiento((select id from materiales where clinica_id = %L limit 1), ''entrada'', 100)', current_setting('t.cb'))
   ]) loop
     r := pg_temp.como(p_uid, s);
     if r not like 'ERR|%' then malas := malas || left(s, 45) || '→' || r || '; '; end if;
   end loop;
   return malas;
 end $$;
-select pg_temp.t('E1 OWNER de A: no modifica ni borra NADA de B (19 operaciones) — ' || coalesce(nullif(pg_temp.escrituras_a_b(current_setting('t.oa')::uuid),''),'ninguna filtrada'), pg_temp.escrituras_a_b(current_setting('t.oa')::uuid) = '');
+select pg_temp.t('E1 OWNER de A: no modifica ni borra NADA de B (24 operaciones) — ' || coalesce(nullif(pg_temp.escrituras_a_b(current_setting('t.oa')::uuid),''),'ninguna filtrada'), pg_temp.escrituras_a_b(current_setting('t.oa')::uuid) = '');
 select pg_temp.t('E2 DENTISTA de A: no modifica ni borra nada de B', pg_temp.escrituras_a_b(current_setting('t.da')::uuid) = '');
 select pg_temp.t('E3 RECEPCIÓN de A: no modifica ni borra nada de B', pg_temp.escrituras_a_b(current_setting('t.ra')::uuid) = '');
 select pg_temp.t('E4 ASISTENTE de A: no modifica ni borra nada de B', pg_temp.escrituras_a_b(current_setting('t.aa')::uuid) = '');
-select pg_temp.t('I1 OWNER de A: no puede INSERTAR apuntando a B (14 inserciones) — ' || coalesce(nullif(pg_temp.inserciones_a_b(current_setting('t.oa')::uuid),''),'todas rechazadas'), pg_temp.inserciones_a_b(current_setting('t.oa')::uuid) = '');
+select pg_temp.t('I1 OWNER de A: no puede INSERTAR apuntando a B (17 inserciones) — ' || coalesce(nullif(pg_temp.inserciones_a_b(current_setting('t.oa')::uuid),''),'todas rechazadas'), pg_temp.inserciones_a_b(current_setting('t.oa')::uuid) = '');
 select pg_temp.t('I2 DENTISTA de A: no puede insertar apuntando a B', pg_temp.inserciones_a_b(current_setting('t.da')::uuid) = '');
 select pg_temp.t('I3 RECEPCIÓN de A: no puede insertar apuntando a B', pg_temp.inserciones_a_b(current_setting('t.ra')::uuid) = '');
 select pg_temp.t('I4 ASISTENTE de A: no puede insertar apuntando a B', pg_temp.inserciones_a_b(current_setting('t.aa')::uuid) = '');
@@ -232,6 +248,9 @@ select pg_temp.t('E5 tras todos esos ataques, B quedó INTACTA (nada modificado,
   and (select count(*) from recetas where paciente_id = current_setting('t.pb')::uuid) = 1
   and (select count(*) from fotografias where paciente_id = current_setting('t.pb')::uuid) = 1
   and (select count(*) from sucursales where clinica_id = current_setting('t.cb')::uuid) = 1
+  and (select count(*) || '|' || sum(stock) || '|' || min(nombre) from materiales where clinica_id = current_setting('t.cb')::uuid) = '1|5.00|Material'
+  and (select count(*) from movimientos_inventario where clinica_id = current_setting('t.cb')::uuid) = 1
+  and (select count(*) || '|' || sum(cantidad) from receta_materiales where clinica_id = current_setting('t.cb')::uuid) = '1|1.00'
   and (select count(*) from auditoria where clinica_id = current_setting('t.cb')::uuid and accion = 'cerrar_sesion_remota') = 0);
 -- Un paciente creado "en nombre de B" por un usuario de A cae en A (o se rechaza), nunca en B
 select pg_temp.como(current_setting('t.oa')::uuid, format('insert into pacientes (clinica_id, nombre_completo) values (%L, ''Colado'')', current_setting('t.cb')));

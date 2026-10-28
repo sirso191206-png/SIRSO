@@ -9,6 +9,7 @@ import { ModalNuevaUrgencia } from '../components/ModalNuevaUrgencia'
 import { useDisponibilidad } from '../hooks/useFuncionalidad'
 import { OnboardingClinica } from '../components/onboarding/OnboardingClinica'
 import { AvisoDatosGuardados } from '../components/layout/AvisoDatosGuardados'
+import { AlertaStockBajo } from '../components/inventario/AlertaStockBajo'
 import { Button } from '../components/ui/Button'
 import { Icon } from '../components/ui/Icon'
 import { formatearMoneda } from '../lib/formato'
@@ -94,6 +95,8 @@ export function MiDia() {
       />
 
       <ConsultasPorCompletar pendientes={consultasPendientes} />
+
+      <AlertaStockBajo />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">

@@ -60,6 +60,7 @@ const SECCIONES_BASE = [
     enlaces: [
       { to: '/catalogo', label: 'Tratamientos', icon: 'sparkles', funcionalidad: 'tratamientos' },
       { to: '/corte-de-caja', label: 'Corte de caja', icon: 'card', funcionalidad: 'caja' },
+      { to: '/inventario', label: 'Inventario', icon: 'archive', funcionalidad: 'inventario' },
       { to: '/reportes', label: 'Reportes', icon: 'chart', funcionalidad: 'estadisticas' }
     ]
   },
