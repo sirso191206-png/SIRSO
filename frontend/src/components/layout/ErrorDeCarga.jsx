@@ -1,4 +1,5 @@
 import { Component } from 'react'
+import { registrarErrorCliente } from '../../lib/registroErrores'
 
 // Si una pantalla no se puede descargar —lo habitual: SIRO se actualizó y esta pestaña pide un archivo de la versión
 // anterior que ya no existe, o no hay conexión y esa pantalla no estaba en caché— no se deja la pantalla en blanco:
@@ -16,6 +17,7 @@ export class ErrorDeCarga extends Component {
 
   componentDidCatch(error) {
     console.error('No se pudo cargar una pantalla de SIRO:', error)
+    registrarErrorCliente(error, 'pantalla que no se pudo abrir')
   }
 
   render() {

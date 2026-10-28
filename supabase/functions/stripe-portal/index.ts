@@ -5,6 +5,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 
 import { buildCorsHeaders } from '../_shared/cors.ts'
+import { registrarFalloEdge } from '../_shared/alertas.ts'
 import { ErrorDeSolicitud, responderError } from '../_shared/solicitud.ts'
 import { clienteAdmin, clienteStripe, perfilDelLlamante } from '../_shared/stripe.ts'
 import { urlsDeRegreso } from '../_shared/stripe-logica.ts'
@@ -30,6 +31,9 @@ serve(async (req) => {
     })
     return new Response(JSON.stringify({ url: sesion.url }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   } catch (err) {
-    return responderError(err, corsHeaders, 'stripe-portal')
+    const respuesta = responderError(err, corsHeaders, 'stripe-portal')
+    // Un fallo inesperado (5xx) en el cobro se registra y avisa por correo (116).
+    if (respuesta.status >= 500) await registrarFalloEdge('stripe-portal', err)
+    return respuesta
   }
 })

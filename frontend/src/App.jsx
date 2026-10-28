@@ -30,6 +30,7 @@ const Usuarios = pagina(() => import('./pages/Usuarios'), 'Usuarios')
 const Administracion = pagina(() => import('./pages/Administracion'), 'Administracion')
 const AdministracionClinica = pagina(() => import('./pages/AdministracionClinica'), 'AdministracionClinica')
 const SuperAdminPlanes = pagina(() => import('./pages/SuperAdminPlanes'), 'SuperAdminPlanes')
+const SuperAdminErrores = pagina(() => import('./pages/SuperAdminErrores'), 'SuperAdminErrores')
 const CatalogoTratamientos = pagina(() => import('./pages/CatalogoTratamientos'), 'CatalogoTratamientos')
 const CorteDeCaja = pagina(() => import('./pages/CorteDeCaja'), 'CorteDeCaja')
 const ConfiguracionClinica = pagina(() => import('./pages/ConfiguracionClinica'), 'ConfiguracionClinica')
@@ -95,6 +96,7 @@ export default function App() {
         <Route path="/consulta/:citaId" element={<ProtectedRoute><ConsultaUnificada /></ProtectedRoute>} />
         <Route path="/administracion" element={<ProtectedRoute><Administracion /></ProtectedRoute>} />
         <Route path="/superadmin/planes" element={<ProtectedRoute><SuperAdminPlanes /></ProtectedRoute>} />
+        <Route path="/superadmin/errores" element={<ProtectedRoute><SuperAdminErrores /></ProtectedRoute>} />
         <Route path="/administracion/arco" element={<ProtectedRoute><AdministracionArco /></ProtectedRoute>} />
         <Route path="/administracion/incidentes" element={<ProtectedRoute><AdministracionIncidentes /></ProtectedRoute>} />
         <Route path="/admin/legal" element={<ProtectedRoute><AdminLegal /></ProtectedRoute>} />

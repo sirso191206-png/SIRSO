@@ -7,6 +7,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 
 import { clienteAdmin, clienteStripe, proveedorCripto } from '../_shared/stripe.ts'
+import { registrarFalloEdge } from '../_shared/alertas.ts'
 import { datosFactura, datosSuscripcion, EVENTO_CHECKOUT, EVENTOS_FACTURA, EVENTOS_SUSCRIPCION, idDe } from '../_shared/stripe-logica.ts'
 
 const json = (cuerpo: unknown, status = 200) => new Response(JSON.stringify(cuerpo), { status, headers: { 'Content-Type': 'application/json' } })
@@ -16,6 +17,7 @@ serve(async (req) => {
   const secreto = Deno.env.get('STRIPE_WEBHOOK_SECRET')
   if (!secreto) {
     console.error('stripe-webhook: falta STRIPE_WEBHOOK_SECRET')
+    await registrarFalloEdge('stripe-webhook', new Error('Falta STRIPE_WEBHOOK_SECRET'))
     return json({ error: 'No configurado' }, 500)
   }
 
@@ -70,6 +72,8 @@ serve(async (req) => {
   } catch (err) {
     const e = err as { code?: string; message?: string }
     console.error('stripe-webhook: error procesando', evento.type, evento.id, e?.code ?? '', e?.message ?? String(err))
+    // Crítico: si un pago no se aplica, la clínica podría quedar bloqueada. Stripe reintenta; además se avisa por correo (116).
+    await registrarFalloEdge('stripe-webhook', { code: e?.code, message: `${evento.type} ${evento.id}: ${e?.message ?? String(err)}` })
     return json({ error: 'No se pudo procesar el evento' }, 500)
   }
 })

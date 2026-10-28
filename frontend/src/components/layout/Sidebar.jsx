@@ -212,6 +212,7 @@ export function Sidebar() {
                 <ItemNav to="/administracion" icon="briefcase" tonoAmbar>Clínicas</ItemNav>
                 <ItemNav to="/superadmin/planes" icon="card" tonoAmbar>Planes</ItemNav>
                 <ItemNav to="/admin/legal" icon="scale" tonoAmbar>Legal</ItemNav>
+                <ItemNav to="/superadmin/errores" icon="alertTriangle" tonoAmbar>Errores</ItemNav>
               </div>
             </div>
           )}
