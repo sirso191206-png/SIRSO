@@ -17,6 +17,7 @@ import { ErrorDeCarga } from './components/layout/ErrorDeCarga'
 // conexión. Una guardia (codigoPorRutas.test.js) impide volver a importar pantallas de golpe.
 const pagina = (cargar, nombre) => lazy(() => cargar().then((m) => ({ default: m[nombre] })))
 const Contacto = pagina(() => import('./pages/Contacto'), 'Contacto')
+const PaginaNoEncontrada = pagina(() => import('./pages/PaginaNoEncontrada'), 'PaginaNoEncontrada')
 const RestablecerPassword = pagina(() => import('./pages/RestablecerPassword'), 'RestablecerPassword')
 const Legal = pagina(() => import('./pages/Legal'), 'Legal')
 const AvisoPrivacidad = pagina(() => import('./pages/legal/AvisoPrivacidad'), 'AvisoPrivacidad')
@@ -98,6 +99,7 @@ export default function App() {
         <Route path="/administracion/incidentes" element={<ProtectedRoute><AdministracionIncidentes /></ProtectedRoute>} />
         <Route path="/admin/legal" element={<ProtectedRoute><AdminLegal /></ProtectedRoute>} />
         <Route path="/administracion/:clinicaId" element={<ProtectedRoute><AdministracionClinica /></ProtectedRoute>} />
+        <Route path="*" element={<PaginaNoEncontrada />} />
       </Routes>
         </Suspense>
       </ErrorDeCarga>

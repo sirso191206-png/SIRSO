@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useAuthStore } from '../store/useAuthStore'
 import { HeaderPublico } from '../components/layout/HeaderPublico'
+import { BarraRegresoPublica } from '../components/layout/BarraRegreso'
 import { FooterPublico } from '../components/layout/FooterPublico'
 import { Icon } from '../components/ui/Icon'
 
@@ -40,6 +41,7 @@ export function Legal() {
     <div className="flex min-h-screen flex-col bg-slate-50">
       {!session && <HeaderPublico enlace="/login" textoEnlace="Iniciar sesión" />}
       <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-12 sm:px-10">
+        <BarraRegresoPublica />
         <h1 className="mb-2 text-2xl font-semibold text-slate-800">Centro Legal</h1>
         <p className="mb-8 text-sm text-slate-500">
           Aquí encuentras los documentos que rigen el uso de SIRO y el tratamiento de tu información.

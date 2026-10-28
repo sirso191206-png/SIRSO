@@ -8,6 +8,7 @@ import { mensajeSesionCerrada } from '../../services/sesiones'
 import { PantallaDesbloqueoPin } from '../auth/PantallaDesbloqueoPin'
 import { AccesoNoAutorizado } from './AccesoNoAutorizado'
 import { AvisoSuscripcion } from '../planes/AvisoSuscripcion'
+import { BarraRegreso } from './BarraRegreso'
 import { BloqueoPorPago } from '../planes/BloqueoPorPago'
 import { useSuscripcionAlDia } from '../../hooks/useSuscripcionAlDia'
 import { usePlanActual } from '../../hooks/useFuncionalidad'
@@ -117,6 +118,7 @@ export function ProtectedRoute({ children }) {
         <Sidebar />
         <main className="flex-1 overflow-y-auto p-8">
           <AvisoSuscripcion />
+          <BarraRegreso />
           {autorizado ? children : <AccesoNoAutorizado rol={perfil?.rol} />}
         </main>
       </div>

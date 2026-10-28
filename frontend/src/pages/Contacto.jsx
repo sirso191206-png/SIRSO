@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { enviarMensajeContacto, validarContacto, LIMITES_CONTACTO } from '../services/contacto'
 import { HeaderPublico } from '../components/layout/HeaderPublico'
+import { BarraRegresoPublica } from '../components/layout/BarraRegreso'
 
 export function Contacto() {
   const [nombre, setNombre] = useState('')
@@ -45,6 +46,8 @@ export function Contacto() {
       <HeaderPublico enlace="/login" textoEnlace="Iniciar sesión" />
 
       <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-16 animate-fade-in sm:px-10">
+
+        <BarraRegresoPublica />
         <h1 className="mb-2 text-3xl font-bold tracking-tight text-slate-900">Contacto</h1>
         <p className="mb-10 max-w-xl text-sm leading-relaxed text-slate-500">
           ¿Tienes dudas sobre SIRO o necesitas soporte con tu clínica? Escríbenos y te respondemos lo antes posible.

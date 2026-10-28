@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAuthStore } from '../../store/useAuthStore'
 import { HeaderPublico } from '../../components/layout/HeaderPublico'
+import { BarraRegresoPublica } from '../../components/layout/BarraRegreso'
 import { FooterPublico } from '../../components/layout/FooterPublico'
 import { VisorDocumentoLegal } from '../../components/legal/VisorDocumentoLegal'
 import { EditorDocumentoLegal } from '../../components/legal/EditorDocumentoLegal'
@@ -18,6 +19,7 @@ export function AvisoPrivacidad() {
     <div className="flex min-h-screen flex-col bg-slate-50">
       {!session && <HeaderPublico enlace="/login" textoEnlace="Iniciar sesión" />}
       <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-12 sm:px-10">
+        <BarraRegresoPublica />
         <h1 className="mb-6 text-2xl font-semibold text-slate-800">Aviso de Privacidad</h1>
 
         <div className="mb-6 flex gap-2 border-b border-slate-200">

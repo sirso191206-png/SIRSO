@@ -1,5 +1,6 @@
 import { useAuthStore } from '../../store/useAuthStore'
 import { HeaderPublico } from '../../components/layout/HeaderPublico'
+import { BarraRegresoPublica } from '../../components/layout/BarraRegreso'
 import { FooterPublico } from '../../components/layout/FooterPublico'
 import { INVENTARIO_PROVEEDORES } from '../../lib/inventarioProveedores'
 
@@ -10,6 +11,7 @@ export function Proveedores() {
     <div className="flex min-h-screen flex-col bg-slate-50">
       {!session && <HeaderPublico enlace="/login" textoEnlace="Iniciar sesión" />}
       <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-12 sm:px-10">
+        <BarraRegresoPublica />
         <h1 className="mb-2 text-2xl font-semibold text-slate-800">Proveedores</h1>
         <p className="mb-8 text-sm text-slate-500">
           Este es el inventario real de servicios de terceros que utiliza SIRO — revisado directamente contra el

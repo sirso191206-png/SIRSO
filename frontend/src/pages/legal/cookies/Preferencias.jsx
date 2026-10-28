@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useAuthStore } from '../../../store/useAuthStore'
 import { useCookiesStore } from '../../../store/useCookiesStore'
 import { HeaderPublico } from '../../../components/layout/HeaderPublico'
+import { BarraRegresoPublica } from '../../../components/layout/BarraRegreso'
 import { FooterPublico } from '../../../components/layout/FooterPublico'
 import { ModalPreferenciasCookies } from '../../../components/legal/ModalPreferenciasCookies'
 import { CATEGORIAS } from '../../../lib/inventarioCookies'
@@ -17,6 +18,7 @@ export function PreferenciasCookies() {
     <div className="flex min-h-screen flex-col bg-slate-50">
       {!session && <HeaderPublico enlace="/login" textoEnlace="Iniciar sesión" />}
       <main className="mx-auto w-full max-w-2xl flex-1 px-6 py-12 sm:px-10">
+        <BarraRegresoPublica />
         <h1 className="mb-2 text-2xl font-semibold text-slate-800">Preferencias de almacenamiento</h1>
         <p className="mb-6 text-sm text-slate-500">
           Puedes cambiar tu decisión sobre almacenamiento local en cualquier momento, desde aquí.

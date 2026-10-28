@@ -3,6 +3,7 @@ import { useAuthStore } from '../../store/useAuthStore'
 import { toastExito, toastError } from '../../store/useToastStore'
 import { crearSolicitudArco } from '../../services/arco'
 import { HeaderPublico } from '../../components/layout/HeaderPublico'
+import { BarraRegresoPublica } from '../../components/layout/BarraRegreso'
 import { FooterPublico } from '../../components/layout/FooterPublico'
 import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Input'
@@ -62,6 +63,7 @@ export function Arco() {
     <div className="flex min-h-screen flex-col bg-slate-50">
       {!session && <HeaderPublico enlace="/login" textoEnlace="Iniciar sesión" />}
       <main className="mx-auto w-full max-w-2xl flex-1 px-6 py-12 sm:px-10">
+        <BarraRegresoPublica />
         <h1 className="mb-2 text-2xl font-semibold text-slate-800">Derechos ARCO</h1>
         <p className="mb-8 text-sm text-slate-500">
           Puedes solicitar Acceso, Rectificación, Cancelación u Oposición sobre tus datos personales. Responderemos
