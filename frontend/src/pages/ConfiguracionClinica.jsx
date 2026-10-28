@@ -8,6 +8,7 @@ import { Button } from '../components/ui/Button'
 import { PlanActualClinica } from '../components/planes/PlanActualClinica'
 import { PagoEnLinea } from '../components/planes/PagoEnLinea'
 import { SeccionDesplegable } from '../components/ui/SeccionDesplegable'
+import { SeccionReservaEnLinea } from '../components/reserva/SeccionReservaEnLinea'
 
 const TIPOS_ESTABLECIMIENTO = [
   'Consultorio dental',
@@ -93,7 +94,7 @@ export function ConfiguracionClinica() {
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-slate-800">Configuración de la clínica</h1>
-        <p className="text-sm text-slate-500">Tu plan, el pago en línea y los datos que aparecen en recibos, recetas y documentos.</p>
+        <p className="text-sm text-slate-500">Tu plan, el pago en línea, los datos que aparecen en recibos, recetas y documentos, y la reserva de citas en línea.</p>
       </div>
 
       <PlanActualClinica onMejorarPlan={pagoDisponible ? irAPago : null} />
@@ -179,6 +180,8 @@ export function ConfiguracionClinica() {
           </Button>
         </form>
       </SeccionDesplegable>
+
+      <SeccionReservaEnLinea clinicaId={perfil.clinica_id} nombreClinica={form.nombre} />
     </div>
   )
 }

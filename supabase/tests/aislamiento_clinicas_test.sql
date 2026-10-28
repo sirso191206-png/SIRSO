@@ -53,6 +53,11 @@ begin
   insert into horarios_bloqueados (clinica_id, tipo, inicio, fin) values (p_cl, 'comida', now(), now() + interval '1 hour');
   insert into lista_espera (clinica_id, paciente_id) values (p_cl, p_pac);
   insert into sucursales (clinica_id, nombre) values (p_cl, 'Sucursal '||p_cl::text);
+  -- migración 117: reserva en línea (configuración, servicios y una solicitud del enlace público)
+  insert into reserva_config (clinica_id, activa, slug) values (p_cl, true, 'reserva-' || left(p_cl::text, 8) || right(p_cl::text, 1));
+  insert into reserva_servicios (clinica_id, nombre, duracion_min) values (p_cl, 'Valoración', 30);
+  insert into solicitudes_cita (clinica_id, servicio_nombre, inicio, fin, nombre, correo, telefono)
+  values (p_cl, 'Valoración', now() + interval '2 days', now() + interval '2 days 30 minutes', 'Prospecto', 'prospecto@x.mx', '5512345678');
   select id into v_exp from expedientes where paciente_id = p_pac;
   insert into notas_clinicas (expediente_id, contenido, usuario_id) values (v_exp, 'Nota', p_dent);
   insert into storage.objects (bucket_id, name) values ('fotos-clinicas', p_pac||'/f.jpg'), ('documentos-clinicos', p_pac||'/d.pdf'), ('logos-clinicas', p_cl||'/logo.png');
@@ -121,7 +126,10 @@ insert into _tablas (tabla, filtro_b, filtro_a) select * from (values
  ('periodontograma_historial',  format('pieza_id = %L', current_setting('t.pe_b')),    format('pieza_id = %L', current_setting('t.pe_a'))),
  ('sesiones_usuario',           format('usuario_id = %L', 'a6000000-0000-0000-0000-000000000005'), format('usuario_id = %L', 'a6000000-0000-0000-0000-000000000001')),
  ('suscripcion_limites',        format('suscripcion_id in (select id from suscripciones where clinica_id = %L)', current_setting('t.cb')), format('suscripcion_id in (select id from suscripciones where clinica_id = %L)', current_setting('t.ca'))),
- ('suscripcion_funcionalidades',format('suscripcion_id in (select id from suscripciones where clinica_id = %L)', current_setting('t.cb')), format('suscripcion_id in (select id from suscripciones where clinica_id = %L)', current_setting('t.ca')))
+ ('suscripcion_funcionalidades',format('suscripcion_id in (select id from suscripciones where clinica_id = %L)', current_setting('t.cb')), format('suscripcion_id in (select id from suscripciones where clinica_id = %L)', current_setting('t.ca'))),
+ ('reserva_config',             format('clinica_id = %L', current_setting('t.cb')),    format('clinica_id = %L', current_setting('t.ca'))),
+ ('reserva_servicios',          format('clinica_id = %L', current_setting('t.cb')),    format('clinica_id = %L', current_setting('t.ca'))),
+ ('solicitudes_cita',           format('clinica_id = %L', current_setting('t.cb')),    format('clinica_id = %L', current_setting('t.ca')))
 ) v;
 -- Contactos del formulario público: solo el superadmin los lee; ningún owner (ni de A ni de B).
 insert into _tablas (tabla, filtro_b, filtro_a, positivo) values ('mensajes_contacto', 'true', 'true', false);
@@ -183,7 +191,13 @@ begin
     format('delete from auditoria where clinica_id = %L', current_setting('t.cb')),
     format('delete from recetas where paciente_id = %L', current_setting('t.pb')),
     format('delete from fotografias where paciente_id = %L', current_setting('t.pb')),
-    format('delete from documentos_clinicos where paciente_id = %L', current_setting('t.pb'))
+    format('delete from documentos_clinicos where paciente_id = %L', current_setting('t.pb')),
+    format('update reserva_config set activa = false where clinica_id = %L', current_setting('t.cb')),
+    format('delete from reserva_config where clinica_id = %L', current_setting('t.cb')),
+    format('update reserva_servicios set duracion_min = 10 where clinica_id = %L', current_setting('t.cb')),
+    format('delete from reserva_servicios where clinica_id = %L', current_setting('t.cb')),
+    format('update solicitudes_cita set estado = ''rechazada'' where clinica_id = %L', current_setting('t.cb')),
+    format('delete from solicitudes_cita where clinica_id = %L', current_setting('t.cb'))
   ]) loop
     r := pg_temp.como(p_uid, s);
     -- bien = rechazado (ERR) o 0 filas afectadas (OK:0); mal = tocó filas
@@ -208,7 +222,9 @@ begin
     format('insert into sucursales (clinica_id, nombre) values (%L, ''Intrusa'')', current_setting('t.cb')),
     format('insert into horarios_bloqueados (clinica_id, tipo, inicio, fin) values (%L, ''x'', now(), now() + interval ''1 hour'')', current_setting('t.cb')),
     format('insert into lista_espera (clinica_id, paciente_id) values (%L, %L)', current_setting('t.cb'), current_setting('t.pb')),
-    format('insert into suscripciones (clinica_id, plan, modalidad) values (%L, ''empresarial'', ''mensual'')', current_setting('t.cb'))
+    format('insert into suscripciones (clinica_id, plan, modalidad) values (%L, ''empresarial'', ''mensual'')', current_setting('t.cb')),
+    format('insert into reserva_servicios (clinica_id, nombre, duracion_min) values (%L, ''Intruso'', 30)', current_setting('t.cb')),
+    format('insert into solicitudes_cita (clinica_id, servicio_nombre, inicio, fin, nombre, correo, telefono) values (%L, ''X'', now(), now() + interval ''1 hour'', ''X'', ''x@x.mx'', ''5512345678'')', current_setting('t.cb'))
   ]) loop
     r := pg_temp.como(p_uid, s);
     if r not like 'ERR|%' then malas := malas || left(s, 45) || '→' || r || '; '; end if;

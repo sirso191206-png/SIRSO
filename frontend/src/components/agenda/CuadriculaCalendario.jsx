@@ -138,7 +138,7 @@ function BloqueCita({ cita, onClick }) {
 
   return (
     <div
-      draggable={!finalizada}
+      draggable={!finalizada && !cita.esSolicitud}
       onDragStart={(e) => {
         e.dataTransfer.setData('citaId', cita.id)
         e.dataTransfer.setData('duracionMin', String(duracionMin))

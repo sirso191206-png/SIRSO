@@ -21,6 +21,9 @@ import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { Icon } from '../components/ui/Icon'
+import { useSolicitudesCita } from '../hooks/useSolicitudesCita'
+import { ModalSolicitudesEnLinea, ModalSolicitudCita } from '../components/agenda/SolicitudesEnLinea'
+import { solicitudComoCita, solicitudesVisiblesEnAgenda } from '../lib/reservaEnLinea'
 
 function inicioDeSemanaLunes(fecha) {
   const d = new Date(fecha)
@@ -53,6 +56,8 @@ export function Agenda() {
   const [citaSeleccionada, setCitaSeleccionada] = useState(null)
   const [modalBloqueo, setModalBloqueo] = useState(false)
   const [modalListaEspera, setModalListaEspera] = useState(false)
+  const [modalSolicitudes, setModalSolicitudes] = useState(false)
+  const [solicitudAbierta, setSolicitudAbierta] = useState(null)
 
   useEffect(() => {
     listarDentistas().then(setDentistas).catch(() => {})
@@ -110,6 +115,13 @@ export function Agenda() {
   const { bloqueos, agregar: agregarBloqueo } = useHorariosBloqueados({ desde, hasta })
   const { lista: listaEspera, agregar: agregarListaEspera, marcarAtendido } = useListaEspera()
   const disponible = useDisponibilidad()
+  // Solicitudes de la reserva en línea: se dibujan en la cuadrícula como «Pendiente de confirmar» y se resuelven aquí.
+  const { solicitudes, confirmar: confirmarSolicitud, rechazar: rechazarSolicitud } = useSolicitudesCita({ activo: disponible('reserva_en_linea') })
+  const citasConSolicitudes = useMemo(() => [
+    ...citas,
+    ...solicitudesVisiblesEnAgenda(solicitudes, { desde, hasta, dentistaId: filtroDentista, estado: filtroEstado, sucursalId: sucursalActualId }).map(solicitudComoCita)
+  ], [citas, solicitudes, desde, hasta, filtroDentista, filtroEstado, sucursalActualId])
+  const abrirCita = (c) => (c.esSolicitud ? setSolicitudAbierta(c.solicitud) : setCitaSeleccionada(c))
 
   const cambiarPeriodo = (direccion) => {
     const nueva = new Date(fechaBase)
@@ -120,6 +132,7 @@ export function Agenda() {
   }
 
   const handleDropCita = async (citaId, nuevoInicio, duracionMin) => {
+    if (String(citaId).startsWith('solicitud-')) return // una solicitud se confirma, no se arrastra
     const nuevoFin = new Date(nuevoInicio.getTime() + duracionMin * 60000)
     try {
       await reagendar(citaId, { inicio: nuevoInicio.toISOString(), fin: nuevoFin.toISOString() })
@@ -196,6 +209,11 @@ export function Agenda() {
             <button onClick={() => setModalListaEspera(true)} className="flex w-full items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs text-slate-600 hover:bg-slate-50">
               <Icon.chair /> Lista de espera {listaEspera.length > 0 && `(${listaEspera.length})`}
             </button>
+            {disponible('reserva_en_linea') && (
+              <button onClick={() => setModalSolicitudes(true)} className="flex w-full items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs text-slate-600 hover:bg-slate-50">
+                <Icon.inbox /> Solicitudes en línea {solicitudes.length > 0 && <span className="rounded-full bg-orange-100 px-1.5 font-semibold text-orange-800">{solicitudes.length}</span>}
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -237,13 +255,13 @@ export function Agenda() {
         {error && <p className="mb-3 text-sm text-clinico-rojo">{error}</p>}
 
         {vista === 'mes' ? (
-          <VistaMes mes={fechaBase} citas={citas} onClickDia={handleClickDiaMes} />
+          <VistaMes mes={fechaBase} citas={citasConSolicitudes} onClickDia={handleClickDiaMes} />
         ) : (
           <CuadriculaCalendario
             dias={dias}
-            citas={citas}
+            citas={citasConSolicitudes}
             bloqueos={bloqueos}
-            onClickCita={setCitaSeleccionada}
+            onClickCita={abrirCita}
             onDropCita={handleDropCita}
             onClickSlot={puedeGestionar ? handleClickSlot : undefined}
           />
@@ -258,6 +276,24 @@ export function Agenda() {
           onReagendar={reagendar}
           onDesagendar={desagendar}
           onCorregida={recargar}
+        />
+      )}
+
+      <ModalSolicitudesEnLinea
+        abierto={modalSolicitudes}
+        onCerrar={() => setModalSolicitudes(false)}
+        solicitudes={solicitudes}
+        onAbrir={(s) => { setModalSolicitudes(false); setSolicitudAbierta(s) }}
+      />
+
+      {solicitudAbierta && (
+        <ModalSolicitudCita
+          key={solicitudAbierta.id}
+          solicitud={solicitudAbierta}
+          puedeGestionar={puedeGestionar}
+          onCerrar={() => setSolicitudAbierta(null)}
+          onConfirmar={async (id, pacienteId) => { await confirmarSolicitud(id, pacienteId); await recargar() }}
+          onRechazar={rechazarSolicitud}
         />
       )}
 

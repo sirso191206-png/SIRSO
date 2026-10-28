@@ -62,6 +62,7 @@ no aflojan nada) — sin la funcionalidad, el usuario **no ve ni escribe** esas 
 | `citas` | citas |
 | `agenda` | horarios_bloqueados, lista_espera |
 | `notas_clinicas` | notas_clinicas |
+| `reserva_en_linea` | reserva_config, reserva_servicios, solicitudes_cita (117); además el enlace público (`reserva_*`) rechaza a la clínica sin ella |
 | `expediente_clinico` | expedientes, signos_vitales |
 | `multisucursal` | trigger de sucursales (2.ª sucursal activa en adelante) |
 
