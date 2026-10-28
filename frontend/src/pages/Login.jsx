@@ -4,6 +4,7 @@ import { useAuthStore } from '../store/useAuthStore'
 import { HeaderPublico } from '../components/layout/HeaderPublico'
 import { ModalOlvidePassword } from '../components/ModalOlvidePassword'
 import { PantallaDesbloqueoPin } from '../components/auth/PantallaDesbloqueoPin'
+import { borrarPreferenciaLocal, guardarPreferenciaLocal, leerPreferenciaLocal, useCookiesStore } from '../store/useCookiesStore'
 
 const CLAVE_USUARIO_RECORDADO = 'siro_usuario_recordado'
 
@@ -18,11 +19,16 @@ export function Login() {
   const login = useAuthStore((s) => s.login)
   const desbloqueoOffline = useAuthStore((s) => s.desbloqueoOffline)
   const navigate = useNavigate()
+  // «Recordar usuario» es de la categoría Preferencias: sin ese permiso no se guarda nada (se avisa junto a la casilla).
+  const puedeRecordar = useCookiesStore((s) => s.decisionTomada && s.preferencias.preferencias === true)
+  const preferenciasCookies = useCookiesStore((s) => s.preferencias)
+  const guardarCookies = useCookiesStore((s) => s.guardar)
+  const permitirPreferencias = () => guardarCookies({ ...preferenciasCookies, preferencias: true })
 
   // Recordar usuario: si ya se guardó antes, se rellena solo. Nunca se
   // guarda la contraseña, solo el correo.
   useEffect(() => {
-    const guardado = localStorage.getItem(CLAVE_USUARIO_RECORDADO)
+    const guardado = leerPreferenciaLocal(CLAVE_USUARIO_RECORDADO)
     if (guardado) {
       setCorreo(guardado)
       setRecordar(true)
@@ -41,11 +47,8 @@ export function Login() {
     setCargando(true)
     try {
       await login(correo, password)
-      if (recordar) {
-        localStorage.setItem(CLAVE_USUARIO_RECORDADO, correo)
-      } else {
-        localStorage.removeItem(CLAVE_USUARIO_RECORDADO)
-      }
+      if (recordar) guardarPreferenciaLocal(CLAVE_USUARIO_RECORDADO, correo)
+      else borrarPreferenciaLocal(CLAVE_USUARIO_RECORDADO)
       navigate('/')
     } catch (err) {
       setError('Correo o contraseña incorrectos.')
@@ -127,6 +130,13 @@ export function Login() {
                 ¿Olvidaste tu contraseña?
               </button>
             </div>
+
+            {recordar && !puedeRecordar && (
+              <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                Para recordar tu usuario en este equipo necesitas permitir las cookies de preferencias.{' '}
+                <button type="button" onClick={permitirPreferencias} className="font-medium underline">Permitir</button>
+              </p>
+            )}
 
             {error && (
               <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-clinico-rojo">{error}</p>

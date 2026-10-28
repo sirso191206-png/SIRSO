@@ -4,9 +4,13 @@ import { useAuthStore } from '../../store/useAuthStore'
 import { useFuncionalidad, usePlanActual } from '../../hooks/useFuncionalidad'
 import { obtenerDatosOnboarding } from '../../services/onboarding'
 import { calcularPasos, claveOnboardingOculto, progresoOnboarding, puedeVerOnboarding } from '../../lib/onboarding'
+import { guardarPreferenciaLocal, leerPreferenciaLocal } from '../../store/useCookiesStore'
+
+// Sin permiso de cookies de preferencias, «ocultar» dura solo mientras la pestaña siga abierta.
+const ocultosEnEstaPestana = new Set()
 
 function estaOculto(usuarioId) {
-  try { return localStorage.getItem(claveOnboardingOculto(usuarioId)) === '1' } catch { return false }
+  return ocultosEnEstaPestana.has(usuarioId) || leerPreferenciaLocal(claveOnboardingOculto(usuarioId)) === '1'
 }
 
 // "Primeros pasos" para el propietario. Se oculta solo al completarse, o cuando la persona lo oculta. Sin conexión o ante
@@ -38,7 +42,8 @@ export function OnboardingClinica() {
   if (completo) return null
 
   const ocultar = () => {
-    try { localStorage.setItem(claveOnboardingOculto(perfil.id), '1') } catch { /* sin almacenamiento: solo se oculta ahora */ }
+    ocultosEnEstaPestana.add(perfil.id)
+    guardarPreferenciaLocal(claveOnboardingOculto(perfil.id), '1')
     setOculto(true)
   }
 

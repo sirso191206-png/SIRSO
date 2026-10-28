@@ -1,5 +1,5 @@
 import { supabase } from '../../lib/supabase'
-import { abrirVentanaImpresion } from '../../lib/imprimir'
+import { abrirVentanaImpresion, html } from '../../lib/imprimir'
 import { formatearMoneda } from '../../lib/formato'
 
 export async function imprimirPresupuesto({ paciente, tratamientos, clinicaId }) {
@@ -9,7 +9,7 @@ export async function imprimirPresupuesto({ paciente, tratamientos, clinicaId })
     const costo = Number(t.costo)
     const descuento = Number(t.descuento ?? 0)
     const total = costo - descuento
-    return `
+    return html`
       <tr>
         <td>${t.descripcion}${t.pieza_dental ? ` (pieza ${t.pieza_dental})` : ''}</td>
         <td style="text-align:center">${t.numero_sesiones ?? 1}</td>
@@ -18,11 +18,11 @@ export async function imprimirPresupuesto({ paciente, tratamientos, clinicaId })
         <td style="text-align:right"><strong>$${formatearMoneda(total)}</strong></td>
       </tr>
     `
-  }).join('')
+  })
 
   const totalGeneral = tratamientos.reduce((acc, t) => acc + Number(t.costo) - Number(t.descuento ?? 0), 0)
 
-  const html = `
+  const documento = html`
     <!doctype html>
     <html lang="es">
     <head>
@@ -65,5 +65,5 @@ export async function imprimirPresupuesto({ paciente, tratamientos, clinicaId })
     </html>
   `
 
-  abrirVentanaImpresion(html)
+  abrirVentanaImpresion(documento)
 }

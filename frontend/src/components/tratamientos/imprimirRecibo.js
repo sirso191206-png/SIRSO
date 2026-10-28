@@ -1,5 +1,5 @@
 import { supabase } from '../../lib/supabase'
-import { abrirVentanaImpresion } from '../../lib/imprimir'
+import { abrirVentanaImpresion, html } from '../../lib/imprimir'
 import { formatearMoneda } from '../../lib/formato'
 
 const NOMBRE_METODO = { efectivo: 'Efectivo', tarjeta: 'Tarjeta', transferencia: 'Transferencia', otro: 'Otro' }
@@ -8,7 +8,7 @@ const NOMBRE_TIPO = { anticipo: 'Anticipo', pago: 'Pago', reembolso: 'Reembolso'
 export async function imprimirRecibo({ pago, paciente, clinicaId }) {
   const { data: clinica } = await supabase.from('clinicas').select('nombre').eq('id', clinicaId).single()
 
-  const html = `
+  const documento = html`
     <!doctype html>
     <html lang="es">
     <head>
@@ -61,5 +61,5 @@ export async function imprimirRecibo({ pago, paciente, clinicaId }) {
     </html>
   `
 
-  abrirVentanaImpresion(html)
+  abrirVentanaImpresion(documento)
 }

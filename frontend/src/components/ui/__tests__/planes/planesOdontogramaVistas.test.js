@@ -27,6 +27,7 @@ vi.mock('../../../periodontograma/Periodontograma', () => ({ Periodontograma: ()
 import { Odontograma } from '../../../odontograma/Odontograma.jsx'
 import { usePlanStore } from '../../../../store/usePlanStore.js'
 import { useAuthStore } from '../../../../store/useAuthStore.js'
+import { useCookiesStore } from '../../../../store/useCookiesStore.js'
 
 const f = (codigo, habilitada) => ({ codigo, nombre: codigo, categoria: 'clinico', habilitada })
 function conPlan(funcs, vistaGuardada) {
@@ -34,6 +35,8 @@ function conPlan(funcs, vistaGuardada) {
   usePlanStore.setState({ suscripcion: { sin_suscripcion: false, plan: { nombre: 'P' }, funcionalidades: funcs }, claveSuscripcion: 'u1:c1', cargada: true })
   globalThis.window = globalThis
   globalThis.localStorage = { getItem: () => vistaGuardada, setItem: () => {} }
+  // La vista recordada es una cookie de «Preferencias»: solo se usa con ese permiso.
+  useCookiesStore.setState({ decisionTomada: true, preferencias: { necesarias: true, preferencias: true, analiticas: false, marketing: false } })
 }
 const render = () => renderToStaticMarkup(h(Odontograma, { pacienteId: 'p1' }))
 
@@ -48,6 +51,12 @@ describe('Odontograma: vistas disponibles según el plan', () => {
     const html = render()
     for (const t of ['Vista clínica 2D', 'Vista anatómica 3D', 'Periodontograma', 'Hoja clínica']) expect(html).toContain(t)
     expect(html).toContain('MARCADOR-2D')
+  })
+
+  it('sin permiso de cookies de preferencias, la 3D guardada NO se usa: abre en 2D', () => {
+    conPlan([f('odontograma_2d', true), f('odontograma_3d', true), f('periodontograma', false)], '3d')
+    useCookiesStore.setState({ decisionTomada: true, preferencias: { necesarias: true, preferencias: false, analiticas: false, marketing: false } })
+    expect(render()).toMatch(/aria-pressed="true"[^>]*>Vista clínica 2D/)
   })
 
   it('con 2D y 3D y la 3D guardada: se respeta y queda activa', () => {

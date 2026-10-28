@@ -1,5 +1,5 @@
 import { supabase } from '../../lib/supabase'
-import { abrirVentanaImpresion } from '../../lib/imprimir'
+import { abrirVentanaImpresion, html } from '../../lib/imprimir'
 import { formatearMoneda } from '../../lib/formato'
 
 const NOMBRE_METODO = { efectivo: 'Efectivo', tarjeta: 'Tarjeta', transferencia: 'Transferencia', otro: 'Otro' }
@@ -9,14 +9,14 @@ export async function imprimirCorteDeCaja({ pagos, desde, hasta, clinicaId, tota
 
   const filasMetodo = Object.entries(totalesPorMetodo)
     .filter(([, monto]) => monto !== 0)
-    .map(([metodo, monto]) => `
+    .map(([metodo, monto]) => html`
       <tr>
         <td>${NOMBRE_METODO[metodo] ?? metodo}</td>
         <td style="text-align:right">$${formatearMoneda(monto)}</td>
       </tr>
-    `).join('')
+    `)
 
-  const filasDetalle = pagos.map((p) => `
+  const filasDetalle = pagos.map((p) => html`
     <tr>
       <td>${p.numero_recibo}</td>
       <td>${p.paciente?.nombre_completo ?? ''}</td>
@@ -24,9 +24,9 @@ export async function imprimirCorteDeCaja({ pagos, desde, hasta, clinicaId, tota
       <td>${p.tipo}</td>
       <td style="text-align:right">${p.tipo === 'reembolso' ? '-' : ''}$${formatearMoneda(p.monto)}</td>
     </tr>
-  `).join('')
+  `)
 
-  const html = `
+  const documento = html`
     <!doctype html>
     <html lang="es">
     <head>
@@ -70,5 +70,5 @@ export async function imprimirCorteDeCaja({ pagos, desde, hasta, clinicaId, tota
     </html>
   `
 
-  abrirVentanaImpresion(html)
+  abrirVentanaImpresion(documento)
 }

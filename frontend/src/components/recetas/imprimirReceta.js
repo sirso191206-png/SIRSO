@@ -1,5 +1,5 @@
 import { supabase } from '../../lib/supabase'
-import { abrirVentanaImpresion } from '../../lib/imprimir'
+import { abrirVentanaImpresion, html, urlImagenSegura } from '../../lib/imprimir'
 import { calcularEdad } from '../../lib/fechas'
 import { obtenerSignosVitales } from '../../services/signosVitales'
 
@@ -36,10 +36,10 @@ export function bloqueSignosVitales(sv) {
 
   if (filas.length === 0) return '' // hay registro pero sin ningún valor útil — no mostrar sección vacía
 
-  return `
+  return html`
     <div class="signos-vitales">
       <div class="signos-vitales-titulo">Signos vitales</div>
-      ${filas.map((f) => `<div class="signos-vitales-fila">${f}</div>`).join('')}
+      ${filas.map((f) => html`<div class="signos-vitales-fila">${f}</div>`)}
     </div>
   `
 }
@@ -52,13 +52,13 @@ export function bloqueSignosVitales(sv) {
  * una línea en blanco ni "No disponible").
  */
 export function renderEncabezadoMedico(profesional, datosClinicaHtml = '') {
-  return `
+  return html`
     <div class="encabezado-medico">
       ${datosClinicaHtml}
       <div class="encabezado-medico-nombre">${profesional.nombre}</div>
-      ${profesional.cedula ? `<div class="encabezado-medico-dato">Cédula profesional: ${profesional.cedula}</div>` : ''}
-      ${profesional.rfc ? `<div class="encabezado-medico-dato">RFC: ${profesional.rfc}</div>` : ''}
-      ${profesional.escuela ? `<div class="encabezado-medico-dato">${profesional.escuela}</div>` : ''}
+      ${profesional.cedula ? html`<div class="encabezado-medico-dato">Cédula profesional: ${profesional.cedula}</div>` : ''}
+      ${profesional.rfc ? html`<div class="encabezado-medico-dato">RFC: ${profesional.rfc}</div>` : ''}
+      ${profesional.escuela ? html`<div class="encabezado-medico-dato">${profesional.escuela}</div>` : ''}
     </div>
   `
 }
@@ -69,9 +69,9 @@ export function renderEncabezadoMedico(profesional, datosClinicaHtml = '') {
  * llenar a mano). Se usa para Paciente / Fecha / Edad / Sexo / etc.
  */
 function campoFormulario(etiqueta, valor) {
-  return `
+  return html`
     <div class="campo">
-      <div class="campo-valor">${valor || '&nbsp;'}</div>
+      <div class="campo-valor">${valor || html`&nbsp;`}</div>
       <div class="campo-etiqueta">${etiqueta}</div>
     </div>
   `
@@ -90,23 +90,23 @@ export async function imprimirReceta({ receta, paciente, clinicaId, incluirSigno
 
   const profesional = datosProfesionalParaImprimir(receta)
 
-  const filas = (receta.medicamentos ?? []).map((m) => `
+  const filas = (receta.medicamentos ?? []).map((m) => html`
     <div class="medicamento">
       <div class="medicamento-nombre">${m.medicamento}${m.presentacion ? ` — ${m.presentacion}` : ''}</div>
       <div class="medicamento-detalle">
         ${[m.dosis && `Dosis: ${m.dosis}`, m.via && `Vía: ${m.via}`, m.frecuencia && `Frecuencia: ${m.frecuencia}`, m.duracion && `Duración: ${m.duracion}`]
           .filter(Boolean).join(' · ')}
       </div>
-      ${m.indicaciones ? `<div class="medicamento-indicaciones">${m.indicaciones}</div>` : ''}
+      ${m.indicaciones ? html`<div class="medicamento-indicaciones">${m.indicaciones}</div>` : ''}
     </div>
-  `).join('')
+  `)
 
   const numMedicamentos = (receta.medicamentos ?? []).length
   const compacto = numMedicamentos >= 2
 
   const edad = calcularEdad(paciente.fecha_nacimiento)
 
-  const html = `
+  const documento = html`
     <!doctype html>
     <html lang="es">
     <head>
@@ -200,13 +200,13 @@ export async function imprimirReceta({ receta, paciente, clinicaId, incluirSigno
     <body>
       <div class="hoja-media-carta${compacto ? ' compacto' : ''}">
       <div class="encabezado">
-        ${clinica?.logo_url ? `<div class="logo-clinica"><img src="${clinica.logo_url}" alt="" /></div>` : ''}
-        ${receta.folio ? `<div class="folio">Folio ${receta.folio}</div>` : ''}
+        ${urlImagenSegura(clinica?.logo_url) ? html`<div class="logo-clinica"><img src="${urlImagenSegura(clinica.logo_url)}" alt="" /></div>` : ''}
+        ${receta.folio ? html`<div class="folio">Folio ${receta.folio}</div>` : ''}
 
         ${renderEncabezadoMedico(
           profesional,
           (clinica?.nombre || clinica?.direccion || clinica?.telefono)
-            ? `<div class="clinica-datos">${clinica?.nombre ? `<div class="clinica-datos-nombre">${clinica.nombre}</div>` : ''}${clinica?.direccion || clinica?.telefono ? `<div>${[clinica?.direccion, clinica?.telefono].filter(Boolean).join(' · ')}</div>` : ''}</div>`
+            ? html`<div class="clinica-datos">${clinica?.nombre ? html`<div class="clinica-datos-nombre">${clinica.nombre}</div>` : ''}${clinica?.direccion || clinica?.telefono ? html`<div>${[clinica?.direccion, clinica?.telefono].filter(Boolean).join(' · ')}</div>` : ''}</div>`
             : ''
         )}
       </div>
@@ -230,22 +230,22 @@ export async function imprimirReceta({ receta, paciente, clinicaId, incluirSigno
       <div class="rp">Rp.</div>
       ${filas}
 
-      ${receta.indicaciones_generales ? `<div class="indicaciones-generales"><strong>Indicaciones generales:</strong> ${receta.indicaciones_generales}</div>` : ''}
+      ${receta.indicaciones_generales ? html`<div class="indicaciones-generales"><strong>Indicaciones generales:</strong> ${receta.indicaciones_generales}</div>` : ''}
 
-      ${receta.firma_paciente_png || receta.firma_dentista_png ? `
+      ${receta.firma_paciente_png || receta.firma_dentista_png ? html`
       <div class="firma-doble">
-        ${receta.firma_paciente_png ? `
+        ${urlImagenSegura(receta.firma_paciente_png) ? html`
         <div class="firma-col">
-          <img src="${receta.firma_paciente_png}" class="firma-imagen" alt="Firma del paciente" />
+          <img src="${urlImagenSegura(receta.firma_paciente_png)}" class="firma-imagen" alt="Firma del paciente" />
           <div class="firma-linea"></div>
           <div class="firma-texto">${paciente?.nombre_completo ?? 'Paciente'}</div>
         </div>` : ''}
         <div class="firma-col">
-          ${receta.firma_dentista_png ? `<img src="${receta.firma_dentista_png}" class="firma-imagen" alt="Firma del médico" />` : ''}
+          ${urlImagenSegura(receta.firma_dentista_png) ? html`<img src="${urlImagenSegura(receta.firma_dentista_png)}" class="firma-imagen" alt="Firma del médico" />` : ''}
           <div class="firma-linea"></div>
           <div class="firma-texto">${profesional.nombre}</div>
         </div>
-      </div>` : `
+      </div>` : html`
       <div class="firma">
         <div class="firma-linea"></div>
         <div class="firma-texto">
@@ -268,5 +268,5 @@ export async function imprimirReceta({ receta, paciente, clinicaId, incluirSigno
     </html>
   `
 
-  abrirVentanaImpresion(html)
+  abrirVentanaImpresion(documento)
 }

@@ -1,5 +1,5 @@
 import { supabase } from '../../lib/supabase'
-import { abrirVentanaImpresion } from '../../lib/imprimir'
+import { abrirVentanaImpresion, html } from '../../lib/imprimir'
 import { calcularEdad } from '../../lib/fechas'
 import { obtenerExpediente, obtenerNotasClinicas } from '../../services/expedientes'
 import { obtenerOdontogramaCompleto } from '../../services/odontograma'
@@ -116,18 +116,18 @@ function svgPieza(pieza) {
   if (pieza.estado && pieza.estado !== 'sano') {
     const color = COLOR_PIEZA_COMPLETA[pieza.estado] || '#F1F5F9'
     const etiqueta = ETIQUETA_ESTADO_PIEZA[pieza.estado] || pieza.estado
-    return `
+    return html`
       <div class="diente" title="Pieza ${numero} — ${etiqueta}">
         <svg viewBox="0 0 40 40" width="30" height="30">
           <rect x="2" y="2" width="36" height="36" rx="4" fill="${color}" stroke="#94A3B8" stroke-width="1.5"/>
-          ${pieza.estado === 'ausente' ? '<line x1="6" y1="6" x2="34" y2="34" stroke="#94A3B8" stroke-width="2"/><line x1="34" y1="6" x2="6" y2="34" stroke="#94A3B8" stroke-width="2"/>' : ''}
+          ${pieza.estado === 'ausente' ? html`<line x1="6" y1="6" x2="34" y2="34" stroke="#94A3B8" stroke-width="2"/><line x1="34" y1="6" x2="6" y2="34" stroke="#94A3B8" stroke-width="2"/>` : ''}
         </svg>
         <div class="diente-num">${numero}</div>
       </div>`
   }
 
   const c = (nombre) => COLOR_CARA[porCara[nombre]] || COLOR_CARA.sano
-  return `
+  return html`
     <div class="diente" title="Pieza ${numero} — sano/por caras">
       <svg viewBox="0 0 40 40" width="30" height="30">
         <rect x="2" y="2" width="36" height="36" fill="#fff" stroke="#94A3B8" stroke-width="1"/>
@@ -143,15 +143,15 @@ function svgPieza(pieza) {
 
 function svgOdontograma(piezas) {
   const porNumero = Object.fromEntries(piezas.map((p) => [p.numero_pieza, p]))
-  const fila = (numeros) => numeros.map((n) => (porNumero[n] ? svgPieza(porNumero[n]) : `<div class="diente"></div>`)).join('')
-  return `
+  const fila = (numeros) => numeros.map((n) => (porNumero[n] ? svgPieza(porNumero[n]) : html`<div class="diente"></div>`))
+  return html`
     <div class="odontograma">
       <div class="fila-dientes">${fila(FILA_SUPERIOR)}</div>
       <div class="fila-dientes">${fila(FILA_INFERIOR)}</div>
       <div class="leyenda">
         ${Object.entries({ ...COLOR_CARA, ...COLOR_PIEZA_COMPLETA }).map(([k, v]) =>
-          `<span class="leyenda-item"><span class="leyenda-color" style="background:${v}"></span>${ETIQUETA_ESTADO_PIEZA[k] || k}</span>`
-        ).join('')}
+          html`<span class="leyenda-item"><span class="leyenda-color" style="background:${v}"></span>${ETIQUETA_ESTADO_PIEZA[k] || k}</span>`
+        )}
       </div>
     </div>`
 }
@@ -185,8 +185,8 @@ export async function imprimirExpedienteCompleto({ paciente, clinicaId }) {
   const emergencia = paciente.contacto_emergencia || {}
 
   const filasSignos = signosVitales.length === 0
-    ? '<tr><td colspan="6" class="vacio">Sin registros de signos vitales.</td></tr>'
-    : signosVitales.map((s) => `
+    ? html`<tr><td colspan="6" class="vacio">Sin registros de signos vitales.</td></tr>`
+    : signosVitales.map((s) => html`
         <tr>
           <td>${fecha(s.creado_en)}</td>
           <td>${s.peso ?? '—'}</td>
@@ -194,11 +194,11 @@ export async function imprimirExpedienteCompleto({ paciente, clinicaId }) {
           <td>${s.presion_sistolica && s.presion_diastolica ? `${s.presion_sistolica}/${s.presion_diastolica}` : (s.presion_arterial ?? '—')}</td>
           <td>${s.temperatura ?? '—'}</td>
           <td>${s.frecuencia_cardiaca ?? '—'}</td>
-        </tr>`).join('')
+        </tr>`)
 
   const bloqueAntecedente = (titulo, valor) => {
     const texto = listaOTexto(valor)
-    return texto ? `<div class="antecedente"><strong>${titulo}:</strong> ${texto}</div>` : ''
+    return texto ? html`<div class="antecedente"><strong>${titulo}:</strong> ${texto}</div>` : ''
   }
 
   const heredo = (expediente.antecedentes_heredofamiliares || [])
@@ -206,21 +206,21 @@ export async function imprimirExpedienteCompleto({ paciente, clinicaId }) {
     .join(' · ')
 
   const bloquesNotas = notas.length === 0
-    ? '<p class="vacio">Sin notas clínicas registradas.</p>'
-    : notas.map((n) => `
+    ? html`<p class="vacio">Sin notas clínicas registradas.</p>`
+    : notas.map((n) => html`
         <div class="nota">
           <div class="nota-cabecera">
             <strong>${fecha(n.creado_en, true)}</strong> — ${n.usuario?.nombre ?? 'Sin registrar'}
             ${n.diagnostico_cie10_codigo ? ` · Diagnóstico: ${n.diagnostico_cie10_codigo}` : ''}
-            ${n.editado ? ' <span class="etiqueta-editado">(corregida posteriormente)</span>' : ''}
+            ${n.editado ? html` <span class="etiqueta-editado">(corregida posteriormente)</span>` : ''}
           </div>
-          ${n.hallazgos ? `<div class="nota-campo"><em>Hallazgos:</em> ${n.hallazgos}</div>` : ''}
+          ${n.hallazgos ? html`<div class="nota-campo"><em>Hallazgos:</em> ${n.hallazgos}</div>` : ''}
           <div class="nota-contenido">${n.contenido || ''}</div>
-        </div>`).join('')
+        </div>`)
 
   const filasTratamientos = tratamientos.length === 0
-    ? '<tr><td colspan="6" class="vacio">Sin tratamientos registrados.</td></tr>'
-    : tratamientos.map((t) => `
+    ? html`<tr><td colspan="6" class="vacio">Sin tratamientos registrados.</td></tr>`
+    : tratamientos.map((t) => html`
         <tr>
           <td>${t.descripcion}</td>
           <td>${t.pieza_dental ?? '—'}</td>
@@ -228,19 +228,19 @@ export async function imprimirExpedienteCompleto({ paciente, clinicaId }) {
           <td>${t.dentista?.nombre ?? '—'}</td>
           <td>$${Number(t.costo).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
           <td>${t.completado_en ? fecha(t.completado_en) : fecha(t.creado_en)}</td>
-        </tr>`).join('')
+        </tr>`)
 
   const filasConsentimientos = consentimientos.length === 0
-    ? '<tr><td colspan="4" class="vacio">Sin consentimientos registrados.</td></tr>'
-    : consentimientos.map((c) => `
+    ? html`<tr><td colspan="4" class="vacio">Sin consentimientos registrados.</td></tr>`
+    : consentimientos.map((c) => html`
         <tr>
           <td>${fecha(c.creado_en)}</td>
           <td>${c.procedimiento}</td>
           <td>${c.dentista?.nombre ?? '—'}</td>
           <td>${c.firma_paciente_png ? 'Firmado digitalmente' : (c.firma_paciente_nombre ? 'Firmado en papel' : 'Sin firmar')}</td>
-        </tr>`).join('')
+        </tr>`)
 
-  const html = `
+  const documento = html`
     <!doctype html>
     <html lang="es">
     <head>
@@ -298,9 +298,9 @@ export async function imprimirExpedienteCompleto({ paciente, clinicaId }) {
       ${bloqueAntecedente('Medicamentos actuales', expediente.medicamentos_actuales)}
       ${bloqueAntecedente('Cirugías anteriores', expediente.cirugias_anteriores)}
       ${bloqueAntecedente('Hospitalizaciones', expediente.hospitalizaciones)}
-      ${expediente.antecedentes_familiares ? `<div class="antecedente"><strong>Antecedentes familiares:</strong> ${expediente.antecedentes_familiares}</div>` : ''}
-      ${heredo ? `<div class="antecedente"><strong>Antecedentes heredofamiliares:</strong> ${heredo}</div>` : ''}
-      ${expediente.antecedentes_odontologicos ? `<div class="antecedente"><strong>Antecedentes odontológicos:</strong> ${expediente.antecedentes_odontologicos}</div>` : ''}
+      ${expediente.antecedentes_familiares ? html`<div class="antecedente"><strong>Antecedentes familiares:</strong> ${expediente.antecedentes_familiares}</div>` : ''}
+      ${heredo ? html`<div class="antecedente"><strong>Antecedentes heredofamiliares:</strong> ${heredo}</div>` : ''}
+      ${expediente.antecedentes_odontologicos ? html`<div class="antecedente"><strong>Antecedentes odontológicos:</strong> ${expediente.antecedentes_odontologicos}</div>` : ''}
       <div class="antecedente">
         <strong>Hábitos:</strong>
         Tabaquismo: ${NOMBRE_HABITO[expediente.tabaquismo] ?? '—'} ·
@@ -338,5 +338,5 @@ export async function imprimirExpedienteCompleto({ paciente, clinicaId }) {
     </html>
   `
 
-  abrirVentanaImpresion(html)
+  abrirVentanaImpresion(documento)
 }

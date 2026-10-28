@@ -79,13 +79,13 @@ describe('bloqueSignosVitales — se recuperan solos, sección opcional', () => 
   })
 
   it('muestra solo los campos que SÍ existen, en el formato pedido', () => {
-    const html = bloqueSignosVitales({
+    const html = String(bloqueSignosVitales({
       presion_sistolica: 120,
       presion_diastolica: 80,
       frecuencia_cardiaca: 72,
       temperatura: 36.5,
       // sin saturación, sin peso, sin talla — no deben aparecer
-    })
+    }))
     expect(html).toContain('Presión arterial: 120/80 mmHg')
     expect(html).toContain('Frecuencia cardiaca: 72 lpm')
     expect(html).toContain('Temperatura: 36.5 °C')
@@ -95,16 +95,16 @@ describe('bloqueSignosVitales — se recuperan solos, sección opcional', () => 
   })
 
   it('usa presion_arterial (texto libre) como respaldo si no hay sistólica/diastólica separadas', () => {
-    const html = bloqueSignosVitales({ presion_arterial: '118/76' })
+    const html = String(bloqueSignosVitales({ presion_arterial: '118/76' }))
     expect(html).toContain('Presión arterial: 118/76')
   })
 
   it('con todos los campos disponibles, los muestra todos', () => {
-    const html = bloqueSignosVitales({
+    const html = String(bloqueSignosVitales({
       presion_sistolica: 120, presion_diastolica: 80, frecuencia_cardiaca: 70,
       frecuencia_respiratoria: 16, temperatura: 36.8, saturacion_oxigeno: 98,
       peso: 70.5, estatura: 1.72,
-    })
+    }))
     for (const fragmento of ['Presión arterial', 'Frecuencia cardiaca', 'Frecuencia respiratoria', 'Temperatura', 'SpO₂', 'Peso', 'Talla']) {
       expect(html).toContain(fragmento)
     }
@@ -113,12 +113,12 @@ describe('bloqueSignosVitales — se recuperan solos, sección opcional', () => 
 
 describe('renderEncabezadoMedico — formato exacto pedido: nombre + cada dato en su propia línea, orden Cédula → RFC → Universidad', () => {
   it('con los 4 datos completos, reproduce exactamente el ejemplo dado', () => {
-    const html = renderEncabezadoMedico({
+    const html = String(renderEncabezadoMedico({
       nombre: 'Eduardo Iglesias Arines',
       cedula: '91425012',
       rfc: 'AISB750521',
       escuela: 'Universidad Autónoma del Estado de México',
-    })
+    }))
     expect(html).toContain('Eduardo Iglesias Arines')
     expect(html).toContain('Cédula profesional: 91425012')
     expect(html).toContain('RFC: AISB750521')
@@ -136,7 +136,7 @@ describe('renderEncabezadoMedico — formato exacto pedido: nombre + cada dato e
   })
 
   it('sin RFC: omite esa línea por completo, no deja un hueco ni "No disponible"', () => {
-    const html = renderEncabezadoMedico({ nombre: 'Dra. Ana Gómez', cedula: '12345678', rfc: null, escuela: 'UNAM' })
+    const html = String(renderEncabezadoMedico({ nombre: 'Dra. Ana Gómez', cedula: '12345678', rfc: null, escuela: 'UNAM' }))
     expect(html).not.toContain('RFC')
     expect(html).not.toContain('No disponible')
     expect(html).toContain('Cédula profesional: 12345678')
@@ -145,14 +145,14 @@ describe('renderEncabezadoMedico — formato exacto pedido: nombre + cada dato e
   })
 
   it('sin cédula ni universidad, solo con RFC: solo aparece esa línea', () => {
-    const html = renderEncabezadoMedico({ nombre: 'Dr. Juan Pérez', cedula: null, rfc: 'PEJU850101XYZ', escuela: null })
+    const html = String(renderEncabezadoMedico({ nombre: 'Dr. Juan Pérez', cedula: null, rfc: 'PEJU850101XYZ', escuela: null }))
     expect(html).not.toContain('Cédula profesional')
     expect(html).not.toContain('Universidad')
     expect(html).toContain('RFC: PEJU850101XYZ')
   })
 
   it('sin ningún dato profesional capturado: solo aparece el nombre, sin ninguna línea vacía', () => {
-    const html = renderEncabezadoMedico({ nombre: 'Dr. Sin Datos', cedula: null, rfc: null, escuela: null })
+    const html = String(renderEncabezadoMedico({ nombre: 'Dr. Sin Datos', cedula: null, rfc: null, escuela: null }))
     expect(html).toContain('Dr. Sin Datos')
     expect(html).not.toContain('Cédula profesional')
     expect(html).not.toContain('RFC')
@@ -161,10 +161,10 @@ describe('renderEncabezadoMedico — formato exacto pedido: nombre + cada dato e
   })
 
   it('acepta un bloque opcional de datos de la clínica y lo coloca ANTES del nombre del médico (clínica → médico → cédula, como en el recetario impreso)', () => {
-    const html = renderEncabezadoMedico(
+    const html = String(renderEncabezadoMedico(
       { nombre: 'Dr. Jose Gabino Gerardo Avilés', cedula: '8068097', rfc: null, escuela: null },
       '<div class="clinica-datos">Domicilio: calle Sinaloa — La Paz BCS</div>'
-    )
+    ))
     expect(html).toContain('Domicilio: calle Sinaloa — La Paz BCS')
     const posClinica = html.indexOf('Domicilio: calle Sinaloa')
     const posNombre = html.indexOf('Dr. Jose Gabino Gerardo Avilés')
@@ -174,7 +174,7 @@ describe('renderEncabezadoMedico — formato exacto pedido: nombre + cada dato e
   })
 
   it('sin bloque de datos de la clínica (parámetro omitido): no rompe y no agrega nada extra', () => {
-    const html = renderEncabezadoMedico({ nombre: 'Dra. Ana Gómez', cedula: '12345678', rfc: null, escuela: null })
+    const html = String(renderEncabezadoMedico({ nombre: 'Dra. Ana Gómez', cedula: '12345678', rfc: null, escuela: null }))
     expect(html).toContain('Dra. Ana Gómez')
     expect(html).toContain('Cédula profesional: 12345678')
   })

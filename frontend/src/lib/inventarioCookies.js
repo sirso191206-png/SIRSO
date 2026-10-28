@@ -1,6 +1,8 @@
 // Inventario REAL — cada entrada corresponde a algo que de verdad
 // existe en el código (verificado por inspección directa: package.json,
 // index.html, y grep de localStorage/document.cookie/indexedDB en todo src/ y public/sw.js).
+// Lo de la categoría «preferencias» solo se guarda si la persona lo permitió (store/useCookiesStore.js:
+// guardarPreferenciaLocal) y se borra al rechazarlo; consentimientoCookies.test.js lo vigila.
 // No declarar aquí nada que no esté efectivamente en uso — si algún
 // día se agrega analítica o marketing, este archivo es el único lugar
 // que hay que actualizar, y con eso /legal/cookies queda al día.
@@ -39,6 +41,16 @@ export const INVENTARIO_COOKIES = [
     finalidad: 'Recordar tu correo para no tener que escribirlo cada vez que inicias sesión (solo si activaste "recordarme").',
     categoria: 'preferencias',
     duracion: 'Sin expiración — hasta que la borres o desactives "recordarme"',
+    dominio: 'Primera parte',
+    tipo: 'localStorage',
+    tercero: false
+  },
+  {
+    nombre: 'siro:onboarding-oculto:<usuario>',
+    proveedor: 'SIRO',
+    finalidad: 'Recordar que ocultaste el panel de «Primeros pasos» para no volver a mostrártelo.',
+    categoria: 'preferencias',
+    duracion: 'Sin expiración — hasta que la borres o rechaces las cookies de preferencias',
     dominio: 'Primera parte',
     tipo: 'localStorage',
     tercero: false

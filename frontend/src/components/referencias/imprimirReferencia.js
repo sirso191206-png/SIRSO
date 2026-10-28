@@ -1,12 +1,12 @@
 import { supabase } from '../../lib/supabase'
-import { abrirVentanaImpresion } from '../../lib/imprimir'
+import { abrirVentanaImpresion, html } from '../../lib/imprimir'
 import { calcularEdad } from '../../lib/fechas'
 
 export async function imprimirReferencia({ referencia, paciente, clinicaId }) {
   const { data: clinica } = await supabase.from('clinicas').select('nombre, direccion, telefono').eq('id', clinicaId).single()
   const edad = calcularEdad(paciente.fecha_nacimiento)
 
-  const html = `
+  const documento = html`
     <!doctype html>
     <html lang="es">
     <head>
@@ -43,9 +43,9 @@ export async function imprimirReferencia({ referencia, paciente, clinicaId }) {
         <div>${edad !== null ? `${edad} años` : ''}${paciente.telefono ? ` · Tel. ${paciente.telefono}` : ''}</div>
       </div>
 
-      ${referencia.motivo ? `<h2>Motivo de la referencia</h2><p>${referencia.motivo}</p>` : ''}
-      ${referencia.diagnostico ? `<h2>Diagnóstico</h2><p>${referencia.diagnostico}</p>` : ''}
-      ${referencia.tratamiento_realizado ? `<h2>Tratamiento realizado hasta ahora</h2><p>${referencia.tratamiento_realizado}</p>` : ''}
+      ${referencia.motivo ? html`<h2>Motivo de la referencia</h2><p>${referencia.motivo}</p>` : ''}
+      ${referencia.diagnostico ? html`<h2>Diagnóstico</h2><p>${referencia.diagnostico}</p>` : ''}
+      ${referencia.tratamiento_realizado ? html`<h2>Tratamiento realizado hasta ahora</h2><p>${referencia.tratamiento_realizado}</p>` : ''}
 
       <p style="margin-top: 20px;">Agradezco de antemano su valiosa atención y quedo atento a sus comentarios.</p>
 
@@ -53,7 +53,7 @@ export async function imprimirReferencia({ referencia, paciente, clinicaId }) {
         <div class="firma-linea"></div>
         <div class="firma-texto">
           ${referencia.dentista?.nombre ?? ''}
-          ${referencia.dentista?.cedula_profesional ? `<br/>Céd. Prof. ${referencia.dentista.cedula_profesional}` : ''}
+          ${referencia.dentista?.cedula_profesional ? html`<br/>Céd. Prof. ${referencia.dentista.cedula_profesional}` : ''}
         </div>
       </div>
 
@@ -62,5 +62,5 @@ export async function imprimirReferencia({ referencia, paciente, clinicaId }) {
     </html>
   `
 
-  abrirVentanaImpresion(html)
+  abrirVentanaImpresion(documento)
 }

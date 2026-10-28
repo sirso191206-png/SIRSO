@@ -12,7 +12,8 @@ import { useFuncionalidad } from '../hooks/useFuncionalidad'
 import { listarDentistas } from '../services/usuarios'
 import { registrarExportacion } from '../services/auditoria'
 import { aCsv, descargarCsv } from '../lib/csv'
-import { EXPORTACIONES, FILTROS_INICIALES, resumenFiltros } from '../lib/reportes'
+import { ESTADOS_TRATAMIENTO, EXPORTACIONES, FILTROS_INICIALES, PERIODOS_RANKING, PERIODOS_SERIE, resumenFiltros } from '../lib/reportes'
+import { imprimirReporte } from '../components/dashboard/imprimirReporte'
 import { toastError, toastExito } from '../store/useToastStore'
 import { Icon } from '../components/ui/Icon'
 import { FiltrosReportes } from '../components/dashboard/FiltrosReportes'
@@ -52,6 +53,26 @@ export function Dashboard() {
       toastExito('Reporte exportado.')
     } catch (err) {
       toastError('No se pudo exportar el reporte. Intenta de nuevo.')
+      console.error(err)
+    }
+  }
+
+  // Reporte completo en PDF (vía Imprimir → Guardar como PDF). También queda en la auditoría como exportación.
+  const reportePdf = async () => {
+    const etiqueta = (lista, valor) => lista.find((o) => o.valor === valor)?.etiqueta ?? valor
+    const filtrosTexto = [
+      filtros.periodo === 'rango' ? `Del ${filtros.desde} al ${filtros.hasta}` : etiqueta(PERIODOS_SERIE, filtros.periodo),
+      `Citas: últimas ${filtros.semanas} semanas`,
+      `Ranking: ${etiqueta(PERIODOS_RANKING, filtros.periodoRanking).toLowerCase()}`,
+      filtros.dentistaId && `Odontólogo: ${dentistas.find((d) => d.id === filtros.dentistaId)?.nombre ?? '—'}`,
+      filtros.sucursalId && `Sucursal: ${sucursales.find((x) => x.id === filtros.sucursalId)?.nombre ?? '—'}`,
+      filtros.estadoTratamiento && `Tratamientos: ${etiqueta(ESTADOS_TRATAMIENTO, filtros.estadoTratamiento).toLowerCase()}`
+    ].filter(Boolean)
+    try {
+      await registrarExportacion({ usuarioId: perfil.id, entidad: 'reportes', filas: 0, filtros: { reporte: 'reporte-pdf', ...resumenFiltros(filtros) } })
+      await imprimirReporte({ clinicaId: perfil.clinica_id, series, filtrosTexto, puedeVerFinanzas, generadoPor: perfil.nombre })
+    } catch (err) {
+      toastError(err?.message?.includes('ventanas emergentes') ? err.message : 'No se pudo generar el reporte. Intenta de nuevo.')
       console.error(err)
     }
   }
@@ -212,6 +233,14 @@ export function Dashboard() {
         puedeElegirDentista={esOwner}
         errorRango={errorRango}
       />
+
+      {puedeExportar && series && (
+        <div className="flex justify-end">
+          <button onClick={reportePdf} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50">
+            <Icon.printer /> Reporte en PDF
+          </button>
+        </div>
+      )}
 
       {errorSeries && <p className="text-sm text-clinico-rojo" role="alert">{errorSeries}</p>}
       {cargandoSeries && !series && !errorRango && <p className="text-sm text-slate-400">Cargando gráficas…</p>}

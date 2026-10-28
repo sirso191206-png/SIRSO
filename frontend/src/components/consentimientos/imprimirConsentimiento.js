@@ -1,23 +1,23 @@
 import { supabase } from '../../lib/supabase'
-import { abrirVentanaImpresion } from '../../lib/imprimir'
+import { abrirVentanaImpresion, html, urlImagenSegura } from '../../lib/imprimir'
 
 const NOMBRE_URGENCIA = { electivo: 'Electivo', urgente: 'Urgente', emergencia: 'Emergencia' }
 
 export async function imprimirConsentimiento({ consentimiento, paciente, clinicaId }) {
   const { data: clinica } = await supabase.from('clinicas').select('nombre, direccion, responsable_sanitario').eq('id', clinicaId).single()
 
-  const bloqueFirma = (titulo, nombre, png) => `
+  const bloqueFirma = (titulo, nombre, png) => html`
     <div class="firma-bloque">
       <div class="firma-titulo">${titulo}</div>
-      ${png ? `<img src="${png}" class="firma-img" />` : '<div class="firma-vacia">Sin firma</div>'}
+      ${urlImagenSegura(png) ? html`<img src="${urlImagenSegura(png)}" class="firma-img" />` : html`<div class="firma-vacia">Sin firma</div>`}
       <div class="firma-linea"></div>
       <div class="firma-nombre">${nombre || ''}</div>
     </div>
   `
 
-  const fila = (etiqueta, valor) => (valor ? `<div class="campo"><span class="campo-etiqueta">${etiqueta}:</span> ${valor}</div>` : '')
+  const fila = (etiqueta, valor) => (valor ? html`<div class="campo"><span class="campo-etiqueta">${etiqueta}:</span> ${valor}</div>` : '')
 
-  const html = `
+  const documento = html`
     <!doctype html>
     <html lang="es">
     <head>
@@ -53,10 +53,10 @@ export async function imprimirConsentimiento({ consentimiento, paciente, clinica
         <div><strong>Fecha:</strong> ${new Date(consentimiento.creado_en).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
         <div><strong>Lugar:</strong> ${consentimiento.lugar || clinica?.direccion || '—'}</div>
         <div><strong>Grado de urgencia:</strong> ${NOMBRE_URGENCIA[consentimiento.grado_urgencia] ?? 'Electivo'}</div>
-        ${consentimiento.fecha_procedimiento ? `<div><strong>Fecha del procedimiento:</strong> ${new Date(consentimiento.fecha_procedimiento + 'T00:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}</div>` : ''}
+        ${consentimiento.fecha_procedimiento ? html`<div><strong>Fecha del procedimiento:</strong> ${new Date(consentimiento.fecha_procedimiento + 'T00:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}</div>` : ''}
       </div>
 
-      ${consentimiento.revocado_en ? `
+      ${consentimiento.revocado_en ? html`
         <div style="background:#FEF2F2; border:1px solid #FCA5A5; border-radius:8px; padding:12px; margin-bottom:16px; font-size:13px; color:#991B1B;">
           <strong>⚠ Este consentimiento fue revocado</strong> el ${new Date(consentimiento.revocado_en).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}.
           ${consentimiento.motivo_revocacion ? `Motivo: ${consentimiento.motivo_revocacion}` : ''}
@@ -102,7 +102,7 @@ export async function imprimirConsentimiento({ consentimiento, paciente, clinica
         ${bloqueFirma('Firma del profesional', consentimiento.firma_medico_nombre ?? consentimiento.dentista?.nombre, consentimiento.firma_medico_png)}
       </div>
 
-      ${(consentimiento.testigo1_nombre || consentimiento.testigo2_nombre) ? `
+      ${(consentimiento.testigo1_nombre || consentimiento.testigo2_nombre) ? html`
         <div class="testigos">
           <strong>Testigo(s):</strong> ${[consentimiento.testigo1_nombre, consentimiento.testigo2_nombre].filter(Boolean).join(' · ')}
         </div>
@@ -113,5 +113,5 @@ export async function imprimirConsentimiento({ consentimiento, paciente, clinica
     </html>
   `
 
-  abrirVentanaImpresion(html)
+  abrirVentanaImpresion(documento)
 }

@@ -8,6 +8,7 @@ import { reiniciarModelo3D } from './modelo3D'
 import { useOdontograma } from '../../hooks/useOdontograma'
 import { useDisponibilidad } from '../../hooks/useFuncionalidad'
 import { elegirVistaDisponible } from '../../lib/planes'
+import { guardarPreferenciaLocal, leerPreferenciaLocal } from '../../store/useCookiesStore'
 
 // Three.js/@react-three/fiber solo se descargan si el usuario pide la
 // vista 3D — con React.lazy nunca entran al bundle inicial ni se cargan
@@ -30,7 +31,7 @@ const OPCIONES = [
 export function Odontograma({ pacienteId, onIrATab }) {
   const [vista, setVista] = useState(() => {
     if (typeof window === 'undefined') return '2d'
-    const guardada = localStorage.getItem(CLAVE_PREFERENCIA)
+    const guardada = leerPreferenciaLocal(CLAVE_PREFERENCIA)
     return VISTAS_VALIDAS.includes(guardada) ? guardada : '2d'
   })
 
@@ -49,12 +50,8 @@ export function Odontograma({ pacienteId, onIrATab }) {
 
   const cambiarVista = (nueva) => {
     setVista(nueva)
-    try {
-      localStorage.setItem(CLAVE_PREFERENCIA, nueva)
-    } catch {
-      // localStorage puede fallar en modo privado — no es crítico, se
-      // pierde solo la preferencia recordada, no ningún dato clínico.
-    }
+    // Solo se recuerda si la persona permitió las cookies de preferencias (y si el navegador lo deja).
+    guardarPreferenciaLocal(CLAVE_PREFERENCIA, nueva)
   }
 
   if (opciones.length === 0) {
