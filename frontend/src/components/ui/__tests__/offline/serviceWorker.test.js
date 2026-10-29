@@ -313,3 +313,30 @@ describe('Actualización del Service Worker (sección 17, prueba #20)', () => {
     expect(sw.self.skipWaiting).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('Service Worker — una página nunca queda en texto plano', () => {
+  it('si a esta build le falta el shell (caché borrado) y no hay red, abre el shell de otra build guardada', async () => {
+    const almacenes = new Map([['siro-shell-build-1', new Map([[abs('/index.html'), new Response('<html>shell build-1</html>')]])]])
+    const sw = levantarSW({ build: 'build-2', red: sinRed, almacenes })
+    expect(await sw.pedir('/superadmin/errores', { mode: 'navigate' })).toMatchObject({ status: 200, texto: '<html>shell build-1</html>' })
+  })
+  it('sin ningún shell guardado y sin red, una PÁGINA recibe HTML con «Reintentar» (no el texto crudo del 503)', async () => {
+    const sw = levantarSW({ red: sinRed })
+    const r = await sw.pedir('/superadmin/errores', { mode: 'navigate' })
+    expect(r.status).toBe(503)
+    expect(r.texto).toContain('<!doctype html>')
+    expect(r.texto).toContain('Reintentar')
+    expect(r.texto).toContain('no se pierden')
+    const sinConexion = levantarSW({ red: sinRed, enLinea: false })
+    expect((await sinConexion.pedir('/', { mode: 'navigate' })).texto).toContain('Sin conexión')
+  })
+  it('una ruta de la app que llega de la red repara el shell de esta build, y la siguiente vez abre sin red', async () => {
+    let hayRed = true
+    const html = () => new Response('<html>shell build-1</html>', { headers: { 'Content-Type': 'text/html; charset=utf-8' } })
+    const sw = levantarSW({ red: (url) => { if (!hayRed) throw new TypeError('Failed to fetch'); return new URL(url).pathname === '/pacientes' ? html() : texto('no', 404) } })
+    expect(await sw.pedir('/pacientes', { mode: 'navigate' })).toMatchObject({ status: 200 })
+    await vaciarTareas()
+    hayRed = false
+    expect(await sw.pedir('/agenda', { mode: 'navigate' })).toMatchObject({ status: 200, texto: '<html>shell build-1</html>' })
+  })
+})

@@ -121,6 +121,28 @@ async function pedirALaRed(request) {
   }
 }
 
+async function shellDeOtraBuild() {
+  const nombres = (await caches.keys()).filter((n) => n.startsWith(PREFIJO_CACHE) && n !== NOMBRE_CACHE).sort().reverse()
+  for (const nombre of nombres) {
+    const shell = await (await caches.open(nombre)).match(SHELL)
+    if (shell) return shell
+  }
+  return null
+}
+
+function paginaSinConexion(sinConexion) {
+  const titulo = sinConexion ? 'Sin conexión' : 'SIRO no respondió a tiempo'
+  const texto = sinConexion
+    ? 'Este dispositivo no tiene conexión y SIRO todavía no se había guardado aquí. Conéctate y vuelve a intentarlo.'
+    : 'La conexión con el servidor se interrumpió. Vuelve a intentarlo en unos segundos.'
+  const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SIRO · ${titulo}</title>
+<style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f8fafc;font-family:system-ui,sans-serif;color:#1e293b;padding:24px;box-sizing:border-box}
+div{max-width:420px;background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:32px;text-align:center}h1{font-size:20px;margin:0 0 8px}p{font-size:14px;color:#64748b;margin:0 0 24px}
+a{display:inline-block;background:#1e5f8c;color:#fff;text-decoration:none;border-radius:12px;padding:10px 18px;font-size:14px}</style></head>
+<body><div role="alert"><h1>${titulo}</h1><p>${texto} Tus cambios pendientes de sincronizar no se pierden.</p><a href="">Reintentar</a></div></body></html>`
+  return new Response(html, { status: 503, statusText: sinConexion ? 'Sin conexión' : 'No disponible', headers: { 'Content-Type': 'text/html; charset=utf-8' } })
+}
+
 async function responder(request) {
   const cache = await caches.open(NOMBRE_CACHE)
 
@@ -154,8 +176,9 @@ async function responder(request) {
     }
 
     // Solo respuestas correctas. Guardar un 500 o un 404 pasajero lo
-    // dejaría fijo hasta el siguiente deploy.
-    if (respuesta.ok) cache.put(request, respuesta.clone()).catch(() => {})
+    // dejaría fijo hasta el siguiente deploy. Una ruta de la app que llegó de la red repara el shell de esta build
+    // (si alguien borró el caché, la siguiente vez vuelve a abrir sin red).
+    if (respuesta.ok) cache.put(esRutaDeLaApp(request) && esHtml(respuesta) ? SHELL : request, respuesta.clone()).catch(() => {})
     return respuesta
   } catch (causa) {
     // Ni caché ni red. "Sin conexión" solo cuando de verdad no hay conexión; si hay red y aun así no se pudo traer
@@ -163,6 +186,13 @@ async function responder(request) {
     // poder diagnosticarlo: aparece en la consola del service worker (DevTools → Application → Service Workers).
     const sinConexion = self.navigator && self.navigator.onLine === false
     console.warn('[SIRO SW] No se pudo obtener', request.url, '·', sinConexion ? 'sin conexión' : (causa && causa.name) || 'error de red')
+    if (esRutaDeLaApp(request)) {
+      // Una PÁGINA nunca se contesta con texto plano: primero el shell de cualquier build guardada (la más reciente);
+      // si no hay ninguno, una página con «Reintentar».
+      const guardado = await shellDeOtraBuild()
+      if (guardado) return guardado
+      return paginaSinConexion(sinConexion)
+    }
     return new Response(
       sinConexion ? 'Sin conexión, y este archivo todavía no se había guardado localmente.' : 'No se pudo obtener este archivo (el servidor no respondió a tiempo).',
       { status: 503, statusText: sinConexion ? 'Sin conexión' : 'No disponible', headers: { 'Content-Type': 'text/plain; charset=utf-8' } }
