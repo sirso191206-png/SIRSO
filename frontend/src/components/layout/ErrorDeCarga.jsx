@@ -2,9 +2,27 @@ import { Component } from 'react'
 import { registrarErrorCliente } from '../../lib/registroErrores'
 
 // Si una pantalla no se puede descargar —lo habitual: SIRO se actualizó y esta pestaña pide un archivo de la versión
-// anterior que ya no existe, o no hay conexión y esa pantalla no estaba en caché— no se deja la pantalla en blanco:
-// se explica y se ofrece recargar. Recargar trae la versión nueva. Los cambios pendientes de subir NO se pierden
-// (viven en IndexedDB, no en la página).
+// anterior que ya no existe, o no hay conexión y esa pantalla no estaba en caché— no se deja la pantalla en blanco.
+// Con conexión, primero se recarga SOLA una vez (trae la versión nueva y no es un error: no se registra). Si tras
+// recargar vuelve a fallar, o no hay conexión, se explica y se ofrece recargar, y entonces sí se registra.
+// Los cambios pendientes de subir NO se pierden (viven en IndexedDB, no en la página).
+
+export const CLAVE_RECARGA = 'siro:recarga-por-version'
+const VENTANA_MS = 30000
+
+// ¿Ya se recargó sola hace poco? Así nunca entra en un ciclo de recargas.
+export function debeRecargarSola(ahora = Date.now(), almacen = globalThis.sessionStorage, enLinea = globalThis.navigator?.onLine !== false) {
+  if (!enLinea) return false
+  try {
+    const ultima = Number(almacen?.getItem(CLAVE_RECARGA) || 0)
+    if (ahora - ultima < VENTANA_MS) return false
+    almacen?.setItem(CLAVE_RECARGA, String(ahora))
+    return true
+  } catch {
+    return false
+  }
+}
+
 export class ErrorDeCarga extends Component {
   constructor(props) {
     super(props)
@@ -16,6 +34,10 @@ export class ErrorDeCarga extends Component {
   }
 
   componentDidCatch(error) {
+    if (debeRecargarSola()) {
+      window.location.reload()
+      return
+    }
     console.error('No se pudo cargar una pantalla de SIRO:', error)
     registrarErrorCliente(error, 'pantalla que no se pudo abrir')
   }

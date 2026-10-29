@@ -3,7 +3,8 @@ import { describe, it, expect } from 'vitest'
 import { createElement as h } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { readFileSync } from 'node:fs'
-import { ErrorDeCarga } from '../../layout/ErrorDeCarga.jsx'
+import { ErrorDeCarga, debeRecargarSola, CLAVE_RECARGA } from '../../layout/ErrorDeCarga.jsx'
+import { INVENTARIO_COOKIES } from '../../../lib/inventarioCookies.js'
 
 const app = readFileSync(new URL('../../../App.jsx', import.meta.url), 'utf8')
 
@@ -45,5 +46,17 @@ describe('ErrorDeCarga: si una pantalla no se puede descargar no queda la pantal
     expect(html).toContain('Recargar')
     expect(html).toContain('role="alert"')
     expect(html).not.toContain('CONTENIDO')
+  })
+  it('con conexión se recarga sola UNA vez (versión nueva), nunca en ciclo; sin conexión no', () => {
+    const m = new Map()
+    const almacen = { getItem: (k) => m.get(k) ?? null, setItem: (k, v) => m.set(k, v) }
+    expect(debeRecargarSola(1000000, almacen, true)).toBe(true)
+    expect(debeRecargarSola(1010000, almacen, true)).toBe(false)   // 10 s después: ya se intentó, se muestra la pantalla
+    expect(debeRecargarSola(1040000, almacen, true)).toBe(true)    // otra versión nueva más tarde: vuelve a valer
+    expect(debeRecargarSola(2000000, new Map(), false)).toBe(false)
+    expect(debeRecargarSola(1, { getItem: () => { throw new Error('bloqueado') } }, true)).toBe(false)
+  })
+  it('la marca de recarga está declarada en el inventario público de almacenamiento', () => {
+    expect(INVENTARIO_COOKIES.some((c) => c.nombre === CLAVE_RECARGA && c.categoria === 'necesarias')).toBe(true)
   })
 })

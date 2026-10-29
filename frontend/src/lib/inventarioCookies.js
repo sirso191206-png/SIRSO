@@ -104,6 +104,16 @@ export const INVENTARIO_COOKIES = [
     dominio: 'Primera parte',
     tipo: 'Caché del navegador (Service Worker)',
     tercero: false
+  },
+  {
+    nombre: 'siro:recarga-por-version',
+    proveedor: 'SIRO',
+    finalidad: 'Recordar que la pestaña ya se recargó sola para traer una versión nueva de SIRO, y así no repetirlo en ciclo.',
+    categoria: 'necesarias',
+    duracion: 'Hasta cerrar la pestaña',
+    dominio: 'Primera parte',
+    tipo: 'sessionStorage',
+    tercero: false
   }
 ]
 
