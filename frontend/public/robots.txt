@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /legal
+Allow: /contacto
+Allow: /login
+Disallow: /

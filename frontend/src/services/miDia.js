@@ -103,7 +103,7 @@ async function _obtenerMiDiaReal(perfil) {
     saldoPacienteActual,
     siguientes,
     resumen: {
-      total: citasHoy.length,
+      total: citasHoy.filter((c) => c.estado !== 'cancelada').length, // una cita cancelada no cuenta para «Atendidos X de Y»
       atendidos,
       enEspera,
       porConfirmar,

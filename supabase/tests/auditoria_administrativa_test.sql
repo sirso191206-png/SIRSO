@@ -59,6 +59,21 @@ select pg_temp.t('anon conserva INSERT en arco_solicitudes y mensajes_contacto',
   has_table_privilege('anon', 'arco_solicitudes', 'insert') and has_table_privilege('anon', 'mensajes_contacto', 'insert'));
 select pg_temp.t('anon ya no puede insertar pacientes', not has_table_privilege('anon', 'pacientes', 'insert'));
 
+-- Segunda ronda: ARCO público y funciones de otra clínica
+-- Como el formulario público: rol anon, INSERT sin leer la fila de vuelta.
+select set_config('request.jwt.claims', '{"role":"anon"}', true);
+set local role anon;
+insert into arco_solicitudes (tipo, solicitante_nombre, solicitante_correo, descripcion, identidad_verificada, respuesta, fecha_respuesta, clinica_id)
+  values ('acceso', 'QA 120', 'qa120@x.mx', 'prueba', true, 'falsa', now(), 'c1200000-0000-0000-0000-00000000000a');
+reset role;
+select pg_temp.t('una solicitud ARCO anónima nunca llega verificada, respondida ni dirigida a una clínica',
+  (select not identidad_verificada and respuesta is null and fecha_respuesta is null and clinica_id is null from arco_solicitudes where solicitante_correo = 'qa120@x.mx'));
+select pg_temp.t('un usuario no puede consultar el uso ni la suscripción de una clínica por id',
+  pg_temp.como(:OW, $q$select fn_uso_clinica('c1200000-0000-0000-0000-00000000000a')::text$q$) = 'ERR|42501'
+  and pg_temp.como(:OW, $q$select fn_suscripcion_vigente('c1200000-0000-0000-0000-00000000000a')::text$q$) = 'ERR|42501');
+select pg_temp.t('mi_suscripcion (que sí usa esas funciones) sigue funcionando para el owner',
+  pg_temp.como(:OW, $q$select (mi_suscripcion() is not null)::text$q$) = 'true');
+
 do $$ declare v_f int; v_o int; begin
   select count(*) filter (where ok), count(*) filter (where not ok) into v_o, v_f from _res;
   raise notice 'RESULTADO 120: % pasaron, % fallaron (de %)', v_o, v_f, v_o + v_f;

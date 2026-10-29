@@ -218,7 +218,7 @@ export function PanelCita({ cita, onCerrar, onCambiarEstado, onReagendar, onDesa
         }}
         confirmando={procesando}
         titulo="Cancelar cita"
-        mensaje={`¿Cancelar la cita de ${cita.paciente?.nombre_completo ?? 'este paciente'} del ${new Date(cita.inicio).toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' })} a las ${new Date(cita.inicio).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}? El horario queda libre; para volver a atenderlo habrá que agendar una cita nueva.`}
+        mensaje={`¿Cancelar la cita de ${cita.paciente?.nombre_completo ?? 'este paciente'} del ${new Date(cita.inicio).toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' })} a las ${new Date(cita.inicio).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}? El horario queda libre; si después se necesita, habrá que agendar una cita nueva.`}
         textoConfirmar="Sí, cancelar la cita"
         textoCerrar="No, conservarla"
       />

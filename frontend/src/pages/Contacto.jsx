@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { useState } from 'react'
 import { enviarMensajeContacto, validarContacto, LIMITES_CONTACTO } from '../services/contacto'
 import { HeaderPublico } from '../components/layout/HeaderPublico'
@@ -76,7 +77,7 @@ export function Contacto() {
               <input
                 type="text"
                 value={nombre} maxLength={LIMITES_CONTACTO.nombre}
-                onChange={(e) => setNombre(e.target.value)}
+                onChange={(e) => { setNombre(e.target.value); setErrores((er) => ({ ...er, nombre: undefined })) }}
                 placeholder="Nombre"
                 aria-label="Nombre"
                 autoComplete="name"
@@ -89,7 +90,7 @@ export function Contacto() {
               <input
                 type="email"
                 value={correo} maxLength={LIMITES_CONTACTO.correo}
-                onChange={(e) => setCorreo(e.target.value)}
+                onChange={(e) => { setCorreo(e.target.value); setErrores((er) => ({ ...er, correo: undefined })) }}
                 placeholder="Correo"
                 aria-label="Correo electrónico"
                 autoComplete="email"
@@ -101,7 +102,7 @@ export function Contacto() {
             <div>
               <textarea
                 value={mensaje} maxLength={LIMITES_CONTACTO.mensaje}
-                onChange={(e) => setMensaje(e.target.value)}
+                onChange={(e) => { setMensaje(e.target.value); setErrores((er) => ({ ...er, mensaje: undefined })) }}
                 placeholder="Mensaje"
                 aria-label="Mensaje"
                 rows={4}
@@ -109,6 +110,11 @@ export function Contacto() {
               />
               {errores.mensaje && <p className="mt-1 text-xs text-clinico-rojo">{errores.mensaje}</p>}
             </div>
+
+            <p className="text-xs text-slate-500">
+              Usamos tus datos solo para responder a tu mensaje. Consulta el{' '}
+              <Link to="/legal/privacidad" className="text-clinico-azul hover:underline">Aviso de Privacidad</Link>.
+            </p>
 
             {estadoEnvio && (
               <p role={estadoEnvio === 'exito' ? 'status' : 'alert'} className={`rounded-lg px-3 py-2 text-sm ${estadoEnvio === 'exito' ? 'bg-green-50 text-clinico-verde' : 'bg-red-50 text-clinico-rojo'}`}>

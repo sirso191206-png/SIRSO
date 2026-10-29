@@ -63,6 +63,7 @@ export function ReservarCita() {
   }
   const hoy = new Date().toISOString().slice(0, 10)
   const fechaPasada = Boolean(fecha) && fecha < (info?.fecha_minima ?? hoy)
+  const fechaLejana = Boolean(fecha) && Boolean(info?.fecha_maxima) && fecha > info.fecha_maxima
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -131,7 +132,11 @@ export function ReservarCita() {
                 <h1 className="text-2xl font-bold tracking-tight text-slate-900">Agenda tu cita en {info.clinica.nombre}</h1>
                 <p className="text-sm text-slate-500">
                   Atención: {diasAtencion}, de {info.hora_apertura} a {info.hora_cierre}.
-                  {info.clinica.direccion && <> {info.clinica.direccion}.</>}
+                  {/* Con una sola sucursal se dice cuál es (antes solo salía la dirección principal y se podía ir a otra sede). */}
+                  {info.sucursales.length === 1
+                    ? <> {info.sucursales[0].nombre}{info.sucursales[0].direccion ? ` — ${info.sucursales[0].direccion}` : ''}.</>
+                    : info.clinica.direccion && <> {info.clinica.direccion}.</>}
+                  {info.clinica.telefono && <> Tel. <a href={`tel:${info.clinica.telefono}`} className="text-clinico-azul hover:underline">{info.clinica.telefono}</a>.</>}
                 </p>
               </div>
             </div>
@@ -162,10 +167,12 @@ export function ReservarCita() {
                   <input type="date" value={fecha} min={info.fecha_minima} max={info.fecha_maxima} onChange={(e) => setFecha(e.target.value)}
                     className={CAMPO} aria-label="Fecha" required />
                   {fechaPasada && <p className="text-sm text-slate-500">Esa fecha ya pasó. Elige un día a partir de hoy.</p>}
-                  {fecha && !fechaPasada && !esDiaDeAtencion(fecha, info.dias_semana) && <p className="text-sm text-slate-500">Ese día no hay atención. Elige otro.</p>}
+                  {fechaLejana && <p className="text-sm text-slate-500">Solo se puede agendar hasta el {fechaLegible(info.fecha_maxima)}.</p>}
+                  {fecha && !servicioId && <p className="text-sm text-slate-500">Elige primero el servicio para ver los horarios libres.</p>}
+                  {fecha && !fechaPasada && !fechaLejana && !esDiaDeAtencion(fecha, info.dias_semana) && <p className="text-sm text-slate-500">Ese día no hay atención. Elige otro.</p>}
                   {cargandoHorarios && <p className="text-sm text-slate-400">Buscando horarios libres…</p>}
                   {errorHorarios && <p className="text-sm text-clinico-rojo">{errorHorarios}</p>}
-                  {horarios && horarios.length === 0 && !fechaPasada && esDiaDeAtencion(fecha, info.dias_semana) && !cargandoHorarios && (
+                  {horarios && horarios.length === 0 && !fechaPasada && !fechaLejana && esDiaDeAtencion(fecha, info.dias_semana) && !cargandoHorarios && (
                     <p className="text-sm text-slate-500">No quedan horarios libres ese día. Prueba con otro.</p>
                   )}
                   {horarios && horarios.length > 0 && (
@@ -184,16 +191,16 @@ export function ReservarCita() {
                 <fieldset className="space-y-3">
                   <legend className="mb-2 text-sm font-semibold text-slate-700">3. Tus datos</legend>
                   <div>
-                    <input type="text" value={datos.nombre} onChange={cambiar('nombre')} maxLength={LIMITES_RESERVA.nombre} placeholder="Nombre completo" autoComplete="name" className={CAMPO} aria-label="Nombre completo" />
+                    <input type="text" value={datos.nombre} onChange={cambiar('nombre')} maxLength={LIMITES_RESERVA.nombre} placeholder="Nombre completo" autoComplete="name" className={CAMPO} aria-label="Nombre completo" aria-invalid={Boolean(errores.nombre)} />
                     {errores.nombre && <p className="mt-1 text-xs text-clinico-rojo">{errores.nombre}</p>}
                   </div>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
-                      <input type="email" value={datos.correo} onChange={cambiar('correo')} maxLength={LIMITES_RESERVA.correo} placeholder="Correo" autoComplete="email" className={CAMPO} aria-label="Correo" />
+                      <input type="email" value={datos.correo} onChange={cambiar('correo')} maxLength={LIMITES_RESERVA.correo} placeholder="Correo" autoComplete="email" inputMode="email" className={CAMPO} aria-label="Correo" aria-invalid={Boolean(errores.correo)} />
                       {errores.correo && <p className="mt-1 text-xs text-clinico-rojo">{errores.correo}</p>}
                     </div>
                     <div>
-                      <input type="tel" value={datos.telefono} onChange={cambiar('telefono')} maxLength={LIMITES_RESERVA.telefono} placeholder="Teléfono" autoComplete="tel" className={CAMPO} aria-label="Teléfono" />
+                      <input type="tel" value={datos.telefono} onChange={cambiar('telefono')} maxLength={LIMITES_RESERVA.telefono} placeholder="Teléfono" autoComplete="tel" className={CAMPO} aria-label="Teléfono" aria-invalid={Boolean(errores.telefono)} />
                       {errores.telefono && <p className="mt-1 text-xs text-clinico-rojo">{errores.telefono}</p>}
                     </div>
                   </div>

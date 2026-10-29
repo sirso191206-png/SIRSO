@@ -265,7 +265,7 @@ export function ModalNuevaCita({ abierto, onCerrar, onAgendar, dentistas, fechaI
           <label className="block text-sm">
             <span className="mb-1 block font-medium text-slate-700">Estado inicial</span>
             <select value={estadoInicial} onChange={(e) => setEstadoInicial(e.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
-              {ESTADOS_CITA.filter((e) => !['completada', 'cancelada', 'no_asistio', 'en_consulta'].includes(e.value)).map((e) => (
+              {ESTADOS_CITA.filter((e) => ['pendiente_confirmar', 'agendada', 'confirmada'].includes(e.value)).map((e) => (
                 <option key={e.value} value={e.value}>{e.label}</option>
               ))}
             </select>

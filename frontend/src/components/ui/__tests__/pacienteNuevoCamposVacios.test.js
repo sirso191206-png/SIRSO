@@ -16,7 +16,9 @@ describe('H25 — alta de paciente: los opcionales vacíos se envían como NULL'
   })
   it('los valores escritos se conservan tal cual', () => {
     const lleno = { ...vacio, fecha_nacimiento: '1990-05-01', curp: 'XEXX010101HNEXXXA4', sexo: 'F', primer_apellido: 'Uno', segundo_apellido: 'Dos' }
-    expect(prepararPacienteNuevo(lleno)).toEqual(lleno)
+    // Los apellidos capturados aparte se agregan al nombre visible (sin duplicarlos si ya estaban).
+    expect(prepararPacienteNuevo(lleno)).toEqual({ ...lleno, nombre_completo: `${vacio.nombre_completo} Uno Dos` })
+    expect(prepararPacienteNuevo({ ...lleno, nombre_completo: 'Ana Uno Dos' }).nombre_completo).toBe('Ana Uno Dos')
   })
   it('una CURP de solo espacios tampoco se guarda como texto vacío', () => {
     expect(prepararPacienteNuevo({ ...vacio, curp: '   ' }).curp).toBeNull()

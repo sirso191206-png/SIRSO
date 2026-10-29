@@ -242,7 +242,11 @@ function ModalNuevoConsentimiento({ abierto, onCerrar, onGuardar, perfil, pacien
       return
     }
     const firmante = firmaPacienteNombre.trim()
-    if (pacienteEsMenor && (!firmante || firmante.toLowerCase() === (paciente?.nombre_completo ?? '').trim().toLowerCase())) {
+    // Ni vacío ni el nombre de la menor, completo o en parte («valentina cruz» también es ella).
+    const sinAcentos = (t) => String(t ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\(tutor de .*\)/, '').trim()
+    const firmanteNormal = sinAcentos(firmante)
+    const esLaMenor = firmanteNormal !== '' && sinAcentos(paciente?.nombre_completo).includes(firmanteNormal)
+    if (pacienteEsMenor && (!firmante || esLaMenor)) {
       toastError('El paciente es menor de edad: escribe el nombre del padre, madre o tutor que firma el consentimiento.')
       return
     }

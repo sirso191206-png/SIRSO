@@ -479,7 +479,12 @@ async function _buscarPacientesDetalladoReal({
   if (idsPermitidos) query = query.in('id', idsPermitidos)
   const terminoLimpio = sanitizarTerminoBusqueda(termino)
   if (terminoLimpio) {
-    query = query.or(filtroDeBusqueda(termino, terminoLimpio, ['nombre_completo', 'primer_apellido', 'segundo_apellido', 'telefono', 'correo', 'numero_expediente']))
+    // Con varias palabras («Diego Martínez») cada palabra debe aparecer en ALGUNO de los campos (nombre o apellidos):
+    // varios .or() se combinan con Y. Un teléfono con espacios se trata como una sola búsqueda.
+    const palabras = terminoTelefonico(termino) ? [terminoLimpio] : terminoLimpio.split(/\s+/).filter(Boolean)
+    for (const palabra of palabras) {
+      query = query.or(filtroDeBusqueda(palabra, palabra, ['nombre_completo', 'primer_apellido', 'segundo_apellido', 'telefono', 'correo', 'numero_expediente']))
+    }
   }
 
   const [campoOrden, direccion] = orden.split('.')
@@ -497,8 +502,9 @@ async function _buscarPacientesDetalladoReal({
 
   const [saldosRes, citasPasadasRes, citasFuturasRes, tratamientosRes] = await Promise.all([
     supabase.from('v_saldo_pacientes').select('paciente_id, saldo').in('paciente_id', ids),
-    supabase.from('citas').select('paciente_id, inicio').in('paciente_id', ids).lt('inicio', ahora).order('inicio', { ascending: false }),
-    supabase.from('citas').select('paciente_id, inicio').in('paciente_id', ids).gte('inicio', ahora).order('inicio', { ascending: true }),
+    // «Última consulta» = una cita que de verdad se atendió; «Próxima cita» nunca una cancelada o de inasistencia.
+    supabase.from('citas').select('paciente_id, inicio').in('paciente_id', ids).lt('inicio', ahora).eq('estado', 'completada').order('inicio', { ascending: false }),
+    supabase.from('citas').select('paciente_id, inicio').in('paciente_id', ids).gte('inicio', ahora).not('estado', 'in', '(cancelada,no_asistio)').order('inicio', { ascending: true }),
     supabase.from('tratamientos').select('paciente_id, estado').in('paciente_id', ids).in('estado', ['planeado', 'en_progreso'])
   ])
 

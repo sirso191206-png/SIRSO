@@ -79,7 +79,7 @@ export function CuadriculaCalendario({ dias, citas, bloqueos, onClickCita, onDro
         ))}
       </div>
 
-      <div className="flex flex-1 overflow-x-auto">
+      <div className="flex min-w-0 flex-1 overflow-x-auto">
         {dias.map((dia) => (
           <ColumnaDia
             key={dia.toISOString()}

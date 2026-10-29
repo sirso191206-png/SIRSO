@@ -359,7 +359,7 @@ function ModalMovimiento({ material, onCerrar, onRegistrar }) {
         <Input label={tipo === 'entrada' ? 'Nota (opcional: proveedor, factura…)' : 'Motivo'} value={motivo} onChange={(e) => setMotivo(e.target.value)} maxLength={300} />
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variante="secundario" onClick={onCerrar}>Cancelar</Button>
-          <Button type="submit" disabled={guardando}>{guardando ? 'Guardando…' : 'Registrar'}</Button>
+          <Button type="submit" disabled={guardando}>{guardando ? 'Guardando…' : confirmaNegativo ? 'Registrar de todos modos' : 'Registrar'}</Button>
         </div>
       </form>
     </Modal>

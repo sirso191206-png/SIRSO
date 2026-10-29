@@ -60,7 +60,11 @@ export async function imprimirRecibo({ pago, paciente, clinicaId, saldo = null, 
         <div class="monto-numero">$${formatearMoneda(pago.monto)}</div>
         <div class="monto-tipo">${NOMBRE_TIPO[pago.tipo] ?? pago.tipo}</div>
       </div>
-      ${saldo !== null && saldo !== undefined ? html`<p style="text-align:center;font-size:13px;color:#475569;">Saldo pendiente al imprimir: <strong>$${formatearMoneda(Math.max(0, Number(saldo)))}</strong></p>` : ''}
+      ${saldo !== null && saldo !== undefined
+        ? Number(saldo) < 0
+          ? html`<p style="text-align:center;font-size:13px;color:#475569;">Saldo a favor del paciente al imprimir: <strong>$${formatearMoneda(-Number(saldo))}</strong></p>`
+          : html`<p style="text-align:center;font-size:13px;color:#475569;">Saldo pendiente al imprimir: <strong>$${formatearMoneda(Number(saldo))}</strong></p>`
+        : ''}
 
       <div class="pie">Este recibo es un comprobante de pago, no sustituye una factura fiscal.</div>
     </body>

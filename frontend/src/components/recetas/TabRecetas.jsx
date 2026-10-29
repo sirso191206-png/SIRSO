@@ -129,7 +129,14 @@ export function ModalNuevaReceta({ abierto, onCerrar, onGuardar, perfil, alergia
   const [alergiaConfirmada, setAlergiaConfirmada] = useState(false)
   const conflictos = conflictosDeAlergia(medicamentos.filter((m) => m.medicamento.trim()), alergias)
 
+  // Escape o «Cerrar» ya no tiran lo escrito sin preguntar.
   const cerrar = () => {
+    const hayAlgoEscrito = medicamentos.some((m) => Object.values(m).some((v) => String(v ?? '').trim())) || indicacionesGenerales.trim()
+    if (hayAlgoEscrito && typeof window !== 'undefined' && !window.confirm('¿Descartar esta receta? Se perderá lo que escribiste.')) return
+    descartar()
+  }
+
+  const descartar = () => {
     setMedicamentos([{ ...MEDICAMENTO_VACIO }])
     setIndicacionesGenerales('')
     setVigenciaDias(30)
@@ -180,7 +187,7 @@ export function ModalNuevaReceta({ abierto, onCerrar, onGuardar, perfil, alergia
         firma_paciente_png: firmaPacientePng
       })
       toastExito('Receta guardada.')
-      cerrar()
+      descartar()
     } catch (err) {
       toastError('No se pudo guardar la receta: ' + err.message)
     } finally {

@@ -26,6 +26,7 @@ export function AvisoPrivacidad() {
           {PESTANAS.map((p) => (
             <button
               key={p.tipo}
+              aria-pressed={tab === p.tipo}
               onClick={() => setTab(p.tipo)}
               className={`px-4 py-2 text-sm font-medium ${tab === p.tipo ? 'border-b-2 border-clinico-azul text-clinico-azul' : 'text-slate-500'}`}
             >

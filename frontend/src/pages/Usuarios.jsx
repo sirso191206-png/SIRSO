@@ -16,7 +16,7 @@ import { listarAsignaciones, asignarAsistenteADentista, quitarAsignacion } from 
 
 const ROLES = [
   { value: 'owner', label: 'Propietario' },
-  { value: 'dentista', label: 'Dentista' },
+  { value: 'dentista', label: 'Odontólogo' },
   { value: 'recepcion', label: 'Recepción' },
   { value: 'asistente', label: 'Asistente' }
 ]

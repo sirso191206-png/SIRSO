@@ -53,7 +53,7 @@ function datosIniciales(paciente) {
     estado_civil: campoVacio(paciente.estado_civil),
     ocupacion: campoVacio(paciente.ocupacion),
     escolaridad: campoVacio(paciente.escolaridad),
-    nacionalidad: campoVacio(paciente.nacionalidad) || 'Mexicana',
+    nacionalidad: campoVacio(paciente.nacionalidad),
     telefono: campoVacio(paciente.telefono),
     telefono_secundario: campoVacio(paciente.telefono_secundario),
     whatsapp: campoVacio(paciente.whatsapp),

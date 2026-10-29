@@ -39,9 +39,12 @@ export function autorDeAuditoria(fila) {
   return fila?.usuario_id ? 'Soporte de SIRO' : 'Sistema'
 }
 
-export const MODULOS_AUDITABLES = Object.entries(MODULOS)
-  .filter(([k]) => !['suscripciones', 'planes_catalogo', 'sesiones', 'reportes', 'auditoria'].includes(k))
-  .map(([valor, etiqueta]) => ({ valor, etiqueta }))
+// Una opción por nombre visible: las tablas que comparten nombre («Inventario», «Reserva en línea») se filtran juntas.
+export const MODULOS_AUDITABLES = Object.entries(
+  Object.entries(MODULOS)
+    .filter(([k]) => !['suscripciones', 'planes_catalogo', 'sesiones', 'auditoria'].includes(k))
+    .reduce((grupos, [tabla, etiqueta]) => ({ ...grupos, [etiqueta]: [...(grupos[etiqueta] ?? []), tabla] }), {})
+).map(([etiqueta, tablas]) => ({ valor: tablas.join(','), etiqueta }))
 
 export const TIPOS_ACCION = [
   { valor: 'crear', etiqueta: 'Altas' },

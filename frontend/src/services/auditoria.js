@@ -14,7 +14,8 @@ export async function listarAuditoria({ desde, hasta, usuarioId, entidad, tipo, 
   if (desde) q = q.gte('creado_en', desde)
   if (hasta) q = q.lte('creado_en', hasta)
   if (usuarioId) q = q.eq('usuario_id', usuarioId)
-  if (entidad) q = q.eq('entidad', entidad)
+  // Un módulo puede agrupar varias tablas («Inventario» = materiales, movimientos y materiales por tratamiento).
+  if (entidad) q = entidad.includes(',') ? q.in('entidad', entidad.split(',')) : q.eq('entidad', entidad)
   if (tipo === 'crear' || tipo === 'editar' || tipo === 'eliminar') q = q.like('accion', `${tipo}\\_%`)
   if (tipo === 'otros') q = q.not('accion', 'like', 'crear\\_%').not('accion', 'like', 'editar\\_%').not('accion', 'like', 'eliminar\\_%')
   const { data, error, count } = await q

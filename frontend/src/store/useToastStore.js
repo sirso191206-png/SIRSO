@@ -8,8 +8,8 @@ export const useToastStore = create((set, get) => ({
   mostrar: (mensaje, tipo = 'exito') => {
     const id = siguienteId++
     set({ toasts: [...get().toasts, { id, mensaje, tipo }] })
-    // Un aviso (p. ej. inventario insuficiente) se queda más tiempo: hay que alcanzar a leerlo.
-    setTimeout(() => get().quitar(id), tipo === 'aviso' ? 8000 : 3500)
+    // Errores y avisos se quedan más tiempo que un «listo»: hay que alcanzar a leer qué falló.
+    setTimeout(() => get().quitar(id), tipo === 'exito' ? 3500 : 8000)
   },
 
   quitar: (id) => {

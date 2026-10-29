@@ -342,7 +342,7 @@ function ModalNuevoPaciente({ abierto, onCerrar }) {
           </div>
         ) : (
           <>
-            <Input label="Nombre completo (nombre y apellidos)" required value={form.nombre_completo} onChange={handleChange('nombre_completo')} />
+            <Input label="Nombre(s)" required value={form.nombre_completo} onChange={handleChange('nombre_completo')} />
             <div className="grid grid-cols-2 gap-3">
               <Input label="Primer apellido" value={form.primer_apellido} onChange={(e) => setForm({ ...form, primer_apellido: e.target.value })} />
               <Input label="Segundo apellido" value={form.segundo_apellido} onChange={(e) => setForm({ ...form, segundo_apellido: e.target.value })} />

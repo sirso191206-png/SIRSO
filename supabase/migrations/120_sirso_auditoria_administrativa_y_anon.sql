@@ -6,7 +6,8 @@
 --    asignaciones, catálogo y precios, inventario, reserva en línea, horarios bloqueados. Se agregan triggers con
 --    fn_auditoria_admin: registra solo acciones de una persona (auth.uid() no nulo: lo que hace el sistema —folios,
 --    cobros, descuentos automáticos— no se audita aquí) y no registra un UPDATE que no cambió nada. En `clinicas` se
---    ignoran los contadores de folio y el id de Stripe, que cambian solos con cada paciente o recibo.
+--    ignoran los contadores de folio y el id de Stripe, que cambian solos con cada paciente o recibo, y en `materiales`
+--    el stock (cada movimiento ya queda auditado; antes cada uno generaba además un «Editar material»).
 --  * El rol `anon` (página sin sesión) tenía SELECT sobre tablas clínicas y de personal. RLS ya devolvía 0 filas, pero no
 --    hay razón para conservar el permiso: se retira SELECT/INSERT/UPDATE/DELETE en esas tablas (INSERT se conserva en ARCO
 --    y contacto). Las páginas públicas usan funciones
@@ -23,7 +24,7 @@ set search_path = public
 as $$
 declare
   v_fila jsonb := to_jsonb(coalesce(new, old));
-  v_ignorar text[] := array['siguiente_folio_paciente', 'siguiente_folio_recibo', 'stripe_customer_id', 'actualizado_en'];
+  v_ignorar text[] := array['siguiente_folio_paciente', 'siguiente_folio_recibo', 'stripe_customer_id', 'actualizado_en', 'stock'];
   v_clave text;
   v_antes jsonb;
   v_despues jsonb;
@@ -96,5 +97,49 @@ begin
     end if;
   end loop;
 end $$;
+
+-- ARCO público (segunda ronda de pruebas): una solicitud NUEVA nunca llega ya verificada ni respondida. Sin sesión se podían
+-- mandar identidad_verificada=true, respuesta y fecha_respuesta, y también una clinica_id (dejarla en la bandeja de cualquier
+-- clínica). Quien escribe sin sesión no indica clínica: la solicitud llega a SIRO, que la remite (artículo 32).
+-- SECURITY INVOKER a propósito: solo corrige NEW y así current_user es el rol de quien inserta (en la API, anon o
+-- authenticated; en procesos internos, otro rol que no se toca).
+create or replace function fn_arco_alta_limpia()
+returns trigger
+language plpgsql
+security invoker
+set search_path = public
+as $$
+begin
+  if current_user not in ('anon', 'authenticated') then
+    return new;
+  end if;
+  new.identidad_verificada := false;
+  new.identidad_verificada_por := null;
+  new.identidad_verificada_en := null;
+  new.metodo_verificacion := null;
+  new.respuesta := null;
+  new.fecha_respuesta := null;
+  new.responsable_id := null;
+  if current_user = 'anon' then
+    new.clinica_id := null;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_arco_alta_limpia on arco_solicitudes;
+create trigger trg_arco_alta_limpia before insert on arco_solicitudes for each row execute function fn_arco_alta_limpia();
+
+-- Tope de tamaño del formulario ARCO público (como contacto, migración 099). NOT VALID: no revisa filas viejas.
+alter table arco_solicitudes drop constraint if exists arco_solicitudes_longitudes;
+alter table arco_solicitudes add constraint arco_solicitudes_longitudes check (
+  char_length(solicitante_nombre) <= 120 and char_length(solicitante_correo) <= 254 and char_length(coalesce(descripcion, '')) <= 5000
+) not valid;
+
+-- Uso y suscripción de OTRA clínica: el dueño de una clínica podía consultar los conteos (usuarios, pacientes, sucursales) y la
+-- suscripción de cualquier otra pasando su id. Solo las usan funciones SECURITY DEFINER (mi_suscripcion, sa_*), que no
+-- necesitan que el usuario tenga EXECUTE.
+revoke execute on function fn_uso_clinica(uuid) from public, anon, authenticated;
+revoke execute on function fn_suscripcion_vigente(uuid) from public, anon, authenticated;
 
 commit;

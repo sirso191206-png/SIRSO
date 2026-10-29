@@ -208,12 +208,12 @@ export function PacienteDetalle() {
         </div>
       </div>
 
-      <div className="mb-6 flex gap-2 border-b border-slate-200">
+      <div className="mb-6 flex gap-2 overflow-x-auto border-b border-slate-200">
         {tabsVisibles.map((t) => (
           <button
             key={t.nombre}
             onClick={() => setTab(t.nombre)}
-            className={`px-4 py-2 text-sm font-medium ${
+            className={`shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium ${
               tab === t.nombre ? 'border-b-2 border-clinico-azul text-clinico-azul' : 'text-slate-500'
             }`}
           >

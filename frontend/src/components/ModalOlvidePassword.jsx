@@ -64,6 +64,7 @@ export function ModalOlvidePassword({ abierto, onCerrar, correoInicial }) {
             value={correo}
             onChange={(e) => setCorreo(e.target.value)}
             placeholder="tu.correo@clinica.com"
+            aria-label="Correo con el que inicias sesión"
             autoFocus
             className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 shadow-sm transition-all placeholder:text-slate-400 focus:border-clinico-azul focus:bg-white focus:outline-none focus:ring-4 focus:ring-clinico-azul/10"
           />

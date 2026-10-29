@@ -60,13 +60,13 @@ export function Odontograma({ pacienteId, onIrATab }) {
 
   return (
     <div className="space-y-4">
-      <div className="inline-flex rounded-lg border border-slate-300 bg-white p-0.5">
+      <div className="inline-flex max-w-full overflow-x-auto rounded-lg border border-slate-300 bg-white p-0.5">
         {opciones.map((o) => (
           <button
             key={o.value}
             onClick={() => cambiarVista(o.value)}
             aria-pressed={vistaActiva === o.value}
-            className={`rounded-md px-4 py-1.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-clinico-azul ${
+            className={`shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium focus:outline-none sm:px-4 focus:ring-2 focus:ring-clinico-azul ${
               vistaActiva === o.value ? 'bg-clinico-azul text-white' : 'text-slate-600'
             }`}
           >

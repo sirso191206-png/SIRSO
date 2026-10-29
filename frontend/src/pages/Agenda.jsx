@@ -8,6 +8,7 @@ import { useAuthStore } from '../store/useAuthStore'
 import { useSucursalStore } from '../store/useSucursalStore'
 import { toastExito, toastError } from '../store/useToastStore'
 import { capitalizarPrimeraLetra } from '../lib/texto'
+import { fechaInputLocal } from '../lib/fechas'
 import { ESTADOS_CITA, TIPOS_BLOQUEO } from '../components/agenda/constantes'
 import { MiniCalendario } from '../components/agenda/MiniCalendario'
 import { CuadriculaCalendario } from '../components/agenda/CuadriculaCalendario'
@@ -44,7 +45,8 @@ export function Agenda() {
   const sucursalActualId = useSucursalStore((s) => s.sucursalActualId)
   const puedeGestionar = PUEDE_GESTIONAR.includes(perfil?.rol)
 
-  const [vista, setVista] = useState('semana') // dia | semana | mes
+  // En teléfono la semana no cabe: arranca en «Día» (la semana se puede ver deslizando la cuadrícula de lado).
+  const [vista, setVista] = useState(() => (typeof window !== 'undefined' && window.innerWidth < 640 ? 'dia' : 'semana')) // dia | semana | mes
   const [fechaBase, setFechaBase] = useState(new Date())
   const [filtroDentista, setFiltroDentista] = useState('')
   const [filtroEstado, setFiltroEstado] = useState('')
@@ -89,7 +91,7 @@ export function Agenda() {
       const finSemana = diasSemana[6]
       const mismoMes = inicio.getMonth() === finSemana.getMonth()
       const tituloRango = mismoMes
-        ? `${inicio.getDate()} – ${finSemana.getDate()} de ${capitalizarPrimeraLetra(finSemana.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' }))}`
+        ? `${inicio.getDate()} – ${finSemana.getDate()} de ${finSemana.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })}`
         : `${inicio.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })} – ${finSemana.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}`
       return { dias: diasSemana, desde: inicio.toISOString(), hasta: fin.toISOString(), titulo: capitalizarPrimeraLetra(tituloRango) }
     }
@@ -218,12 +220,13 @@ export function Agenda() {
         )}
       </div>
 
-      <div className="flex-1">
+      {/* min-w-0: sin esto la cuadrícula semanal ensanchaba toda la página en lugar de desplazarse dentro de su caja. */}
+      <div className="min-w-0 flex-1">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <h1 className="text-xl font-semibold text-slate-800">{titulo}</h1>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <div className="flex overflow-hidden rounded-lg border border-slate-300">
               {[['dia', 'Día'], ['semana', 'Semana'], ['mes', 'Mes']].map(([v, label]) => (
                 <button
@@ -317,6 +320,7 @@ export function Agenda() {
         onCerrar={() => setModalBloqueo(false)}
         onGuardar={agregarBloqueo}
         dentistas={dentistas}
+        fechaPorDefecto={fechaBase}
       />
 
       <ModalListaEspera
@@ -331,11 +335,15 @@ export function Agenda() {
   )
 }
 
-function ModalBloqueoHorario({ abierto, onCerrar, onGuardar, dentistas }) {
+function ModalBloqueoHorario({ abierto, onCerrar, onGuardar, dentistas, fechaPorDefecto }) {
   const [tipo, setTipo] = useState('comida')
   const [titulo, setTitulo] = useState('')
   const [dentistaId, setDentistaId] = useState('')
   const [fecha, setFecha] = useState('')
+  // Empieza en el día que se está viendo en la agenda (antes llegaba vacía).
+  useEffect(() => {
+    if (abierto && fechaPorDefecto) setFecha((actual) => actual || fechaInputLocal(new Date(fechaPorDefecto)))
+  }, [abierto, fechaPorDefecto])
   const [horaInicio, setHoraInicio] = useState('')
   const [horaFin, setHoraFin] = useState('')
   const [guardando, setGuardando] = useState(false)

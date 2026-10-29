@@ -34,4 +34,11 @@ begin
   end loop;
 end $$;
 
+drop trigger if exists trg_arco_alta_limpia on arco_solicitudes;
+drop function if exists fn_arco_alta_limpia();
+grant execute on function fn_uso_clinica(uuid) to authenticated;
+grant execute on function fn_suscripcion_vigente(uuid) to authenticated;
+
+alter table arco_solicitudes drop constraint if exists arco_solicitudes_longitudes;
+
 commit;

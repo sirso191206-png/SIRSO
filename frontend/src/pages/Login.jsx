@@ -88,6 +88,7 @@ export function Login() {
                 onChange={(e) => setCorreo(e.target.value)}
                 placeholder="Correo electrónico"
                 aria-label="Correo electrónico"
+                inputMode="email"
                 autoComplete="username"
                 autoFocus
                 className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-sm text-slate-700 shadow-sm transition-all placeholder:text-slate-400 focus:border-clinico-azul focus:bg-white focus:outline-none focus:ring-4 focus:ring-clinico-azul/10"

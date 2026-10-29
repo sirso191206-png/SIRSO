@@ -34,7 +34,7 @@ export function SeccionPagos({ pacienteId, paciente }) {
   const handleImprimir = async (pago) => {
     setImprimiendoId(pago.id)
     try {
-      await imprimirRecibo({ pago, paciente, clinicaId: perfil.clinica_id, saldo: saldo?.saldo ?? null, registradoPor: pago.registrado_por === perfil.id ? perfil.nombre : null })
+      await imprimirRecibo({ pago, paciente, clinicaId: perfil.clinica_id, saldo: saldo?.saldo ?? null, registradoPor: pago.registrado_por?.nombre ?? (pago.registrado_por === perfil.id ? perfil.nombre : null) })
     } catch (err) {
       toastError(err.message)
     } finally {
@@ -135,9 +135,12 @@ export function SeccionPagos({ pacienteId, paciente }) {
                   Anular
                 </button>
               )}
-              <button onClick={() => setPagoAEliminar(p)} className="text-xs text-slate-400 hover:text-clinico-rojo hover:underline">
-                Eliminar
-              </button>
+              {/* Borrar un cobro por completo lo saca del corte de caja: solo el propietario. Recepción corrige con «Anular». */}
+              {perfil?.rol === 'owner' && (
+                <button onClick={() => setPagoAEliminar(p)} className="text-xs text-slate-400 hover:text-clinico-rojo hover:underline">
+                  Eliminar
+                </button>
+              )}
             </div>
           </div>
         ))}

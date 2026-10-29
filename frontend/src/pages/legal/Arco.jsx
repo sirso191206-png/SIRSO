@@ -107,13 +107,14 @@ export function Arco() {
               </div>
             </div>
 
-            <Input label="Nombre completo" required value={nombre} onChange={(e) => setNombre(e.target.value)} />
-            <Input label="Correo de contacto" type="email" required value={correo} onChange={(e) => setCorreo(e.target.value)} />
+            <Input label="Nombre completo" required maxLength={120} value={nombre} onChange={(e) => setNombre(e.target.value)} />
+            <Input label="Correo de contacto" type="email" required maxLength={254} value={correo} onChange={(e) => setCorreo(e.target.value)} />
 
             <label className="block text-sm">
               <span className="mb-1 block font-medium text-slate-700">Describe tu solicitud <span className="text-clinico-rojo" aria-hidden="true">*</span></span>
               <textarea
                 value={descripcion}
+                maxLength={5000}
                 onChange={(e) => setDescripcion(e.target.value)}
                 rows={5}
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"

@@ -62,6 +62,8 @@ export async function sincronizarMiDia({ dentistaId, perfil, sucursalId } = {}) 
   await Promise.allSettled(
     idsPacientesUnicos.map(async (pacienteId) => {
       await obtenerPaciente(pacienteId).catch(() => {})
+      // Recepción no tiene acceso clínico: pedir el expediente, odontograma, etc. solo llenaba la consola de errores 406.
+      if (perfil?.rol === 'recepcion') return
 
       const expediente = await obtenerExpediente(pacienteId).catch(() => null)
       if (expediente) {

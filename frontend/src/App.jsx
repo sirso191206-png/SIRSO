@@ -10,6 +10,7 @@ import { ToastContainer } from './components/ui/Toast'
 import { BannerCookies } from './components/legal/BannerCookies'
 import { BannerSinConexion } from './components/layout/BannerSinConexion'
 import { ErrorDeCarga } from './components/layout/ErrorDeCarga'
+import { TituloDePagina } from './components/layout/TituloDePagina'
 
 
 // Cada pantalla (salvo el login y "Mi día", que son lo primero que se ve) se descarga cuando se entra a ella, no todas
@@ -67,6 +68,7 @@ export default function App() {
       <BannerSinConexion />
       <ErrorDeCarga>
         <Suspense fallback={<div className="flex h-screen items-center justify-center text-slate-400">Cargando…</div>}>
+      <TituloDePagina />
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/contacto" element={<Contacto />} />

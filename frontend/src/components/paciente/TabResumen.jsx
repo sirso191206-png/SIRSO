@@ -78,7 +78,7 @@ export function TabResumen({ pacienteId, paciente, onIrA, onNuevaConsulta, inici
     if (!ultimoPago) return
     setImprimiendoComprobante(true)
     try {
-      await imprimirRecibo({ pago: ultimoPago, paciente, clinicaId: perfil?.clinica_id })
+      await imprimirRecibo({ pago: ultimoPago, paciente, clinicaId: perfil?.clinica_id, saldo: saldo?.saldo ?? null, registradoPor: ultimoPago.registrado_por?.nombre ?? (ultimoPago.registrado_por === perfil?.id ? perfil?.nombre : null) })
     } catch (err) {
       toastError('No se pudo generar el comprobante: ' + err.message)
     } finally {
@@ -228,7 +228,10 @@ export function TabResumen({ pacienteId, paciente, onIrA, onNuevaConsulta, inici
             </Button>
           )}
           <Button variante="secundario" onClick={() => onIrA('Historial')}>Ver historial</Button>
-          <Button variante="secundario" onClick={() => navigate('/agenda')}>Programar cita</Button>
+          {/* Agendar es de propietario y recepción; el dentista programa el seguimiento al finalizar la consulta. */}
+          {['owner', 'recepcion'].includes(perfil?.rol) && (
+            <Button variante="secundario" onClick={() => navigate('/agenda')}>Programar cita</Button>
+          )}
         </div>
       </div>
     </div>
