@@ -8,11 +8,11 @@ export default defineConfig({
     port: 5173
   },
   build: {
-    // Los bloques vendor-* ya los carga index.html al abrir SIRO: que cada pantalla perezosa los vuelva a «precargar»
-    // solo añade enlaces que el navegador no usa (aviso «preloaded but not used» en la consola).
+    // Los bloques vendor-* NO se precargan: el código de entrada los importa de inmediato, y con el service worker
+    // sirviendo desde el caché Chrome no puede reutilizar un <link rel="modulepreload"> («cross-world service worker
+    // resource mismatch»); tampoco tiene sentido que cada pantalla perezosa los vuelva a pedir («preloaded but not used»).
     modulePreload: {
-      resolveDependencies: (archivo, dependencias, { hostType }) =>
-        hostType === 'js' ? dependencias.filter((d) => !/(^|\/)vendor-/.test(d)) : dependencias
+      resolveDependencies: (archivo, dependencias) => dependencias.filter((d) => !/(^|\/)vendor-/.test(d))
     },
     rollupOptions: {
       output: {
