@@ -8,6 +8,12 @@ export default defineConfig({
     port: 5173
   },
   build: {
+    // Los bloques vendor-* ya los carga index.html al abrir SIRO: que cada pantalla perezosa los vuelva a «precargar»
+    // solo añade enlaces que el navegador no usa (aviso «preloaded but not used» en la consola).
+    modulePreload: {
+      resolveDependencies: (archivo, dependencias, { hostType }) =>
+        hostType === 'js' ? dependencias.filter((d) => !/(^|\/)vendor-/.test(d)) : dependencias
+    },
     rollupOptions: {
       output: {
         // Las librerías cambian poco: en bloques propios el navegador las conserva en caché entre versiones de SIRO y
