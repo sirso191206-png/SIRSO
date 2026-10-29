@@ -98,9 +98,11 @@ begin
   end loop;
 end $$;
 
--- ARCO público (segunda ronda de pruebas): una solicitud NUEVA nunca llega ya verificada ni respondida. Sin sesión se podían
+-- ARCO público (segunda y tercera ronda de pruebas): una solicitud NUEVA siempre nace «recibida», sin verificar ni
+-- responder, con el correo normalizado (sin espacios ni mayúsculas: así el límite por correo no se salta) y válido. Sin sesión se podían
 -- mandar identidad_verificada=true, respuesta y fecha_respuesta, y también una clinica_id (dejarla en la bandeja de cualquier
--- clínica). Quien escribe sin sesión no indica clínica: la solicitud llega a SIRO, que la remite (artículo 32).
+-- clínica) o un paciente. Quien escribe sin sesión no indica clínica ni paciente: la solicitud llega a SIRO, que la remite
+-- (artículo 32).
 -- SECURITY INVOKER a propósito: solo corrige NEW y así current_user es el rol de quien inserta (en la API, anon o
 -- authenticated; en procesos internos, otro rol que no se toca).
 create or replace function fn_arco_alta_limpia()
@@ -113,6 +115,11 @@ begin
   if current_user not in ('anon', 'authenticated') then
     return new;
   end if;
+  new.estado := 'recibida';
+  new.solicitante_correo := lower(btrim(new.solicitante_correo));
+  if new.solicitante_correo !~ '^[^@\s]+@[^@\s]+\.[a-z]{2,}$' then
+    raise exception 'Escribe un correo electrónico válido.' using errcode = '22023';
+  end if;
   new.identidad_verificada := false;
   new.identidad_verificada_por := null;
   new.identidad_verificada_en := null;
@@ -122,6 +129,7 @@ begin
   new.responsable_id := null;
   if current_user = 'anon' then
     new.clinica_id := null;
+    new.paciente_id := null;
   end if;
   return new;
 end;
@@ -129,6 +137,47 @@ $$;
 
 drop trigger if exists trg_arco_alta_limpia on arco_solicitudes;
 create trigger trg_arco_alta_limpia before insert on arco_solicitudes for each row execute function fn_arco_alta_limpia();
+
+-- Pagos (tercera ronda): desde la API, un pago nace con la hora y el folio que pone el servidor (antes se podía mandar
+-- una fecha de 2020 o un número de recibo repetido); una anulación lleva la hora y el usuario reales, y un pago anulado
+-- ya no se puede «desanular» ni reescribir. Los procesos internos (otros roles) no se tocan. SECURITY INVOKER para que
+-- current_user sea el rol de quien escribe. El nombre «trg_aa_…» hace que corra ANTES de trg_asignar_numero_recibo.
+create or replace function fn_pago_integridad()
+returns trigger
+language plpgsql
+security invoker
+set search_path = public
+as $$
+begin
+  if current_user not in ('anon', 'authenticated') then
+    return new;
+  end if;
+  if tg_op = 'INSERT' then
+    new.creado_en := now();
+    new.numero_recibo := null;
+    new.anulado_en := null;
+    new.anulado_por := null;
+    new.motivo_anulacion := null;
+    return new;
+  end if;
+  if old.anulado_en is not null then
+    raise exception 'Un pago anulado ya no se puede modificar.' using errcode = '42501';
+  end if;
+  if new.numero_recibo is distinct from old.numero_recibo or new.sucursal_id is distinct from old.sucursal_id then
+    raise exception 'Un pago registrado no se puede editar — solo se puede anular.' using errcode = '42501';
+  end if;
+  if new.anulado_en is not null then
+    new.anulado_en := now();
+    new.anulado_por := auth.uid();
+  else
+    new.anulado_por := null;
+    new.motivo_anulacion := old.motivo_anulacion;
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists trg_aa_integridad_pago on pagos;
+create trigger trg_aa_integridad_pago before insert or update on pagos for each row execute function fn_pago_integridad();
 
 -- Tope de tamaño del formulario ARCO público (como contacto, migración 099). NOT VALID: no revisa filas viejas.
 alter table arco_solicitudes drop constraint if exists arco_solicitudes_longitudes;

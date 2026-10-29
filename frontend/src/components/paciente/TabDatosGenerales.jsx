@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { nombreTrasCambioDeApellidos } from '../../lib/pacienteNuevo'
 import { actualizarPaciente } from '../../services/pacientes'
 import { calcularEdad, fechaCorta } from '../../lib/fechas'
 import { normalizarTelefono, telefonoValido, MENSAJE_TELEFONO_INVALIDO } from '../../lib/telefono'
@@ -193,6 +194,10 @@ export function TabDatosGenerales({ paciente, alGuardar }) {
         return
       }
       const cambios = soloLoQueCambio(datosParaGuardar(form), datosParaGuardar(datosIniciales(paciente)))
+      if (('primer_apellido' in cambios || 'segundo_apellido' in cambios) && !('nombre_completo' in cambios)) {
+        const nombre = nombreTrasCambioDeApellidos(paciente.nombre_completo, paciente, { ...paciente, ...cambios })
+        if (nombre && nombre !== paciente.nombre_completo) cambios.nombre_completo = nombre
+      }
       if (Object.keys(cambios).length === 0) {
         setEditando(false)
         return

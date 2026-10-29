@@ -78,7 +78,8 @@ export function MiDia() {
               <Icon.calendarPlus /> Nueva cita
             </Button>
           )}
-          {disponible('urgencias') && disponible('citas') && (
+          {/* Registrar una urgencia crea una cita: solo propietario y recepción (la base no se lo permite al dentista). */}
+          {disponible('urgencias') && disponible('citas') && ['owner', 'recepcion'].includes(perfil?.rol) && (
             <Button onClick={() => setModalUrgenciaAbierto(true)} className="inline-flex items-center gap-1.5">
               <Icon.zap /> Nueva urgencia
             </Button>

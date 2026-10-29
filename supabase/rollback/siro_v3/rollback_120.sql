@@ -41,4 +41,7 @@ grant execute on function fn_suscripcion_vigente(uuid) to authenticated;
 
 alter table arco_solicitudes drop constraint if exists arco_solicitudes_longitudes;
 
+drop trigger if exists trg_aa_integridad_pago on pagos;
+drop function if exists fn_pago_integridad();
+
 commit;

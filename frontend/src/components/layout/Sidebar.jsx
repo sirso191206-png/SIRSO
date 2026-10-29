@@ -304,9 +304,10 @@ export function Sidebar({ abierto = false, onCerrar }) {
         </div>
       </div>
 
-      <ModalCambiarPassword abierto={modalAbierto} onCerrar={() => setModalAbierto(false)} />
-      <ModalPerfilProfesional abierto={modalPerfilAbierto} onCerrar={() => setModalPerfilAbierto(false)} />
     </aside>
+    {/* Fuera del <aside>: en teléfono el menú es un cajón con transform y una ventana dentro quedaba encerrada en sus 240 px. */}
+    <ModalCambiarPassword abierto={modalAbierto} onCerrar={() => setModalAbierto(false)} />
+    <ModalPerfilProfesional abierto={modalPerfilAbierto} onCerrar={() => setModalPerfilAbierto(false)} />
     {modalCierre}
     </>
   )

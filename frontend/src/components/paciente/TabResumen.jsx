@@ -123,9 +123,10 @@ export function TabResumen({ pacienteId, paciente, onIrA, onNuevaConsulta, inici
             <div className="break-words text-xl font-bold text-clinico-verde lg:text-2xl">${formatearMoneda(saldo.total_pagado)}</div>
           </div>
           <div>
-            <div className="text-xs text-slate-400">Pendiente</div>
-            <div className={`break-words text-xl font-bold lg:text-2xl ${saldo.saldo > 0 ? 'text-clinico-ambar' : 'text-slate-300'}`}>
-              ${formatearMoneda(saldo.saldo)}
+            {/* Un saldo negativo es dinero a favor del paciente (igual que en Plan y en el recibo), nunca «Pendiente $-300». */}
+            <div className="text-xs text-slate-400">{saldo.saldo < 0 ? 'A favor del paciente' : 'Pendiente'}</div>
+            <div className={`break-words text-xl font-bold lg:text-2xl ${saldo.saldo > 0 ? 'text-clinico-ambar' : saldo.saldo < 0 ? 'text-clinico-verde' : 'text-slate-300'}`}>
+              ${formatearMoneda(Math.abs(saldo.saldo))}
             </div>
           </div>
           <div>

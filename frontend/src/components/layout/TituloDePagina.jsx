@@ -9,7 +9,11 @@ const TITULOS = [
   [/^\/sucursales/, 'Sucursales'], [/^\/configuracion\/seguridad/, 'Seguridad'], [/^\/configuracion/, 'Configuración'],
   [/^\/ayuda/, 'Ayuda'], [/^\/contacto/, 'Contacto'], [/^\/reservar\//, 'Agenda tu cita'], [/^\/legal\/arco/, 'Derechos ARCO'],
   [/^\/legal\/privacidad/, 'Aviso de Privacidad'], [/^\/legal\/terminos/, 'Términos y Condiciones'], [/^\/legal\/cookies/, 'Cookies'],
-  [/^\/legal/, 'Centro legal'], [/^\/restablecer-password/, 'Nueva contraseña'], [/^\/administracion|^\/superadmin|^\/admin/, 'Administración']
+  [/^\/legal\/consentimientos/, 'Consentimientos'], [/^\/legal\/seguridad/, 'Seguridad de la información'],
+  [/^\/legal\/retencion/, 'Conservación de datos'], [/^\/legal\/proveedores/, 'Proveedores'],
+  [/^\/legal\/acuerdo-tratamiento-datos/, 'Acuerdo de tratamiento de datos'],
+  [/^\/legal/, 'Centro legal'], [/^\/restablecer-password/, 'Nueva contraseña'], [/^\/administracion\/arco/, 'Solicitudes ARCO'], [/^\/administracion\/incidentes/, 'Incidentes de seguridad'],
+  [/^\/administracion|^\/superadmin|^\/admin/, 'Administración']
 ]
 
 export function tituloDeRuta(pathname) {

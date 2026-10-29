@@ -76,7 +76,7 @@ export function usePacienteDetalle(id) {
     try {
       const citaIniciable = await buscarCitaIniciableHoy(id)
       if (!citaIniciable) {
-        toastError('Este paciente no tiene una cita agendada para hoy.')
+        toastError('Este paciente no tiene una cita pendiente para hoy. Pide a recepción que le agende una (o que registre una urgencia) para iniciar la consulta.')
         return
       }
       await actualizarCita(citaIniciable.id, { estado: 'en_consulta' })

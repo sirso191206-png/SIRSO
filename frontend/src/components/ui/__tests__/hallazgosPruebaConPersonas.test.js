@@ -4,7 +4,7 @@ import { normalizarTelefono, telefonoValido, terminoTelefonico } from '../../../
 import { conflictosDeAlergia } from '../../../lib/alergiasMedicamentos'
 import { rangoDeHoras, columnasDeCitas } from '../../agenda/CuadriculaCalendario'
 import { HORA_INICIO, HORA_FIN } from '../../agenda/constantes'
-import { prepararPacienteNuevo } from '../../../lib/pacienteNuevo'
+import { prepararPacienteNuevo, nombreTrasCambioDeApellidos } from '../../../lib/pacienteNuevo'
 
 describe('teléfonos', () => {
   it('se guardan solo con dígitos (y + internacional)', () => {
@@ -54,5 +54,13 @@ describe('agenda', () => {
     expect(cols.get('a')).toEqual({ columna: 0, total: 2 })
     expect(cols.get('b')).toEqual({ columna: 1, total: 2 })
     expect(cols.get('c')).toEqual({ columna: 0, total: 1 })
+  })
+})
+
+describe('apellidos editados', () => {
+  it('el nombre visible sigue a los apellidos', () => {
+    expect(nombreTrasCambioDeApellidos('Laura Gómez Ríos', { primer_apellido: 'Gómez', segundo_apellido: 'Ríos' }, { primer_apellido: 'Ruiz', segundo_apellido: 'Ríos' })).toBe('Laura Ruiz Ríos')
+    expect(nombreTrasCambioDeApellidos('Diego', { primer_apellido: null }, { primer_apellido: 'Martínez' })).toBe('Diego Martínez')
+    expect(nombreTrasCambioDeApellidos('Ana Pérez Gil', { primer_apellido: 'Pérez', segundo_apellido: 'Gil' }, { primer_apellido: 'Pérez', segundo_apellido: '' })).toBe('Ana Pérez')
   })
 })

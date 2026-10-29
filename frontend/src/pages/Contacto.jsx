@@ -80,6 +80,7 @@ export function Contacto() {
                 onChange={(e) => { setNombre(e.target.value); setErrores((er) => ({ ...er, nombre: undefined })) }}
                 placeholder="Nombre"
                 aria-label="Nombre"
+                aria-invalid={Boolean(errores.nombre)}
                 autoComplete="name"
                 className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 shadow-sm transition-all placeholder:text-slate-400 focus:border-clinico-azul focus:bg-white focus:outline-none focus:ring-4 focus:ring-clinico-azul/10"
               />
@@ -93,6 +94,7 @@ export function Contacto() {
                 onChange={(e) => { setCorreo(e.target.value); setErrores((er) => ({ ...er, correo: undefined })) }}
                 placeholder="Correo"
                 aria-label="Correo electrónico"
+                aria-invalid={Boolean(errores.correo)}
                 autoComplete="email"
                 className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 shadow-sm transition-all placeholder:text-slate-400 focus:border-clinico-azul focus:bg-white focus:outline-none focus:ring-4 focus:ring-clinico-azul/10"
               />
@@ -105,6 +107,7 @@ export function Contacto() {
                 onChange={(e) => { setMensaje(e.target.value); setErrores((er) => ({ ...er, mensaje: undefined })) }}
                 placeholder="Mensaje"
                 aria-label="Mensaje"
+                aria-invalid={Boolean(errores.mensaje)}
                 rows={4}
                 className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 shadow-sm transition-all placeholder:text-slate-400 focus:border-clinico-azul focus:bg-white focus:outline-none focus:ring-4 focus:ring-clinico-azul/10"
               />

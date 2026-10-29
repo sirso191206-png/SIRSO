@@ -83,7 +83,13 @@ function ModalNuevaReferencia({ abierto, onCerrar, onGuardar, perfil }) {
   const [tratamientoRealizado, setTratamientoRealizado] = useState('')
   const [guardando, setGuardando] = useState(false)
 
+  // Escape o «Cerrar» preguntan antes de tirar lo escrito (igual que la receta).
   const cerrar = () => {
+    if ((medicoNombre.trim() || motivo.trim() || diagnostico.trim() || tratamientoRealizado.trim()) && typeof window !== 'undefined' && !window.confirm('¿Descartar lo que escribiste? No se guardará.')) return
+    descartar()
+  }
+
+  const descartar = () => {
     setDireccion('enviada'); setMedicoNombre(''); setEspecialidad('')
     setMotivo(''); setDiagnostico(''); setTratamientoRealizado('')
     onCerrar()
@@ -107,7 +113,7 @@ function ModalNuevaReferencia({ abierto, onCerrar, onGuardar, perfil }) {
         tratamiento_realizado: tratamientoRealizado || null
       })
       toastExito('Referencia guardada.')
-      cerrar()
+      descartar()
     } catch (err) {
       toastError('No se pudo guardar: ' + err.message)
     } finally {

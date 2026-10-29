@@ -165,7 +165,7 @@ export function PacienteDetalle() {
             <div className="relative">
               <Button variante="secundario" onClick={() => setMenuAcciones(!menuAcciones)}>Más acciones ▾</Button>
               {menuAcciones && (
-                <div className="absolute right-0 z-20 mt-1 w-48 rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+                <div className="absolute left-0 z-20 mt-1 w-56 rounded-lg sm:left-auto sm:right-0 border border-slate-200 bg-white py-1 shadow-lg">
                   {puedeIniciarConsulta && (
                     <button
                       onClick={() => { setModalExpedienteCompleto(true); setMenuAcciones(false) }}

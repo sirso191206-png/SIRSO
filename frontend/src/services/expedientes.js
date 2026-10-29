@@ -13,8 +13,11 @@ export async function obtenerExpediente(pacienteId) {
         .from('expedientes')
         .select('*')
         .eq('paciente_id', pacienteId)
-        .single()
+        .maybeSingle()
       if (error) throw error
+      // Sin fila visible (p. ej. recepción, que no tiene acceso clínico) se responde como antes con «0 filas», pero sin que
+      // el servidor devuelva un 406 que ensuciaba la consola en cada ficha.
+      if (!data) throw Object.assign(new Error('JSON object requested, multiple (or no) rows returned'), { code: 'PGRST116', details: 'The result contains 0 rows' })
       return data
     })
     return datos

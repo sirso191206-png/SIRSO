@@ -125,7 +125,7 @@ export function ModalNuevaUrgencia({ abierto, onCerrar, onCreada }) {
         navigate(`/consulta/${cita.id}`)
       }
     } catch (err) {
-      toastError('No se pudo registrar la urgencia: ' + err.message)
+      toastError(/row-level security/i.test(err.message ?? '') ? 'Tu rol no puede registrar urgencias: pídeselo a recepción o al propietario.' : 'No se pudo registrar la urgencia: ' + err.message)
     } finally {
       setGuardando(false)
     }

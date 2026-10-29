@@ -74,6 +74,39 @@ select pg_temp.t('un usuario no puede consultar el uso ni la suscripción de una
 select pg_temp.t('mi_suscripcion (que sí usa esas funciones) sigue funcionando para el owner',
   pg_temp.como(:OW, $q$select (mi_suscripcion() is not null)::text$q$) = 'true');
 
+-- Tercera ronda: pagos íntegros y ARCO normalizado
+insert into auth.users (id, email) values ('a1200000-0000-0000-0000-000000000003', 'r120@x.mx');
+insert into usuarios (id, clinica_id, nombre, correo, rol) values ('a1200000-0000-0000-0000-000000000003', 'c1200000-0000-0000-0000-00000000000a', 'Recepción 120', 'r120@x.mx', 'recepcion');
+insert into pacientes (id, clinica_id, nombre_completo) values ('b1200000-0000-0000-0000-000000000001', 'c1200000-0000-0000-0000-00000000000a', 'Paciente 120');
+\set RE '\'a1200000-0000-0000-0000-000000000003\''
+select pg_temp.como(:RE, $q$insert into pagos (id, paciente_id, monto, metodo, tipo, registrado_por, creado_en, numero_recibo)
+  values ('e1200000-0000-0000-0000-000000000001', 'b1200000-0000-0000-0000-000000000001', 100, 'efectivo', 'pago', 'a1200000-0000-0000-0000-000000000003', '2020-01-01', 'FALSO-1') returning 'ok'$q$);
+select pg_temp.t('un pago nace con la hora y el folio del servidor (no con los que mande el cliente)',
+  (select creado_en > now() - interval '1 minute' and numero_recibo like 'REC-%' from pagos where id = 'e1200000-0000-0000-0000-000000000001'));
+select pg_temp.como(:RE, $q$update pagos set anulado_en = '2020-01-01', anulado_por = 'a1200000-0000-0000-0000-000000000001', motivo_anulacion = 'error' where id = 'e1200000-0000-0000-0000-000000000001' returning 'ok'$q$);
+select pg_temp.t('una anulación lleva la hora real y a quien de verdad anuló',
+  (select anulado_en > now() - interval '1 minute' and anulado_por = 'a1200000-0000-0000-0000-000000000003' from pagos where id = 'e1200000-0000-0000-0000-000000000001'));
+select pg_temp.t('un pago anulado no se puede desanular ni reescribir',
+  pg_temp.como(:RE, $q$update pagos set anulado_en = null, anulado_por = null where id = 'e1200000-0000-0000-0000-000000000001' returning 'ok'$q$) like 'ERR|%'
+  and pg_temp.como(:RE, $q$update pagos set motivo_anulacion = 'otro' where id = 'e1200000-0000-0000-0000-000000000001' returning 'ok'$q$) like 'ERR|%'
+  and (select anulado_en is not null and motivo_anulacion = 'error' from pagos where id = 'e1200000-0000-0000-0000-000000000001'));
+select set_config('request.jwt.claims', '{"role":"anon"}', true);
+set local role anon;
+insert into arco_solicitudes (tipo, solicitante_nombre, solicitante_correo, descripcion, estado, paciente_id)
+  values ('acceso', 'QA 120b', '  QA120B@X.MX ', 'prueba', 'cerrada', 'b1200000-0000-0000-0000-000000000001');
+reset role;
+select pg_temp.t('ARCO anónimo: nace «recibida», sin paciente y con el correo normalizado',
+  (select estado = 'recibida' and paciente_id is null from arco_solicitudes where solicitante_correo = 'qa120b@x.mx'));
+create function pg_temp.anon_ejecuta(p_sql text) returns text language plpgsql as $$
+begin
+  perform set_config('request.jwt.claims', '{"role":"anon"}', true);
+  set local role anon;
+  begin execute p_sql; reset role; return 'ok';
+  exception when others then reset role; return 'ERR|'||sqlstate; end;
+end $$;
+select pg_temp.t('ARCO anónimo: un correo inválido se rechaza',
+  pg_temp.anon_ejecuta($q$insert into arco_solicitudes (tipo, solicitante_nombre, solicitante_correo, descripcion) values ('acceso', 'QA', 'no-es-correo', 'x')$q$) = 'ERR|22023');
+
 do $$ declare v_f int; v_o int; begin
   select count(*) filter (where ok), count(*) filter (where not ok) into v_o, v_f from _res;
   raise notice 'RESULTADO 120: % pasaron, % fallaron (de %)', v_o, v_f, v_o + v_f;

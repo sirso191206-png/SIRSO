@@ -145,7 +145,7 @@ export function Login() {
             )}
 
             {error && (
-              <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-clinico-rojo">{error}</p>
+              <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-clinico-rojo">{error}</p>
             )}
 
             <button

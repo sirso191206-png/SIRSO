@@ -226,7 +226,13 @@ function ModalNuevoConsentimiento({ abierto, onCerrar, onGuardar, perfil, pacien
   const [testigo2, setTestigo2] = useState('')
   const [guardando, setGuardando] = useState(false)
 
+  // Escape o «Cerrar» preguntan antes de tirar lo escrito (igual que la receta).
   const cerrar = () => {
+    if ((diagnostico.trim() || procedimiento.trim() || firmaPacientePng || firmaMedicoPng) && typeof window !== 'undefined' && !window.confirm('¿Descartar lo que escribiste? No se guardará.')) return
+    descartar()
+  }
+
+  const descartar = () => {
     setDiagnostico(''); setProcedimiento(''); setPronostico(''); setRiesgos(''); setMolestias('')
     setBeneficios(''); setAlternativas(''); setIndicaciones(''); setContraindicaciones(''); setObservaciones('')
     setMotivoEleccion(''); setGradoUrgencia('electivo'); setLugar('')
@@ -276,7 +282,7 @@ function ModalNuevoConsentimiento({ abierto, onCerrar, onGuardar, perfil, pacien
         testigo2_nombre: testigo2 || null
       })
       toastExito('Consentimiento guardado.')
-      cerrar()
+      descartar()
     } catch (err) {
       toastError('No se pudo guardar: ' + err.message)
     } finally {

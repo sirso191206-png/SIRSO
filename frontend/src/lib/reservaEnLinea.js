@@ -98,7 +98,7 @@ export function validarServicioReserva({ nombre = '', duracion_min }) {
 
 const MENSAJES_POR_PISTA = {
   RESERVA_NO_DISPONIBLE: 'Este enlace de reserva no existe o la clínica lo desactivó. Revisa que el enlace que te enviaron esté completo, o comunícate directamente con la clínica.',
-  RESERVA_DEMASIADAS: 'Se han recibido demasiadas solicitudes. Inténtalo más tarde o llama a la clínica.',
+  RESERVA_DEMASIADAS: 'Recibimos demasiadas solicitudes con estos datos. Espera a que la clínica te confirme, inténtalo de nuevo mañana o llama a la clínica.',
   RESERVA_HORARIO_OCUPADO: 'Ese horario se acaba de ocupar. Elige otro.',
   RESERVA_HORARIO_INVALIDO: 'Ese horario no se puede reservar. Elige otro.',
   RESERVA_SUCURSAL_REQUERIDA: 'Elige una sucursal.',

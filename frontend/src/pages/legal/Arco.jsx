@@ -26,13 +26,16 @@ export function Arco() {
   const [trampa, setTrampa] = useState('') // honeypot — un humano nunca ve ni llena este campo
   const [enviando, setEnviando] = useState(false)
   const [enviada, setEnviada] = useState(false)
+  const [faltantes, setFaltantes] = useState(false)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!nombre.trim() || !correo.trim() || !descripcion.trim()) {
-      toastError('Completa nombre, correo y descripción de tu solicitud.')
+      // En el formulario mismo (el aviso flotante se iba solo y un lector de pantalla no lo anunciaba).
+      setFaltantes(true)
       return
     }
+    setFaltantes(false)
     // Si el campo trampa tiene algo, es un bot — nunca un humano real
     // llega a verlo. Se finge éxito sin enviar nada, para no revelarle
     // al bot que fue detectado.
@@ -75,7 +78,7 @@ export function Arco() {
         </div>
 
         {enviada ? (
-          <div className="rounded-xl border border-green-200 bg-green-50 p-6 text-sm text-green-800">
+          <div role="status" className="rounded-xl border border-green-200 bg-green-50 p-6 text-sm text-green-800">
             Recibimos tu solicitud. Te contactaremos al correo que proporcionaste.
           </div>
         ) : (
@@ -115,6 +118,8 @@ export function Arco() {
               <textarea
                 value={descripcion}
                 maxLength={5000}
+                required
+                aria-invalid={faltantes && !descripcion.trim()}
                 onChange={(e) => setDescripcion(e.target.value)}
                 rows={5}
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
@@ -122,6 +127,7 @@ export function Arco() {
               />
             </label>
 
+            {faltantes && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-clinico-rojo">Completa tu nombre, tu correo y la descripción de tu solicitud.</p>}
             <Button type="submit" disabled={enviando} className="w-full">
               {enviando ? 'Enviando…' : 'Enviar solicitud'}
             </Button>

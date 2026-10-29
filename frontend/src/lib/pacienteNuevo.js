@@ -25,3 +25,19 @@ export function prepararPacienteNuevo(form) {
   paciente.nombre_completo = nombreConApellidos(paciente)
   return paciente
 }
+
+// Al EDITAR los apellidos, el nombre visible se actualiza igual: el apellido viejo se reemplaza por el nuevo (o se quita si
+// se borró) y, si no estaba, se agrega. Así «Laura Gómez Ríos» pasa a «Laura Ruiz Ríos» al cambiar el primer apellido.
+export function nombreTrasCambioDeApellidos(nombreActual, antes, despues) {
+  let palabras = String(nombreActual ?? '').trim().split(/\s+/).filter(Boolean)
+  for (const campo of ['primer_apellido', 'segundo_apellido']) {
+    const viejo = String(antes?.[campo] ?? '').trim()
+    const nuevo = String(despues?.[campo] ?? '').trim()
+    if (!viejo || viejo === nuevo) continue
+    const partesViejo = viejo.toLowerCase().split(/\s+/)
+    const inicio = palabras.findIndex((_, k) => partesViejo.every((p, j) => (palabras[k + j] ?? '').toLowerCase() === p))
+    if (inicio === -1) continue
+    palabras = [...palabras.slice(0, inicio), ...(nuevo ? nuevo.split(/\s+/) : []), ...palabras.slice(inicio + partesViejo.length)]
+  }
+  return nombreConApellidos({ nombre_completo: palabras.join(' '), primer_apellido: despues?.primer_apellido, segundo_apellido: despues?.segundo_apellido })
+}
