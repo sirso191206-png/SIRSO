@@ -57,13 +57,13 @@ export function Contacto() {
           <div className="space-y-6">
             <div>
               <h2 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Correo</h2>
-              <a href="sirso191206@gmail.com" className="text-sm text-clinico-azul hover:underline">
+              <a href="mailto:sirso191206@gmail.com" className="text-sm text-clinico-azul hover:underline">
                 sirso191206@gmail.com
               </a>
             </div>
             <div>
               <h2 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Teléfono</h2>
-              <p className="text-sm text-slate-700">55 2533 8668</p>
+              <a href="tel:+525525338668" className="text-sm text-clinico-azul hover:underline">55 2533 8668</a>
             </div>
             <div>
               <h2 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Horario de soporte</h2>

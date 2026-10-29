@@ -16,6 +16,10 @@ export function PanelCita({ cita, onCerrar, onCambiarEstado, onReagendar, onDesa
   const [nuevoInicio, setNuevoInicio] = useState('')
   const [procesando, setProcesando] = useState(false)
   const [modalEliminar, setModalEliminar] = useState(false)
+  const [modalCancelar, setModalCancelar] = useState(false)
+  // «No asistió» solo tiene sentido cuando la hora de la cita ya llegó.
+  const yaEmpezo = new Date(cita.inicio) <= new Date()
+  const puedeAbrirConsulta = ['owner', 'dentista', 'asistente'].includes(perfil?.rol)
 
   const info = infoEstado(cita.estado)
   // ¿Esta cita quedó completada SIN nota? (el servidor decide: roles, plan, clínica y sucursal)
@@ -124,7 +128,14 @@ export function PanelCita({ cita, onCerrar, onCambiarEstado, onReagendar, onDesa
               </Button>
             )}
             {['agendada', 'confirmada', 'en_espera'].includes(cita.estado) && (
-              <Button variante="secundario" onClick={() => ejecutar(() => onCambiarEstado(cita.id, 'en_consulta'), 'Consulta iniciada.')} disabled={procesando} className="inline-flex items-center justify-center gap-1.5">
+              <Button
+                variante="secundario"
+                onClick={() => ejecutar(async () => {
+                  await onCambiarEstado(cita.id, 'en_consulta')
+                  // Quien atiende va directo a la consulta; recepción solo marca el estado.
+                  if (puedeAbrirConsulta) navigate(`/consulta/${cita.id}`)
+                }, 'Consulta iniciada.')}
+                disabled={procesando} className="inline-flex items-center justify-center gap-1.5">
                 <Icon.play /> Iniciar consulta
               </Button>
             )}
@@ -134,7 +145,7 @@ export function PanelCita({ cita, onCerrar, onCambiarEstado, onReagendar, onDesa
                 <Icon.checkCircle /> Finalizar consulta
               </Button>
             )}
-            {['pendiente_confirmar', 'agendada', 'confirmada', 'en_espera'].includes(cita.estado) && (
+            {['pendiente_confirmar', 'agendada', 'confirmada', 'en_espera'].includes(cita.estado) && yaEmpezo && (
               // Inasistencia: acción ADMINISTRATIVA, no genera nota clínica.
               <Button variante="secundario" onClick={() => ejecutar(() => onCambiarEstado(cita.id, 'no_asistio'), 'Cita marcada como no asistió.')} disabled={procesando} className="inline-flex items-center justify-center gap-1.5">
                 <Icon.x /> No asistió
@@ -145,11 +156,11 @@ export function PanelCita({ cita, onCerrar, onCambiarEstado, onReagendar, onDesa
             </Button>
             <Button
               variante="peligro"
-              onClick={() => ejecutar(() => onCambiarEstado(cita.id, 'cancelada'), 'Cita cancelada.')}
+              onClick={() => setModalCancelar(true)}
               disabled={procesando}
               className="inline-flex items-center justify-center gap-1.5"
             >
-              <Icon.x /> Cancelar
+              <Icon.x /> Cancelar cita
             </Button>
           </div>
         )}
@@ -191,6 +202,19 @@ export function PanelCita({ cita, onCerrar, onCambiarEstado, onReagendar, onDesa
         )}
       </div>
 
+      <ConfirmModal
+        abierto={modalCancelar}
+        onCerrar={() => setModalCancelar(false)}
+        onConfirmar={async () => {
+          await ejecutar(() => onCambiarEstado(cita.id, 'cancelada'), 'Cita cancelada.')
+          setModalCancelar(false)
+        }}
+        confirmando={procesando}
+        titulo="Cancelar cita"
+        mensaje={`¿Cancelar la cita de ${cita.paciente?.nombre_completo ?? 'este paciente'} del ${new Date(cita.inicio).toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' })} a las ${new Date(cita.inicio).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}? El horario queda libre; para volver a atenderlo habrá que agendar una cita nueva.`}
+        textoConfirmar="Sí, cancelar la cita"
+        textoCerrar="No, conservarla"
+      />
       <ConfirmModal
         abierto={modalEliminar}
         onCerrar={() => setModalEliminar(false)}

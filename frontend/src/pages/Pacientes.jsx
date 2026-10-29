@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { usePacientesLista } from '../hooks/usePacientesLista'
 import { crearPaciente, buscarPosiblesDuplicados, buscarPacientePorCurp } from '../services/pacientes'
 import { prepararPacienteNuevo } from '../lib/pacienteNuevo'
+import { telefonoValido, MENSAJE_TELEFONO_INVALIDO } from '../lib/telefono'
 import { validarEstructuraCurp, parsearCurp } from '../lib/curp'
 import { calcularEdad } from '../lib/fechas'
 import { mensajeErrorDePlan } from '../lib/planes'
@@ -258,6 +259,10 @@ function ModalNuevoPaciente({ abierto, onCerrar }) {
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (pacienteExistente) return // no se deja avanzar, hay que usar el botón de "ir al expediente"
+    if (!telefonoValido(form.telefono)) {
+      toastError(MENSAJE_TELEFONO_INVALIDO)
+      return
+    }
 
     setGuardando(true)
     try {
@@ -337,12 +342,13 @@ function ModalNuevoPaciente({ abierto, onCerrar }) {
           </div>
         ) : (
           <>
-            <Input label="Nombre completo" required value={form.nombre_completo} onChange={handleChange('nombre_completo')} />
+            <Input label="Nombre completo (nombre y apellidos)" required value={form.nombre_completo} onChange={handleChange('nombre_completo')} />
             <div className="grid grid-cols-2 gap-3">
               <Input label="Primer apellido" value={form.primer_apellido} onChange={(e) => setForm({ ...form, primer_apellido: e.target.value })} />
               <Input label="Segundo apellido" value={form.segundo_apellido} onChange={(e) => setForm({ ...form, segundo_apellido: e.target.value })} />
             </div>
-            <Input label="Teléfono" required value={form.telefono} onChange={handleChange('telefono')} />
+            <Input label="Teléfono" required type="tel" inputMode="tel" value={form.telefono} onChange={handleChange('telefono')} />
+            {form.telefono && !telefonoValido(form.telefono) && <p className="-mt-2 text-xs text-clinico-rojo">{MENSAJE_TELEFONO_INVALIDO}</p>}
             <div className="grid grid-cols-2 gap-3">
               <Input label="Fecha de nacimiento" type="date" value={form.fecha_nacimiento} onChange={handleChange('fecha_nacimiento')} />
               <label className="block text-sm">

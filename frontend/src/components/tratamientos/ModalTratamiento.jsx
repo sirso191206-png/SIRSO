@@ -5,6 +5,14 @@ import { Input } from '../ui/Input'
 import { Modal } from '../ui/Modal'
 import { formatearMoneda } from '../../lib/formato'
 
+// Numeración FDI: permanentes 11–18, 21–28, 31–38, 41–48; temporales 51–55, 61–65, 71–75, 81–85. Se aceptan varias
+// piezas separadas por coma o espacio («14, 15»).
+const PIEZA_FDI = /^([1-4][1-8]|[5-8][1-5])$/
+function piezasDentalesValidas(texto) {
+  const piezas = String(texto ?? '').split(/[\s,;]+/).filter(Boolean)
+  return piezas.every((p) => PIEZA_FDI.test(p))
+}
+
 export function ModalTratamiento({ abierto, onCerrar, onGuardar, catalogo, perfil, titulo, valorInicial }) {
   const [catalogoId, setCatalogoId] = useState('')
   const [descripcion, setDescripcion] = useState(valorInicial?.descripcion ?? '')
@@ -31,6 +39,14 @@ export function ModalTratamiento({ abierto, onCerrar, onGuardar, catalogo, perfi
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (!piezasDentalesValidas(piezaDental)) {
+      toastError('La pieza dental no existe en la numeración FDI (p. ej. 11–48 permanentes, 51–85 temporales).')
+      return
+    }
+    if (!(Number(costo) >= 0) || Number(descuento || 0) < 0) {
+      toastError('El costo y el descuento no pueden ser negativos.')
+      return
+    }
     setGuardando(true)
     try {
       await onGuardar({
@@ -79,8 +95,8 @@ export function ModalTratamiento({ abierto, onCerrar, onGuardar, catalogo, perfi
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <Input label="Costo" type="number" step="0.01" required value={costo} onChange={(e) => setCosto(e.target.value)} />
-          <Input label="Descuento (opcional)" type="number" step="0.01" value={descuento} onChange={(e) => setDescuento(e.target.value)} />
+          <Input label="Costo" type="number" min="0" step="0.01" required value={costo} onChange={(e) => setCosto(e.target.value)} />
+          <Input label="Descuento (opcional)" type="number" min="0" step="0.01" value={descuento} onChange={(e) => setDescuento(e.target.value)} />
         </div>
 
         <Input label="Diagnóstico relacionado (opcional)" value={diagnostico} onChange={(e) => setDiagnostico(e.target.value)} />

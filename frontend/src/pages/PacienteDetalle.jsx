@@ -153,8 +153,12 @@ export function PacienteDetalle() {
                 {iniciandoConsulta ? 'Iniciando…' : 'Iniciar consulta'}
               </Button>
             )}
-            <Button variante="secundario" onClick={() => navigate('/agenda')}>Nueva cita</Button>
+            {/* Agendar es de propietario y recepción (la base solo les permite crear citas a ellos). */}
+            {['owner', 'recepcion'].includes(perfil?.rol) && (
+              <Button variante="secundario" onClick={() => navigate('/agenda')}>Nueva cita</Button>
+            )}
             <Button variante="secundario" onClick={() => setTab('Plan')}>Registrar pago</Button>
+            {(puedeIniciarConsulta || perfil?.rol === 'owner') && (
             <div className="relative">
               <Button variante="secundario" onClick={() => setMenuAcciones(!menuAcciones)}>Más acciones ▾</Button>
               {menuAcciones && (
@@ -196,6 +200,7 @@ export function PacienteDetalle() {
                 </div>
               )}
             </div>
+            )}
           </div>
         </div>
       </div>

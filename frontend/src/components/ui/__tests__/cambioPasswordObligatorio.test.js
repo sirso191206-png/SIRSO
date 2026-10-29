@@ -92,6 +92,6 @@ describe('ProtectedRoute con el cambio de contraseña pendiente', () => {
   })
   it('la guardia está colocada ANTES de renderizar el menú y el contenido en el código fuente', () => {
     const src = readFileSync(new URL('../../layout/ProtectedRoute.jsx', import.meta.url), 'utf8'); expect(src.indexOf('debe_cambiar_password')).toBeGreaterThan(-1)
-    expect(src.indexOf('debe_cambiar_password')).toBeLessThan(src.indexOf('<Sidebar />')); expect(src.indexOf('debe_cambiar_password')).toBeLessThan(src.indexOf('{autorizado ? children'))
+    expect(src.indexOf('debe_cambiar_password')).toBeLessThan(src.indexOf('<Sidebar ')); expect(src.indexOf('debe_cambiar_password')).toBeLessThan(src.indexOf('{autorizado ? children'))
   })
 })

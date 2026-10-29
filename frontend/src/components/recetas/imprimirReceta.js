@@ -77,7 +77,7 @@ function campoFormulario(etiqueta, valor) {
   `
 }
 
-export async function imprimirReceta({ receta, paciente, clinicaId, incluirSignosVitales = true }) {
+export async function imprimirReceta({ receta, paciente, clinicaId, incluirSignosVitales = true, alergias = [] }) {
   const [{ data: clinica }, signosVitalesLista] = await Promise.all([
     supabase.from('clinicas').select('nombre, direccion, telefono, logo_url').eq('id', clinicaId).single(),
     incluirSignosVitales ? obtenerSignosVitales(paciente.id) : Promise.resolve([]),
@@ -224,6 +224,8 @@ export async function imprimirReceta({ receta, paciente, clinicaId, incluirSigno
         ${campoFormulario('Sexo', paciente.sexo ? (NOMBRE_SEXO[paciente.sexo] ?? paciente.sexo) : '')}
         ${paciente.numero_expediente ? campoFormulario('Expediente', paciente.numero_expediente) : ''}
       </div>
+
+      ${alergias.length > 0 ? html`<div class="campo-fila"><strong>Alergias:</strong>&nbsp;${alergias.map((a) => a.sustancia).filter(Boolean).join(', ')}</div>` : ''}
 
       ${incluirSignosVitales ? bloqueSignosVitales(signosVitales) : ''}
 

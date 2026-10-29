@@ -80,7 +80,10 @@ export function CatalogoTratamientos() {
         </div>
       )}
 
-      <ModalItem abierto={modalAbierto} onCerrar={() => setModalAbierto(false)} onGuardar={agregar} titulo="Nuevo tratamiento del catálogo" />
+      {/* Se monta solo mientras está abierto: así «Nuevo» siempre empieza en blanco, sin los datos del último guardado. */}
+      {modalAbierto && (
+        <ModalItem abierto onCerrar={() => setModalAbierto(false)} onGuardar={agregar} titulo="Nuevo tratamiento del catálogo" />
+      )}
       {itemEditar && (
         <ModalItem
           abierto
@@ -103,6 +106,10 @@ function ModalItem({ abierto, onCerrar, onGuardar, titulo, valorInicial }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (precio === '' || !Number.isFinite(Number(precio)) || Number(precio) < 0) {
+      toastError('El precio debe ser un número mayor o igual a 0.')
+      return
+    }
     setGuardando(true)
     try {
       await onGuardar({ categoria: categoria || null, nombre, descripcion: descripcion || null, precio: Number(precio) })
@@ -121,7 +128,7 @@ function ModalItem({ abierto, onCerrar, onGuardar, titulo, valorInicial }) {
         <Input label="Categoría (opcional)" value={categoria} onChange={(e) => setCategoria(e.target.value)} placeholder="Ej. Preventivo, Restaurativo, Estético" />
         <Input label="Nombre" required value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Ej. Limpieza dental" />
         <Input label="Descripción (opcional)" value={descripcion} onChange={(e) => setDescripcion(e.target.value)} />
-        <Input label="Precio" type="number" step="0.01" required value={precio} onChange={(e) => setPrecio(e.target.value)} />
+        <Input label="Precio" type="number" min="0" step="0.01" required value={precio} onChange={(e) => setPrecio(e.target.value)} />
         <Button type="submit" disabled={guardando} className="w-full">{guardando ? 'Guardando…' : 'Guardar'}</Button>
       </form>
     </Modal>

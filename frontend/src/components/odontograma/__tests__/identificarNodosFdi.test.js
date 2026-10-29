@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
-import { Mesh, BoxGeometry, MeshBasicMaterial, Group } from 'three'
+import { Mesh, BoxGeometry, MeshBasicMaterial, Group, Vector3 } from 'three'
 import { identificarNodosPorFdi, FDI_ESPERADOS } from '../identificarNodosFdi'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -31,8 +31,24 @@ describe('identificarNodosPorFdi — con la escena real del .glb (GLTFLoader rea
   it('el objeto devuelto es literalmente el mismo mesh de la escena — misma posición/rotación/escala, nada recalculado', async () => {
     const gltf = await cargarGltfReal()
     const nodos = identificarNodosPorFdi(gltf.scene)
-    const meshOriginal = gltf.scene.getObjectByName('47')
-    expect(nodos['47']).toBe(meshOriginal)
+    expect(nodos['17']).toBe(gltf.scene.getObjectByName('17'))
+    // La arcada inferior del .glb viene con los cuadrantes invertidos: el FDI 47 es el mesh llamado «37».
+    expect(nodos['47']).toBe(gltf.scene.getObjectByName('37'))
+  })
+
+  it('cada pieza inferior queda del MISMO lado que su antagonista superior (1x↔4x, 2x↔3x)', async () => {
+    const gltf = await cargarGltfReal()
+    gltf.scene.updateMatrixWorld(true)
+    const nodos = identificarNodosPorFdi(gltf.scene)
+    const x = (fdi) => {
+      const m = nodos[fdi]
+      m.geometry.computeBoundingBox()
+      return m.geometry.boundingBox.getCenter(new Vector3()).applyMatrix4(m.matrixWorld).x
+    }
+    for (let n = 1; n <= 8; n++) {
+      expect(Math.sign(x(`4${n}`))).toBe(Math.sign(x(`1${n}`)))
+      expect(Math.sign(x(`3${n}`))).toBe(Math.sign(x(`2${n}`)))
+    }
   })
 
   it('lanza un error explícito si hay un FDI duplicado, en vez de quedarse con el último silenciosamente', () => {

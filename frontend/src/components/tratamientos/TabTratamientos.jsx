@@ -18,6 +18,8 @@ export function TabTratamientos({ pacienteId, paciente }) {
   // Los pagos dependen del plan (la BD bloquea la tabla `pagos` sin la funcionalidad).
   const pagosDisponibles = useFuncionalidad('pagos')
   const presupuestoDisponible = useFuncionalidad('planes_tratamiento') // presupuesto imprimible (solo interfaz)
+  // Solo el propietario y el dentista pueden registrar tratamientos (la base lo exige: política tratamientos_write).
+  const puedeRegistrar = ['owner', 'dentista'].includes(perfil?.rol)
   const [modalNuevo, setModalNuevo] = useState(false)
   const [tratamientoEditar, setTratamientoEditar] = useState(null)
   const [imprimiendo, setImprimiendo] = useState(false)
@@ -40,7 +42,11 @@ export function TabTratamientos({ pacienteId, paciente }) {
   return (
     <div className="space-y-4">
       <div className="flex justify-between">
-        <Button onClick={() => setModalNuevo(true)}>+ Nuevo tratamiento</Button>
+        {puedeRegistrar ? (
+          <Button onClick={() => setModalNuevo(true)}>+ Nuevo tratamiento</Button>
+        ) : (
+          <p className="text-sm text-slate-500">Los tratamientos los registra el dentista. Aquí puedes registrar pagos.</p>
+        )}
         {presupuestoDisponible && (
           <Button variante="secundario" onClick={handleImprimir} disabled={imprimiendo} className="inline-flex items-center gap-1.5">
             {imprimiendo ? 'Generando…' : (<><Icon.printer /> Presupuesto imprimible</>)}

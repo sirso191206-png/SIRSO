@@ -84,13 +84,16 @@ describe('Panel de la cita en la agenda', () => {
       for (const llamada of onCambiarEstado.mock.calls) expect(llamada[1], `estado ${estado}`).not.toBe('completada')
     }
   })
-  it('inasistencia: «No asistió» es una acción administrativa (no genera notas) disponible mientras la cita no esté en consulta ni finalizada', async () => {
+  it('inasistencia: «No asistió» es una acción administrativa (no genera notas) disponible cuando ya llegó la hora y la cita no está en consulta ni finalizada', async () => {
+    const PASADA = { inicio: '2020-01-01T10:00:00Z', fin: '2020-01-01T10:30:00Z' }
     for (const estado of ['pendiente_confirmar', 'agendada', 'confirmada', 'en_espera']) {
-      const { r, onCambiarEstado } = panel(CITA({ estado }))
+      const { r, onCambiarEstado } = panel(CITA({ estado, ...PASADA }))
       const b = conTexto(r, 'No asistió'); expect(b, estado).toBeTruthy()
       await act(async () => { await b.props.onClick() })
       expect(onCambiarEstado).toHaveBeenCalledWith('cita-1', 'no_asistio')
     }
+    // Una cita futura todavía no puede marcarse como inasistencia.
+    expect(conTexto(panel(CITA({ estado: 'agendada' })).r, 'No asistió')).toBeUndefined()
     expect(conTexto(panel(CITA({ estado: 'en_consulta' })).r, 'No asistió')).toBeUndefined()
     expect(conTexto(panel(CITA({ estado: 'cancelada' })).r, 'No asistió')).toBeUndefined()
   })
@@ -98,7 +101,10 @@ describe('Panel de la cita en la agenda', () => {
     const a = panel(CITA({ estado: 'pendiente_confirmar' })); await act(async () => { await conTexto(a.r, 'Confirmar').props.onClick() }); expect(a.onCambiarEstado).toHaveBeenCalledWith('cita-1', 'confirmada')
     const b = panel(CITA({ estado: 'agendada' })); await act(async () => { await conTexto(b.r, 'En espera').props.onClick() }); expect(b.onCambiarEstado).toHaveBeenCalledWith('cita-1', 'en_espera')
     await act(async () => { await conTexto(b.r, 'Iniciar consulta').props.onClick() }); expect(b.onCambiarEstado).toHaveBeenCalledWith('cita-1', 'en_consulta')
-    await act(async () => { await conTexto(b.r, 'Cancelar').props.onClick() }); expect(b.onCambiarEstado).toHaveBeenCalledWith('cita-1', 'cancelada')
+    // Cancelar pide confirmación: el primer clic solo abre el aviso.
+    const c = panel(CITA({ estado: 'agendada' }))
+    await act(async () => { await conTexto(c.r, 'Cancelar cita').props.onClick() }); expect(c.onCambiarEstado).not.toHaveBeenCalled()
+    await act(async () => { await conTexto(c.r, 'Sí, cancelar la cita').props.onClick() }); expect(c.onCambiarEstado).toHaveBeenCalledWith('cita-1', 'cancelada')
   })
   it('una cita COMPLETADA SIN NOTA (según el servidor) muestra un estado recuperable y «Completar consulta»', () => {
     m.pendientes = [{ cita_id: 'cita-1' }]

@@ -137,7 +137,9 @@ function ItemNav({ to, icon, children, end = false, tonoAmbar = false }) {
   )
 }
 
-export function Sidebar() {
+// En pantallas menores a lg (teléfono y tableta) el menú es un cajón que se abre con el botón ☰ de la barra superior
+// (ProtectedRoute); en escritorio queda fijo a la izquierda y no se va con el scroll de la página.
+export function Sidebar({ abierto = false, onCerrar }) {
   const { perfil, clinicaNombre, cerrarSesionSegura } = useAuthStore()
   // Cerrar sesión se bloquea si hay cambios sin subir o no hay conexión.
   const { solicitarCierre, modalCierre } = useCierreSesionSeguro()
@@ -177,7 +179,23 @@ export function Sidebar() {
 
   return (
     <>
-    <aside className="flex h-screen w-60 flex-col justify-between border-r border-slate-200/80 bg-white p-4">
+    {abierto && <div className="fixed inset-0 z-30 bg-slate-900/40 lg:hidden" onClick={onCerrar} aria-hidden="true" />}
+    <aside
+      id="menu-principal"
+      className={`fixed inset-y-0 left-0 z-40 flex h-screen w-60 shrink-0 flex-col justify-between border-r border-slate-200/80 bg-white p-4 transition-transform duration-200 lg:sticky lg:top-0 lg:z-auto lg:translate-x-0 ${
+        abierto ? 'translate-x-0 shadow-xl' : '-translate-x-full'
+      }`}
+    >
+      {onCerrar && (
+        <button
+          type="button"
+          onClick={onCerrar}
+          aria-label="Cerrar menú"
+          className="absolute right-2 top-2 flex h-10 w-10 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 lg:hidden"
+        >
+          <Icon.x />
+        </button>
+      )}
       <div className="overflow-y-auto">
         <div className="flex h-[72px] items-center justify-center">
           <img src="/Siro_logo.png" alt="SIRO" className="h-16 w-full object-contain px-2" />

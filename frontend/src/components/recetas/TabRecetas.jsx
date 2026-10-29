@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { useRecetas } from '../../hooks/useRecetas'
+import { useExpediente } from '../../hooks/useExpediente'
+import { conflictosDeAlergia } from '../../lib/alergiasMedicamentos'
 import { useAuthStore } from '../../store/useAuthStore'
 import { toastExito, toastError } from '../../store/useToastStore'
 import { imprimirReceta } from './imprimirReceta'
@@ -20,6 +22,8 @@ function calcularVencida(receta) {
 
 export function TabRecetas({ pacienteId, paciente }) {
   const { recetas, cargando, agregar } = useRecetas(pacienteId)
+  const { expediente } = useExpediente(pacienteId)
+  const alergias = expediente?.alergias ?? []
   const perfil = useAuthStore((s) => s.perfil)
   const [modalAbierto, setModalAbierto] = useState(false)
   const [imprimiendoId, setImprimiendoId] = useState(null)
@@ -27,7 +31,7 @@ export function TabRecetas({ pacienteId, paciente }) {
   const handleImprimir = async (receta) => {
     setImprimiendoId(receta.id)
     try {
-      await imprimirReceta({ receta, paciente, clinicaId: perfil.clinica_id })
+      await imprimirReceta({ receta, paciente, clinicaId: perfil.clinica_id, alergias })
     } catch (err) {
       toastError(err.message)
     } finally {
@@ -79,6 +83,11 @@ export function TabRecetas({ pacienteId, paciente }) {
                 {imprimiendoId === r.id ? 'Generando…' : (<><Icon.printer /> Imprimir</>)}
               </button>
             </div>
+            {conflictosDeAlergia(r.medicamentos, alergias).map((c, i) => (
+              <p key={i} className="mb-2 rounded-lg bg-red-50 px-3 py-1.5 text-xs font-medium text-clinico-rojo">
+                ⚠ {c.medicamento}: el paciente tiene registrada alergia a {c.alergia}.
+              </p>
+            ))}
             <div className="space-y-2">
               {(r.medicamentos ?? []).map((m, i) => (
                 <div key={i} className="text-sm">
@@ -102,18 +111,21 @@ export function TabRecetas({ pacienteId, paciente }) {
         onCerrar={() => setModalAbierto(false)}
         onGuardar={agregar}
         perfil={perfil}
+        alergias={alergias}
       />
     </div>
   )
 }
 
-export function ModalNuevaReceta({ abierto, onCerrar, onGuardar, perfil }) {
+export function ModalNuevaReceta({ abierto, onCerrar, onGuardar, perfil, alergias = [] }) {
   const [medicamentos, setMedicamentos] = useState([{ ...MEDICAMENTO_VACIO }])
   const [indicacionesGenerales, setIndicacionesGenerales] = useState('')
   const [vigenciaDias, setVigenciaDias] = useState(30)
   const [esControlada, setEsControlada] = useState(false)
   const [firmaPacientePng, setFirmaPacientePng] = useState(null)
   const [guardando, setGuardando] = useState(false)
+  const [alergiaConfirmada, setAlergiaConfirmada] = useState(false)
+  const conflictos = conflictosDeAlergia(medicamentos.filter((m) => m.medicamento.trim()), alergias)
 
   const cerrar = () => {
     setMedicamentos([{ ...MEDICAMENTO_VACIO }])
@@ -121,6 +133,7 @@ export function ModalNuevaReceta({ abierto, onCerrar, onGuardar, perfil }) {
     setVigenciaDias(30)
     setEsControlada(false)
     setFirmaPacientePng(null)
+    setAlergiaConfirmada(false)
     onCerrar()
   }
 
@@ -136,6 +149,10 @@ export function ModalNuevaReceta({ abierto, onCerrar, onGuardar, perfil }) {
     const validos = medicamentos.filter((m) => m.medicamento.trim())
     if (validos.length === 0) {
       toastError('Agrega al menos un medicamento.')
+      return
+    }
+    if (conflictos.length > 0 && !alergiaConfirmada) {
+      toastError('El paciente es alérgico a algo de esta receta. Cambia el medicamento o confirma que lo revisaste.')
       return
     }
     setGuardando(true)
@@ -172,6 +189,25 @@ export function ModalNuevaReceta({ abierto, onCerrar, onGuardar, perfil }) {
   return (
     <Modal abierto={abierto} onCerrar={cerrar} titulo="Nueva receta" ancho="grande">
       <form onSubmit={handleSubmit} className="max-h-[70vh] space-y-4 overflow-y-auto pr-1">
+        {alergias.length > 0 && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-clinico-rojo">
+            <strong>⚠ Alergias registradas:</strong>{' '}
+            {alergias.map((a) => `${a.sustancia}${a.severidad ? ` (${a.severidad})` : ''}`).join(', ')}
+          </div>
+        )}
+        {conflictos.length > 0 && (
+          <div role="alert" className="space-y-2 rounded-lg border-2 border-clinico-rojo bg-red-50 p-3 text-sm text-clinico-rojo">
+            {conflictos.map((c, i) => (
+              <p key={i} className="font-semibold">
+                «{c.medicamento}» puede causar reacción: el paciente es alérgico a {c.alergia}{c.severidad ? ` (${c.severidad})` : ''}.
+              </p>
+            ))}
+            <label className="flex items-start gap-2 font-medium">
+              <input type="checkbox" checked={alergiaConfirmada} onChange={(e) => setAlergiaConfirmada(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-red-300" />
+              Lo revisé y aun así quiero recetarlo.
+            </label>
+          </div>
+        )}
         {medicamentos.map((m, i) => (
           <div key={i} className="rounded-lg border border-slate-200 p-3">
             <div className="mb-2 flex items-center justify-between">

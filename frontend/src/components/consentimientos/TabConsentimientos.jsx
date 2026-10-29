@@ -210,11 +210,12 @@ function ModalNuevoConsentimiento({ abierto, onCerrar, onGuardar, perfil, pacien
   const [gradoUrgencia, setGradoUrgencia] = useState('electivo')
   const [lugar, setLugar] = useState('')
   const [fechaProcedimiento, setFechaProcedimiento] = useState('')
+  const edadPaciente = calcularEdad(paciente?.fecha_nacimiento)
+  const pacienteEsMenor = edadPaciente !== null && edadPaciente < 18
   const [firmaPacienteNombre, setFirmaPacienteNombre] = useState(() => {
-    const edad = calcularEdad(paciente?.fecha_nacimiento)
-    const esMenor = edad !== null && edad < 18
-    if (esMenor && paciente?.tutor_legal?.nombre) {
-      return `${paciente.tutor_legal.nombre} (tutor de ${paciente.nombre_completo})`
+    if (pacienteEsMenor) {
+      // Un menor no firma: sin tutor registrado el campo queda vacío para escribir quién firma por él.
+      return paciente?.tutor_legal?.nombre ? `${paciente.tutor_legal.nombre} (tutor de ${paciente.nombre_completo})` : ''
     }
     return paciente?.nombre_completo ?? ''
   })
@@ -238,6 +239,11 @@ function ModalNuevoConsentimiento({ abierto, onCerrar, onGuardar, perfil, pacien
     e.preventDefault()
     if (!procedimiento.trim()) {
       toastError('Describe el procedimiento.')
+      return
+    }
+    const firmante = firmaPacienteNombre.trim()
+    if (pacienteEsMenor && (!firmante || firmante.toLowerCase() === (paciente?.nombre_completo ?? '').trim().toLowerCase())) {
+      toastError('El paciente es menor de edad: escribe el nombre del padre, madre o tutor que firma el consentimiento.')
       return
     }
     setGuardando(true)
@@ -359,7 +365,7 @@ function ModalNuevoConsentimiento({ abierto, onCerrar, onGuardar, perfil, pacien
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <Input label="Nombre de quien firma (paciente/tutor)" value={firmaPacienteNombre} onChange={(e) => setFirmaPacienteNombre(e.target.value)} />
+            <Input label={pacienteEsMenor ? 'Nombre del padre, madre o tutor que firma' : 'Nombre de quien firma (paciente/tutor)'} required={pacienteEsMenor} value={firmaPacienteNombre} onChange={(e) => setFirmaPacienteNombre(e.target.value)} />
             <div className="mt-2">
               <PadFirma onCambiar={setFirmaPacientePng} />
             </div>

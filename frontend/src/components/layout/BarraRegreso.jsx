@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../../store/useAuthStore'
 import { rutaPadre } from '../../lib/navegacion'
+import { puedeEntrarARuta } from '../../lib/accesoPorRol'
 
 const CLASE = 'mb-4 inline-flex items-center gap-1 text-sm font-medium text-slate-500 hover:text-clinico-azul'
 
@@ -8,8 +9,11 @@ const CLASE = 'mb-4 inline-flex items-center gap-1 text-sm font-medium text-slat
 // están en el menú lateral y no lo necesitan.
 export function BarraRegreso() {
   const { pathname } = useLocation()
+  const perfil = useAuthStore((s) => s.perfil)
   const padre = rutaPadre(pathname)
-  if (!padre) return null
+  // Si la página «padre» no es de su rol (p. ej. el owner en /administracion/arco: /administracion es solo del
+  // superadmin), no se ofrece un enlace que terminaría en «No tienes acceso».
+  if (!padre || !puedeEntrarARuta(padre.to, perfil)) return null
   return (
     <nav aria-label="Regresar">
       <Link to={padre.to} className={CLASE}><span aria-hidden="true">←</span> Volver a {padre.etiqueta}</Link>

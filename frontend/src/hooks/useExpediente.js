@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   obtenerExpediente,
   obtenerNotasClinicas,
@@ -26,6 +26,12 @@ export function useExpediente(pacienteId) {
   const [notas, setNotas] = useState([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState(null)
+  // Guardados en fila y con la versión (actualizado_en) más reciente: dos cambios seguidos (una alergia y enseguida una
+  // enfermedad) mandaban la misma versión vieja y el segundo se rechazaba como si «otra persona» hubiera modificado el
+  // expediente, perdiendo el dato.
+  const colaGuardado = useRef(Promise.resolve())
+  const versionActual = useRef(null)
+  useEffect(() => { versionActual.current = expediente?.actualizado_en ?? null }, [expediente])
 
   const recargar = useCallback(async () => {
     setCargando(true)
@@ -125,7 +131,13 @@ export function useExpediente(pacienteId) {
     await recargar()
   }
 
-  const guardarAntecedentes = async (cambios) => {
+  const guardarAntecedentes = (cambios) => {
+    const tarea = colaGuardado.current.then(() => guardarAntecedentesAhora(cambios))
+    colaGuardado.current = tarea.catch(() => {})
+    return tarea
+  }
+
+  const guardarAntecedentesAhora = async (cambios) => {
     if (esIdOffline(pacienteId)) {
       // Los antecedentes viven en el expediente, que todavía no existe
       // — no hay dónde guardarlos hasta que el paciente se sincronice.
@@ -133,11 +145,12 @@ export function useExpediente(pacienteId) {
     }
     try {
       const perfil = useAuthStore.getState().perfil
-      await actualizarExpediente(expediente.id, cambios, expediente.actualizado_en, pacienteId, {
+      const guardado = await actualizarExpediente(expediente.id, cambios, versionActual.current ?? expediente.actualizado_en, pacienteId, {
         usuarioId: perfil?.id,
         clinicaId: perfil?.clinica_id,
         sucursalId: useSucursalStore.getState().sucursalActualId
       })
+      if (guardado?.actualizado_en && !guardado._pendiente) versionActual.current = guardado.actualizado_en
     } catch (err) {
       // Si alguien más ya lo modificó, se recarga igual — así quien
       // vuelva a intentar guardar ya parte de los datos frescos, no de

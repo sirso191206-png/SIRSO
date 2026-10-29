@@ -6,15 +6,12 @@ const ESTADOS_ARCO = [
 
 export { ESTADOS_ARCO }
 
-// Público — cualquiera puede levantar una solicitud, con o sin sesión.
+// Público — cualquiera puede levantar una solicitud, con o sin sesión. SIN `.select()`: quien no tiene sesión puede INSERTAR
+// (arco_insert_publico) pero no LEER la fila (arco_select_clinica), y pedirla de vuelta hacía fallar todo el envío con
+// «new row violates row-level security policy» — un paciente nunca podía ejercer sus derechos ARCO desde el formulario.
 export async function crearSolicitudArco(solicitud) {
-  const { data, error } = await supabase
-    .from('arco_solicitudes')
-    .insert(solicitud)
-    .select()
-    .single()
+  const { error } = await supabase.from('arco_solicitudes').insert(solicitud)
   if (error) throw error
-  return data
 }
 
 // Límite de seguridad, no paginación completa todavía: esta es una

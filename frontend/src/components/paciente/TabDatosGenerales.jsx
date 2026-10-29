@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { actualizarPaciente } from '../../services/pacientes'
 import { calcularEdad } from '../../lib/fechas'
+import { normalizarTelefono, telefonoValido, MENSAJE_TELEFONO_INVALIDO } from '../../lib/telefono'
 import { useAuthStore } from '../../store/useAuthStore'
 import { useSucursalStore } from '../../store/useSucursalStore'
 import { toastExito, toastError } from '../../store/useToastStore'
@@ -80,6 +81,63 @@ function datosIniciales(paciente) {
   }
 }
 
+// Lo que se guardaría con este formulario. Al guardar se envía SOLO lo que cambió respecto a lo que se cargó: los campos que
+// la vista oculta a un rol (apellidos, sexo, tutor… para quien no tiene al paciente asignado) llegan vacíos al formulario y,
+// si se enviaran, borrarían el dato real del paciente.
+function datosParaGuardar(form) {
+  return {
+    nombre_completo: form.nombre_completo,
+    primer_apellido: form.primer_apellido || null,
+    segundo_apellido: form.segundo_apellido || null,
+    curp: form.curp || null,
+    fecha_nacimiento: form.fecha_nacimiento || null,
+    sexo: form.sexo || null,
+    estado_civil: form.estado_civil || null,
+    ocupacion: form.ocupacion || null,
+    escolaridad: form.escolaridad || null,
+    nacionalidad: form.nacionalidad || null,
+    telefono: normalizarTelefono(form.telefono) || null,
+    telefono_secundario: normalizarTelefono(form.telefono_secundario) || null,
+    whatsapp: normalizarTelefono(form.whatsapp) || null,
+    correo: form.correo || null,
+    calle: form.calle || null,
+    numero_exterior: form.numero_exterior || null,
+    numero_interior: form.numero_interior || null,
+    colonia: form.colonia || null,
+    municipio: form.municipio || null,
+    estado_domicilio: form.estado_domicilio || null,
+    codigo_postal: form.codigo_postal || null,
+    contacto_emergencia: (form.emergencia_nombre || form.emergencia_telefono)
+      ? {
+          nombre: form.emergencia_nombre || null,
+          parentesco: form.emergencia_parentesco || null,
+          telefono: normalizarTelefono(form.emergencia_telefono) || null,
+          telefono_alterno: normalizarTelefono(form.emergencia_telefono_alterno) || null,
+        }
+      : null,
+    seguro_medico: (form.seguro_aseguradora || form.seguro_numero_poliza)
+      ? { aseguradora: form.seguro_aseguradora || null, numero_poliza: form.seguro_numero_poliza || null }
+      : null,
+    tutor_legal: (form.tutor_nombre || form.tutor_telefono)
+      ? {
+          nombre: form.tutor_nombre || null,
+          parentesco: form.tutor_parentesco || null,
+          identificacion: form.tutor_identificacion || null,
+          telefono: normalizarTelefono(form.tutor_telefono) || null,
+        }
+      : null,
+    tipo_paciente: form.tipo_paciente || null,
+    estado_expediente: form.estado_expediente || 'activo',
+    referido_por: form.referido_por || null,
+  }
+}
+
+function soloLoQueCambio(nuevos, originales) {
+  return Object.fromEntries(Object.entries(nuevos).filter(([clave, valor]) => JSON.stringify(valor) !== JSON.stringify(originales[clave])))
+}
+
+const TELEFONOS_DEL_FORMULARIO = ['telefono', 'telefono_secundario', 'whatsapp', 'emergencia_telefono', 'emergencia_telefono_alterno', 'tutor_telefono']
+
 function Seccion({ titulo, children }) {
   return (
     <div className="mb-6">
@@ -130,50 +188,14 @@ export function TabDatosGenerales({ paciente, alGuardar }) {
   const guardar = async () => {
     setGuardando(true)
     try {
-      const cambios = {
-        nombre_completo: form.nombre_completo,
-        primer_apellido: form.primer_apellido || null,
-        segundo_apellido: form.segundo_apellido || null,
-        curp: form.curp || null,
-        fecha_nacimiento: form.fecha_nacimiento || null,
-        sexo: form.sexo || null,
-        estado_civil: form.estado_civil || null,
-        ocupacion: form.ocupacion || null,
-        escolaridad: form.escolaridad || null,
-        nacionalidad: form.nacionalidad || null,
-        telefono: form.telefono || null,
-        telefono_secundario: form.telefono_secundario || null,
-        whatsapp: form.whatsapp || null,
-        correo: form.correo || null,
-        calle: form.calle || null,
-        numero_exterior: form.numero_exterior || null,
-        numero_interior: form.numero_interior || null,
-        colonia: form.colonia || null,
-        municipio: form.municipio || null,
-        estado_domicilio: form.estado_domicilio || null,
-        codigo_postal: form.codigo_postal || null,
-        contacto_emergencia: (form.emergencia_nombre || form.emergencia_telefono)
-          ? {
-              nombre: form.emergencia_nombre || null,
-              parentesco: form.emergencia_parentesco || null,
-              telefono: form.emergencia_telefono || null,
-              telefono_alterno: form.emergencia_telefono_alterno || null,
-            }
-          : null,
-        seguro_medico: (form.seguro_aseguradora || form.seguro_numero_poliza)
-          ? { aseguradora: form.seguro_aseguradora || null, numero_poliza: form.seguro_numero_poliza || null }
-          : null,
-        tutor_legal: (form.tutor_nombre || form.tutor_telefono)
-          ? {
-              nombre: form.tutor_nombre || null,
-              parentesco: form.tutor_parentesco || null,
-              identificacion: form.tutor_identificacion || null,
-              telefono: form.tutor_telefono || null,
-            }
-          : null,
-        tipo_paciente: form.tipo_paciente || null,
-        estado_expediente: form.estado_expediente || 'activo',
-        referido_por: form.referido_por || null,
+      if (TELEFONOS_DEL_FORMULARIO.some((c) => !telefonoValido(form[c]))) {
+        toastError(MENSAJE_TELEFONO_INVALIDO)
+        return
+      }
+      const cambios = soloLoQueCambio(datosParaGuardar(form), datosParaGuardar(datosIniciales(paciente)))
+      if (Object.keys(cambios).length === 0) {
+        setEditando(false)
+        return
       }
       const perfil = useAuthStore.getState().perfil
       const actualizado = await actualizarPaciente(paciente.id, cambios, paciente.actualizado_en, {
@@ -191,6 +213,8 @@ export function TabDatosGenerales({ paciente, alGuardar }) {
     } catch (err) {
       if (err.message === 'CONFLICTO_CONCURRENCIA') {
         toastError('Otra persona ya modificó los datos de este paciente mientras tenías el formulario abierto. Recarga la página para ver los cambios más recientes antes de guardar los tuyos.')
+      } else if (/solo puede modificar los datos administrativos/.test(err.message ?? '')) {
+        toastError('Tu rol no puede cambiar algunos de estos datos (por ejemplo estado civil, ocupación o estado del expediente). Deja esos campos como estaban o pide al dentista o al propietario que los actualice.')
       } else {
         toastError('No se pudieron guardar los cambios: ' + err.message)
       }

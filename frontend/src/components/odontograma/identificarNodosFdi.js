@@ -21,10 +21,17 @@ export const FDI_ESPERADOS = [
  * ninguna posición ni jerarquía para deducirlo). Devuelve el FDI como
  * string, o null si el objeto no corresponde a ningún diente.
  */
+// El .glb trae la arcada INFERIOR con los cuadrantes al revés respecto a la superior: sus meshes «3x» están del mismo lado
+// que los «1x» (derecha del paciente) y los «4x» del lado de los «2x». En FDI, el 4x va debajo del 1x y el 3x debajo del 2x
+// (prueba con personas, 29/10/2026: en vista frontal salían 38/37/36 a la izquierda y 48/47/46 a la derecha, con la caries
+// del 46 pintada del lado contrario). Se corrige aquí, en la única traducción nombre → FDI: 3x ↔ 4x.
+const CUADRANTE_REAL = { 1: 1, 2: 2, 3: 4, 4: 3 }
+
 export function getFDIFromObject(object) {
   if (!object || !object.name) return null
   const nombre = object.name
-  return FDI_ESPERADOS.includes(Number(nombre)) ? nombre : null
+  if (!FDI_ESPERADOS.includes(Number(nombre))) return null
+  return `${CUADRANTE_REAL[nombre[0]]}${nombre[1]}`
 }
 
 /**

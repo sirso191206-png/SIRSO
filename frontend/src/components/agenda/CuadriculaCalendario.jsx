@@ -2,11 +2,53 @@ import { useEffect, useRef, useState } from 'react'
 import { HORA_INICIO, HORA_FIN, ALTO_HORA, infoEstado, ESTADOS_FINALES } from './constantes'
 import { capitalizarPrimeraLetra } from '../../lib/texto'
 
-const ALTO_TOTAL = (HORA_FIN - HORA_INICIO) * ALTO_HORA
-
 function horaDecimal(fechaISO) {
   const d = new Date(fechaISO)
   return d.getHours() + d.getMinutes() / 60
+}
+
+// La cuadrícula muestra de HORA_INICIO a HORA_FIN, pero se amplía para que quepa CUALQUIER cita visible: una cita a las
+// 6:00 o a las 23:00 antes quedaba fuera de la cuadrícula (invisible) o dibujada en el lugar equivocado.
+export function rangoDeHoras(citas) {
+  let inicio = HORA_INICIO
+  let fin = HORA_FIN
+  for (const c of citas) {
+    const ini = new Date(c.inicio)
+    const f = new Date(c.fin)
+    inicio = Math.min(inicio, ini.getHours())
+    const finDecimal = f.toDateString() === ini.toDateString() ? horaDecimal(c.fin) : 24
+    fin = Math.max(fin, Math.ceil(finDecimal))
+  }
+  return { inicio, fin: Math.min(fin, 24) }
+}
+
+// Citas que se empalman en el mismo día se dibujan lado a lado (antes una tapaba a la otra y el clic abría la de encima).
+export function columnasDeCitas(citas) {
+  const ordenadas = [...citas].sort((a, b) => new Date(a.inicio) - new Date(b.inicio))
+  const resultado = new Map()
+  let grupo = []
+  let finGrupo = 0
+  const cerrarGrupo = () => {
+    const columnasFin = []
+    const asignadas = grupo.map((c) => {
+      const ini = new Date(c.inicio).getTime()
+      let col = columnasFin.findIndex((fin) => fin <= ini)
+      if (col === -1) { col = columnasFin.length; columnasFin.push(0) }
+      columnasFin[col] = new Date(c.fin).getTime()
+      return [c.id, col]
+    })
+    for (const [id, col] of asignadas) resultado.set(id, { columna: col, total: columnasFin.length })
+    grupo = []
+    finGrupo = 0
+  }
+  for (const c of ordenadas) {
+    const ini = new Date(c.inicio).getTime()
+    if (grupo.length > 0 && ini >= finGrupo) cerrarGrupo()
+    grupo.push(c)
+    finGrupo = Math.max(finGrupo, new Date(c.fin).getTime())
+  }
+  if (grupo.length > 0) cerrarGrupo()
+  return resultado
 }
 
 function snapA15Min(minutosDesdeInicio) {
@@ -21,7 +63,8 @@ export function CuadriculaCalendario({ dias, citas, bloqueos, onClickCita, onDro
     return () => clearInterval(t)
   }, [])
 
-  const horas = Array.from({ length: HORA_FIN - HORA_INICIO }, (_, i) => HORA_INICIO + i)
+  const rango = rangoDeHoras(citas.filter((c) => dias.some((d) => new Date(c.inicio).toDateString() === d.toDateString())))
+  const horas = Array.from({ length: rango.fin - rango.inicio }, (_, i) => rango.inicio + i)
 
   return (
     <div className="flex overflow-hidden rounded-xl border border-slate-200 bg-white">
@@ -42,6 +85,7 @@ export function CuadriculaCalendario({ dias, citas, bloqueos, onClickCita, onDro
             key={dia.toISOString()}
             dia={dia}
             horas={horas}
+            rango={rango}
             citas={citas.filter((c) => new Date(c.inicio).toDateString() === dia.toDateString())}
             bloqueos={bloqueos.filter((b) => {
               const inicioDia = new Date(dia); inicioDia.setHours(0, 0, 0, 0)
@@ -60,8 +104,10 @@ export function CuadriculaCalendario({ dias, citas, bloqueos, onClickCita, onDro
   )
 }
 
-function ColumnaDia({ dia, horas, citas, bloqueos, horaActual, onClickCita, onDropCita, onClickSlot, multiDia }) {
+function ColumnaDia({ dia, horas, rango, citas, bloqueos, horaActual, onClickCita, onDropCita, onClickSlot, multiDia }) {
   const columnaRef = useRef(null)
+  const altoTotal = (rango.fin - rango.inicio) * ALTO_HORA
+  const columnas = columnasDeCitas(citas)
   const esHoy = dia.toDateString() === horaActual.toDateString()
   const [arrastrandoSobre, setArrastrandoSobre] = useState(false)
 
@@ -76,7 +122,7 @@ function ColumnaDia({ dia, horas, citas, bloqueos, horaActual, onClickCita, onDr
     const yRelativo = e.clientY - rect.top
     const minutosDesdeInicio = snapA15Min((yRelativo / ALTO_HORA) * 60)
     const nuevaFecha = new Date(dia)
-    nuevaFecha.setHours(HORA_INICIO, 0, 0, 0)
+    nuevaFecha.setHours(rango.inicio, 0, 0, 0)
     nuevaFecha.setMinutes(nuevaFecha.getMinutes() + minutosDesdeInicio)
 
     onDropCita(citaId, nuevaFecha, duracionMin)
@@ -88,7 +134,7 @@ function ColumnaDia({ dia, horas, citas, bloqueos, horaActual, onClickCita, onDr
     const yRelativo = e.clientY - rect.top
     const minutosDesdeInicio = snapA15Min((yRelativo / ALTO_HORA) * 60)
     const fecha = new Date(dia)
-    fecha.setHours(HORA_INICIO, 0, 0, 0)
+    fecha.setHours(rango.inicio, 0, 0, 0)
     fecha.setMinutes(fecha.getMinutes() + minutosDesdeInicio)
     onClickSlot?.(fecha)
   }
@@ -105,7 +151,7 @@ function ColumnaDia({ dia, horas, citas, bloqueos, horaActual, onClickCita, onDr
       <div
         ref={columnaRef}
         className={`relative border-l border-slate-100 ${arrastrandoSobre ? 'bg-clinico-azulClaro/40' : ''}`}
-        style={{ height: ALTO_TOTAL }}
+        style={{ height: altoTotal }}
         onDragOver={(e) => { e.preventDefault(); setArrastrandoSobre(true) }}
         onDragLeave={() => setArrastrandoSobre(false)}
         onDrop={handleDrop}
@@ -116,23 +162,25 @@ function ColumnaDia({ dia, horas, citas, bloqueos, horaActual, onClickCita, onDr
         ))}
 
         {bloqueos.map((b) => (
-          <BloqueHorarioBloqueado key={b.id} bloqueo={b} dia={dia} />
+          <BloqueHorarioBloqueado key={b.id} bloqueo={b} dia={dia} rango={rango} />
         ))}
 
         {citas.map((c) => (
-          <BloqueCita key={c.id} cita={c} onClick={() => onClickCita(c)} />
+          <BloqueCita key={c.id} cita={c} rango={rango} posicion={columnas.get(c.id)} onClick={() => onClickCita(c)} />
         ))}
 
-        {esHoy && <LineaHoraActual horaActual={horaActual} />}
+        {esHoy && <LineaHoraActual horaActual={horaActual} rango={rango} />}
       </div>
     </div>
   )
 }
 
-function BloqueCita({ cita, onClick }) {
+function BloqueCita({ cita, rango, posicion, onClick }) {
   const info = infoEstado(cita.estado)
-  const top = (horaDecimal(cita.inicio) - HORA_INICIO) * ALTO_HORA
+  const top = (horaDecimal(cita.inicio) - rango.inicio) * ALTO_HORA
   const duracionMin = (new Date(cita.fin) - new Date(cita.inicio)) / 60000
+  const total = posicion?.total ?? 1
+  const ancho = 100 / total
   const alto = Math.max((duracionMin / 60) * ALTO_HORA, 22)
   const finalizada = ESTADOS_FINALES.includes(cita.estado)
 
@@ -144,8 +192,8 @@ function BloqueCita({ cita, onClick }) {
         e.dataTransfer.setData('duracionMin', String(duracionMin))
       }}
       onClick={(e) => { e.stopPropagation(); onClick() }}
-      style={{ top, height: alto, backgroundColor: info.fondo, borderLeftColor: info.color }}
-      className="absolute left-0.5 right-0.5 z-10 overflow-hidden rounded border-l-4 px-1.5 py-0.5 text-left shadow-sm hover:z-20 hover:shadow-md"
+      style={{ top, height: alto, left: `calc(${(posicion?.columna ?? 0) * ancho}% + 2px)`, width: `calc(${ancho}% - 4px)`, backgroundColor: info.fondo, borderLeftColor: info.color }}
+      className="absolute z-10 overflow-hidden rounded border-l-4 px-1.5 py-0.5 text-left shadow-sm hover:z-20 hover:shadow-md"
     >
       <div className="truncate text-[11px] font-semibold" style={{ color: info.texto }}>
         {new Date(cita.inicio).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })} · {cita.paciente?.nombre_completo}
@@ -159,16 +207,16 @@ function BloqueCita({ cita, onClick }) {
   )
 }
 
-function BloqueHorarioBloqueado({ bloqueo, dia }) {
-  const inicioDia = new Date(dia); inicioDia.setHours(HORA_INICIO, 0, 0, 0)
-  const finDia = new Date(dia); finDia.setHours(HORA_FIN, 0, 0, 0)
+function BloqueHorarioBloqueado({ bloqueo, dia, rango }) {
+  const inicioDia = new Date(dia); inicioDia.setHours(rango.inicio, 0, 0, 0)
+  const finDia = new Date(dia); finDia.setHours(rango.fin, 0, 0, 0)
 
   const inicioEfectivo = new Date(Math.max(new Date(bloqueo.inicio), inicioDia))
   const finEfectivo = new Date(Math.min(new Date(bloqueo.fin), finDia))
   if (finEfectivo <= inicioEfectivo) return null
 
-  const top = (horaDecimal(inicioEfectivo) - HORA_INICIO) * ALTO_HORA
-  const alto = (horaDecimal(finEfectivo) - horaDecimal(inicioEfectivo)) * ALTO_HORA
+  const top = (horaDecimal(inicioEfectivo) - rango.inicio) * ALTO_HORA
+  const alto = ((finEfectivo - inicioEfectivo) / 3600000) * ALTO_HORA
 
   return (
     <div
@@ -184,9 +232,9 @@ function BloqueHorarioBloqueado({ bloqueo, dia }) {
   )
 }
 
-function LineaHoraActual({ horaActual }) {
-  const top = (horaActual.getHours() + horaActual.getMinutes() / 60 - HORA_INICIO) * ALTO_HORA
-  if (top < 0 || top > ALTO_TOTAL) return null
+function LineaHoraActual({ horaActual, rango }) {
+  const top = (horaActual.getHours() + horaActual.getMinutes() / 60 - rango.inicio) * ALTO_HORA
+  if (top < 0 || top > (rango.fin - rango.inicio) * ALTO_HORA) return null
   return (
     <div className="absolute left-0 right-0 z-30 flex items-center" style={{ top }}>
       <div className="h-2 w-2 rounded-full bg-clinico-rojo" />

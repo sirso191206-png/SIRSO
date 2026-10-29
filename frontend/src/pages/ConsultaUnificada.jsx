@@ -295,6 +295,7 @@ export function ConsultaUnificada() {
         onCerrar={() => f.setModalReceta(false)}
         onGuardar={f.agregarReceta}
         perfil={f.perfil}
+        alergias={f.expediente?.alergias ?? []}
       />
     </div>
   )

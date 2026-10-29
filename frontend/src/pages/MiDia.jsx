@@ -73,7 +73,7 @@ export function MiDia() {
           <Button variante="secundario" onClick={() => navigate('/pacientes')} className="inline-flex items-center gap-1.5">
             <Icon.userPlus /> Nuevo paciente
           </Button>
-          {disponible('agenda') && disponible('citas') && (
+          {disponible('agenda') && disponible('citas') && ['owner', 'recepcion'].includes(perfil?.rol) && (
             <Button variante="secundario" onClick={() => navigate('/agenda')} className="inline-flex items-center gap-1.5">
               <Icon.calendarPlus /> Nueva cita
             </Button>

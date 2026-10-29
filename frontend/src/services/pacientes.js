@@ -7,6 +7,16 @@ import { encolarOperacion } from '../lib/colaOffline'
 import { esIdOffline, resolverId } from '../lib/mapeoIdsOffline'
 import { verificarConexionReal } from '../lib/conectividadReal'
 import { buscarEnReplicaClinica, obtenerPacienteDeReplica } from '../lib/pacientesReplica'
+import { terminoTelefonico } from '../lib/telefono'
+
+// Filtro «or» de PostgREST para buscar pacientes. Si lo escrito parece un teléfono («55 1234 5678»), también se buscan solo
+// sus dígitos: los teléfonos se guardan sin espacios ni guiones (lib/telefono.js).
+function filtroDeBusqueda(termino, terminoLimpio, columnas) {
+  const condiciones = columnas.map((c) => `${c}.ilike.%${terminoLimpio}%`)
+  const digitos = terminoTelefonico(termino)
+  if (digitos && digitos !== terminoLimpio) condiciones.push(`telefono.ilike.%${digitos}%`)
+  return condiciones.join(',')
+}
 
 // Si ya existe un paciente con esa CURP en la clínica, lo regresa (para
 // no crear un expediente duplicado) — si no, regresa null.
@@ -60,9 +70,7 @@ export async function buscarPacientes(termino, { incluirArchivados = false } = {
 
   const terminoLimpio = sanitizarTerminoBusqueda(termino)
   if (terminoLimpio) {
-    query = query.or(
-      `nombre_completo.ilike.%${terminoLimpio}%,telefono.ilike.%${terminoLimpio}%`
-    )
+    query = query.or(filtroDeBusqueda(termino, terminoLimpio, ['nombre_completo', 'telefono']))
   }
 
   const { data, error } = await query
@@ -471,9 +479,7 @@ async function _buscarPacientesDetalladoReal({
   if (idsPermitidos) query = query.in('id', idsPermitidos)
   const terminoLimpio = sanitizarTerminoBusqueda(termino)
   if (terminoLimpio) {
-    query = query.or(
-      `nombre_completo.ilike.%${terminoLimpio}%,telefono.ilike.%${terminoLimpio}%,correo.ilike.%${terminoLimpio}%,numero_expediente.ilike.%${terminoLimpio}%`
-    )
+    query = query.or(filtroDeBusqueda(termino, terminoLimpio, ['nombre_completo', 'primer_apellido', 'segundo_apellido', 'telefono', 'correo', 'numero_expediente']))
   }
 
   const [campoOrden, direccion] = orden.split('.')

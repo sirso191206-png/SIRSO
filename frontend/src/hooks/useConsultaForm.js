@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { obtenerCitaPorId, actualizarCita, avanzarSiguienteEnEspera } from '../services/citas'
 import { finalizarConsulta, completarConsultaPendiente } from '../services/consultas'
 import { mensajeErrorFinalizar } from '../lib/finalizarConsulta'
-import { obtenerDiagnosticosFrecuentes, crearNotaClinica } from '../services/expedientes'
+import { obtenerDiagnosticosFrecuentes } from '../services/expedientes'
+import { guardarMetadato, leerMetadato } from '../lib/cacheLectura'
 import { useExpediente } from './useExpediente'
 import { useTratamientos } from './useTratamientos'
 import { useCatalogoTratamientos } from './useCatalogoTratamientos'
@@ -14,6 +15,11 @@ import { useFuncionalidad } from './useFuncionalidad'
 import { useSucursalStore } from '../store/useSucursalStore'
 import { toastExito, toastError } from '../store/useToastStore'
 import { encolarOperacion } from '../lib/colaOffline'
+
+// Borrador de la consulta: se guarda EN ESTE EQUIPO (IndexedDB, se borra al cerrar sesión) y se recupera al volver a
+// abrir la consulta. Antes «Guardar borrador» creaba una nota clínica en el servidor —las notas no se pueden editar—, así que
+// al recargar el formulario salía vacío y al finalizar quedaban DOS notas de la misma consulta.
+const claveBorrador = (citaId) => `borrador_consulta:${citaId}`
 
 const PLANTILLAS_NOTA = {
   'Consulta general': 'Paciente acude a consulta general. ',
@@ -90,6 +96,19 @@ export function useConsultaForm(citaId) {
       setCita(data)
       setMotivo(data.motivo_consulta ?? '')
       setCargandoCita(false)
+      leerMetadato(claveBorrador(citaId)).then((b) => {
+        if (!activo || !b) return
+        if (b.motivo) setMotivo(b.motivo)
+        setHallazgos(b.hallazgos ?? '')
+        setInterrogatorioSistemas(b.interrogatorioSistemas ?? {})
+        setExploracionFisica(b.exploracionFisica ?? {})
+        setDiagnostico(b.diagnostico ?? '')
+        setDiagnosticoCie10Codigo(b.diagnosticoCie10Codigo ?? '')
+        setDiagnosticoCie10Descripcion(b.diagnosticoCie10Descripcion ?? '')
+        setNotaContenido(b.notaContenido ?? '')
+        setAccionSaludBucal(b.accionSaludBucal ?? {})
+        toastExito('Se recuperó el borrador de esta consulta.')
+      }).catch(() => {})
     }).catch((err) => {
       if (!activo) return
       // Sin cita no hay consulta: NO se queda en "Cargando…" ni se deja finalizar nada. Se explica la causa real.
@@ -155,84 +174,24 @@ export function useConsultaForm(citaId) {
     }
   }
 
-  const guardarNotaYMotivo = async () => {
-    if (notasIncluidas && !expediente) throw new Error('El expediente todavía está cargando, espera un momento e intenta de nuevo.')
-    await actualizarCita(cita.id, { motivo_consulta: motivo || null })
-    if (!notasIncluidas) return
-    await crearNotaClinica({
-      expediente_id: expediente.id,
-      cita_id: cita.id,
-      usuario_id: perfil.id,
-      contenido: notaContenido || '(sin nota)',
-      tipo: 'consulta',
-      diagnostico: diagnostico || null,
-      diagnostico_cie10_codigo: diagnosticoCie10Codigo || null,
-      diagnostico_cie10_descripcion: diagnosticoCie10Descripcion || null,
-      interrogatorio_sistemas: Object.keys(interrogatorioSistemas).length > 0 ? interrogatorioSistemas : null,
-      exploracion_fisica: Object.keys(exploracionFisica).length > 0 ? exploracionFisica : null,
-      accion_salud_bucal: Object.keys(accionSaludBucal).length > 0 ? accionSaludBucal : null,
-      hallazgos: hallazgos || null
-    })
-  }
-
   const handleGuardarBorrador = async () => {
     setGuardandoBorrador(true)
     try {
-      if (!navigator.onLine) {
-        if (!notasIncluidas) {
-          // Un borrador ES la nota; sin esa funcionalidad no hay dónde guardarlo.
-          toastExito('Tu plan no incluye notas clínicas: el motivo se guarda al finalizar la consulta.')
-          return
-        }
-        if (!expediente) throw new Error('El expediente todavía está cargando, espera un momento e intenta de nuevo.')
-
-        // Solo se encola la nota — el motivo de la cita se guarda de
-        // verdad hasta que se finalice la consulta (handleFinalizar lo
-        // manda siempre, con el valor más reciente de `motivo`, esté
-        // en memoria desde antes o se haya escrito apenas ahora). No
-        // se pierde nada: guardar un borrador no completa la consulta,
-        // así que el motivo sigue disponible en este mismo formulario
-        // hasta que sí se finalice.
-        const id = crypto.randomUUID()
-        const notaClinica = {
-          id,
-          expediente_id: expediente.id,
-          cita_id: cita.id,
-          usuario_id: perfil.id,
-          contenido: notaContenido || '(sin nota)',
-          tipo: 'consulta',
-          diagnostico: diagnostico || null,
-          diagnostico_cie10_codigo: diagnosticoCie10Codigo || null,
-          diagnostico_cie10_descripcion: diagnosticoCie10Descripcion || null,
-          interrogatorio_sistemas: Object.keys(interrogatorioSistemas).length > 0 ? interrogatorioSistemas : null,
-          exploracion_fisica: Object.keys(exploracionFisica).length > 0 ? exploracionFisica : null,
-          accion_salud_bucal: Object.keys(accionSaludBucal).length > 0 ? accionSaludBucal : null,
-          hallazgos: hallazgos || null,
-          creado_en: new Date().toISOString()
-        }
-        await encolarOperacion({
-          id,
-          tipo: 'crear_nota_clinica',
-          entidad: 'notas_clinicas',
-          entidadId: id,
-          payload: notaClinica,
-          creado_en: Date.now(),
-          usuarioId: perfil?.id ?? null,
-          clinicaId: perfil?.clinica_id ?? null,
-          sucursalId: useSucursalStore.getState().sucursalActualId,
-          claveIdempotencia: id
-        })
-        toastExito('Borrador guardado sin conexión — se subirá solo cuando vuelva la señal.')
-        return
-      }
-      await guardarNotaYMotivo()
-      toastExito('Borrador guardado. La cita sigue en consulta.')
+      await guardarMetadato(claveBorrador(citaId), {
+        motivo, hallazgos, interrogatorioSistemas, exploracionFisica, diagnostico,
+        diagnosticoCie10Codigo, diagnosticoCie10Descripcion, notaContenido, accionSaludBucal
+      })
+      // El motivo sí vive en la cita (no es la nota): con conexión se guarda de una vez; sin ella, al finalizar.
+      if (navigator.onLine && cita) await actualizarCita(cita.id, { motivo_consulta: motivo || null }).catch(() => {})
+      toastExito('Borrador guardado en este equipo. La nota clínica se crea al finalizar la consulta.')
     } catch (err) {
-      toastError('No se pudo guardar: ' + err.message)
+      toastError('No se pudo guardar el borrador: ' + err.message)
     } finally {
       setGuardandoBorrador(false)
     }
   }
+
+  const descartarBorrador = () => guardarMetadato(claveBorrador(citaId), null).catch(() => {})
 
   // La nota de la consulta tal como la entiende el servidor. Sin `expediente_id`/`usuario_id`: el servidor los toma del
   // paciente de la cita y del usuario autenticado (el cliente no decide a quién ni de quién es una nota clínica).
@@ -291,7 +250,7 @@ export function useConsultaForm(citaId) {
         if (!navigator.onLine) throw Object.assign(new Error('Completar una consulta pendiente requiere conexión: la verificación la hace el servidor.'), { local: true })
         if (!nota && !seguimientoPayload) throw Object.assign(new Error('Tu plan no incluye notas clínicas y no pediste un seguimiento: no hay nada que completar.'), { local: true })
         const recuperada = await completarConsultaPendiente({ citaId: cita.id, nota, seguimiento: seguimientoPayload })
-        setFinalizada(true)
+        setFinalizada(true); descartarBorrador()
         toastExito(recuperada?.ya_existia ? 'La consulta ya estaba completa.' : 'Consulta completada: la nota quedó guardada.')
         navigate('/')
         return
@@ -320,7 +279,7 @@ export function useConsultaForm(citaId) {
           claveIdempotencia: `finalizar_consulta_${cita.id}`
         })
 
-        setFinalizada(true)
+        setFinalizada(true); descartarBorrador()
         toastExito('Consulta guardada sin conexión — se subirá sola cuando vuelva la señal.')
         navigate('/')
         return
@@ -330,7 +289,7 @@ export function useConsultaForm(citaId) {
       // cada una con .single(): un fallo a medias dejaba nota creada y cita completada, y reintentar duplicaba la nota.
       const resultado = await finalizarConsulta({ citaId: cita.id, motivo, nota, seguimiento: seguimientoPayload })
 
-      setFinalizada(true)
+      setFinalizada(true); descartarBorrador()
       // Administrativo y de mejor esfuerzo: si hay alguien EN ESPERA hoy con este odontólogo, pasa a ser el siguiente en consulta.
       // Un fallo aquí NUNCA afecta a la consulta ya guardada.
       try { await avanzarSiguienteEnEspera({ dentistaId: cita.dentista_id, excluirCitaId: cita.id, sucursalId: cita.sucursal_id, sillonId: cita.sillon_id }) } catch { /* sin efecto sobre la consulta */ }

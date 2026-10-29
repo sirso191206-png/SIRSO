@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../../store/useAuthStore'
 import { useEscucharCierreSesion } from '../../hooks/useEscucharCierreSesion'
@@ -14,13 +14,17 @@ import { useSuscripcionAlDia } from '../../hooks/useSuscripcionAlDia'
 import { usePlanActual } from '../../hooks/useFuncionalidad'
 import { CambioPasswordObligatorio } from '../auth/CambioPasswordObligatorio'
 import { AceptacionLegalObligatoria } from '../legal/AceptacionLegalObligatoria'
-import { puedeEntrarARuta } from '../../lib/accesoPorRol'
+import { puedeEntrarARuta, rutaInicioPorRol } from '../../lib/accesoPorRol'
 import { Sidebar } from './Sidebar'
+import { Icon } from '../ui/Icon'
 
 export function ProtectedRoute({ children }) {
   const { session, perfil, clinicaEstado, cargando, logout, refrescarEstadoClinica, sesionActualId, modoOffline, desbloqueoOffline, reanudarSesionOnline } = useAuthStore()
   const conectado = useConexion()
   const location = useLocation()
+  // Menú lateral en teléfono/tableta: se cierra solo al cambiar de pantalla.
+  const [menuAbierto, setMenuAbierto] = useState(false)
+  useEffect(() => { setMenuAbierto(false) }, [location.pathname])
 
   // Si otro dispositivo cierra esta misma sesión (p. ej. "Cerrar todas
   // mis sesiones" desde el iPad), este dispositivo se entera en
@@ -110,13 +114,29 @@ export function ProtectedRoute({ children }) {
   // Acceso directo por URL: solo las pantallas de su rol (tabla única en lib/accesoPorRol.js). Es
   // protección de interfaz; los datos los protege la base de datos.
   const autorizado = puedeEntrarARuta(location.pathname, perfil)
+  // La raíz es «Mi día», que recepción no tiene: tras iniciar sesión (que lleva a "/") va directo a su inicio (Agenda)
+  // en vez de a «No tienes acceso».
+  if (!autorizado && location.pathname === '/' && perfil) return <Navigate to={rutaInicioPorRol(perfil.rol)} replace />
 
   // Aceptación de los documentos legales vigentes (migración 106): se solicita si falta; no bloquea el trabajo sin conexión ni ante un error de consulta.
   return (
     <AceptacionLegalObligatoria perfil={perfil} sinConexion={Boolean(modoOffline) || conectado === false}>
-      <div className="flex">
-        <Sidebar />
-        <main className="flex-1 overflow-y-auto p-8">
+      <div className="flex min-h-screen">
+        <Sidebar abierto={menuAbierto} onCerrar={() => setMenuAbierto(false)} />
+        <main className="min-w-0 flex-1 p-4 sm:p-6 lg:p-8">
+          <div className="-mx-4 -mt-4 mb-4 flex items-center gap-2 border-b border-slate-200 bg-white px-2 py-1.5 sm:-mx-6 sm:-mt-6 lg:hidden">
+            <button
+              type="button"
+              onClick={() => setMenuAbierto(true)}
+              aria-label="Abrir menú"
+              aria-controls="menu-principal"
+              aria-expanded={menuAbierto}
+              className="flex h-11 w-11 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100"
+            >
+              <Icon.menu />
+            </button>
+            <img src="/Siro_logo.png" alt="SIRO" className="h-8 object-contain" />
+          </div>
           <AvisoSuscripcion />
           <BarraRegreso />
           {autorizado ? children : <AccesoNoAutorizado rol={perfil?.rol} />}
