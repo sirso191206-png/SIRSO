@@ -54,6 +54,12 @@ Reglas: nunca ejecutes la supresión sobre datos reales sin respaldo verificado 
 ## 6. Decisiones que requieren aprobación jurídica
 Confirmar los 5 años y su fuente; plazos de todas las demás categorías; definición de «bloqueo» y su implementación; cuándo anonimizar en lugar de suprimir; tratamiento de la auditoría y de los respaldos; conservación de consentimientos; quién ordena una retención legal; y la supresión de archivos por paciente. Lista completa en `PENDIENTES_LEGALES.md`.
 
+### Decisión vigente (28/10/2026)
+Según indicación de los abogados del responsable, mientras haya pocas clínicas no hace falta registrar una autorización formal de las políticas. Se acordó:
+- **Se puede eliminar** una clínica **suspendida** (sin pago activo) que **no tenga pacientes** ni pagos. En producción esto ya funciona con `plataforma_config.conservacion_contractual_bloquea = no`: la suscripción y las aceptaciones legales solo generan el aviso `CONTRACTUAL_NO_EVALUADO`.
+- Una clínica **con pacientes** que deja de pagar se **suspende y conserva** sus datos (se puede reactivar). Su eliminación sigue bloqueada (`POLITICA_NO_DEFINIDA`) hasta que se aprueben las políticas; aun aprobadas, la base no permite un plazo clínico menor a 5 años (NOM-004).
+- Las políticas clínica, fiscal y de aprobación quedan **sin configurar** a propósito; se definirán cuando haya más clínicas en operación.
+
 ## 7. Pruebas
 `conservacion_retencion_test.sql` (22 verificaciones, con datos sintéticos): estructura y permisos, último acto médico (incluida una cita completada reciente frente a un tratamiento antiguo), piso de 5 años, sin plazo nada es suprimible, retención por paciente y por clínica, supresión autorizada y rechazada, historial inmutable, eliminación automática prohibida, andamiaje en blanco. Mutaciones sobre la 104: 11 de 11 detectadas. La regresión de la eliminación de clínicas (86) y las guardas de «tabla nueva» pasan.
 
