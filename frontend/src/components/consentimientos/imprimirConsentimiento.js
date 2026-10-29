@@ -108,7 +108,6 @@ export async function imprimirConsentimiento({ consentimiento, paciente, clinica
         </div>
       ` : ''}
 
-      <script>window.print()</script>
     </body>
     </html>
   `

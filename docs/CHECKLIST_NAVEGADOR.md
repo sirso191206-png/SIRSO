@@ -58,7 +58,7 @@ Nada de esto se pudo ejecutar localmente: la interfaz solo se probó con Vitest 
 ☐ Enviar 6 mensajes seguidos con el mismo correo: el 6.º muestra «Se han recibido demasiados mensajes. Inténtalo de nuevo más tarde.» (límite de la migración 102) y no un error técnico.
 ☐ Firmar una receta, un consentimiento y una referencia como el odontólogo que está en sesión: funciona. (La base rechaza firmar como otro.)
 ☐ Superadministrador: abrir «Ver clínica» deja un evento `ver_clinica` en la auditoría de esa clínica (lo ve su propietario).
-☐ Consola del navegador (pestaña Console): no hay avisos `Content-Security-Policy-Report-Only` de recursos propios de la app; si los hay, anótalos (la CSP aún NO se impone).
+☐ Consola del navegador (pestaña Console): no hay avisos «Refused to…» de la CSP (está impuesta: un recurso bloqueado no carga); si los hay, anótalos.
 ☐ Escribir 5,001 caracteres: el campo no deja pasar de 5,000. Enviar un mensaje normal: confirmación y llega UN correo (si configuraste Resend en desarrollo).
 
 ## 10. Sin conexión y sincronización (DevTools → Network → «Offline»)

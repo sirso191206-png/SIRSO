@@ -56,7 +56,6 @@ export async function imprimirRecibo({ pago, paciente, clinicaId }) {
       </div>
 
       <div class="pie">Este recibo es un comprobante de pago, no sustituye una factura fiscal.</div>
-      <script>window.print()</script>
     </body>
     </html>
   `

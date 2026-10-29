@@ -3,7 +3,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const ATAQUE = '"><img src=x onerror="alert(1)"><script>alert(2)</script>'
-const h = vi.hoisted(() => ({ escrito: [] }))
+const h = vi.hoisted(() => ({ escrito: [], impresiones: 0 }))
 
 // Cualquier campo de texto que llegue de la base trae el ataque.
 const conAtaque = (obj) => new Proxy(obj, { get: (o, k) => (k in o ? o[k] : ATAQUE) })
@@ -22,7 +22,7 @@ vi.mock('../../../services/odontograma', () => ({ obtenerOdontogramaCompleto: as
 vi.mock('../../../services/tratamientos', () => ({ obtenerTratamientos: async () => [{ descripcion: ATAQUE, pieza_dental: ATAQUE, estado: ATAQUE, dentista: { nombre: ATAQUE }, costo: 1, creado_en: '2026-01-01' }] }))
 vi.mock('../../../services/consentimientos', () => ({ obtenerConsentimientos: async () => [{ creado_en: '2026-01-01', procedimiento: ATAQUE, dentista: { nombre: ATAQUE } }] }))
 
-import { documentoConPolitica, escaparHtml, html, urlImagenSegura, abrirVentanaImpresion } from '../../../lib/imprimir'
+import { documentoConPolitica, escaparHtml, html, urlImagenSegura, abrirVentanaImpresion, imprimirCuandoCargue, CSP_IMPRESION } from '../../../lib/imprimir'
 import { imprimirRecibo } from '../../tratamientos/imprimirRecibo'
 import { imprimirPresupuesto } from '../../tratamientos/imprimirPresupuesto'
 import { imprimirReferencia } from '../../referencias/imprimirReferencia'
@@ -33,7 +33,8 @@ import { imprimirExpedienteCompleto } from '../../expediente/imprimirExpedienteC
 
 beforeEach(() => {
   h.escrito = []
-  globalThis.window = { open: () => ({ document: { write: (t) => h.escrito.push(t), close: () => {} } }) }
+  h.impresiones = 0
+  globalThis.window = { open: () => ({ document: { write: (t) => h.escrito.push(t), close: () => {}, images: [] }, focus: () => {}, print: () => { h.impresiones++ } }) }
 })
 
 const paciente = conAtaque({ id: 'p', fecha_nacimiento: '1990-01-01', sexo: 'F', contacto_emergencia: { nombre: ATAQUE, telefono: ATAQUE } })
@@ -64,10 +65,10 @@ describe('documentos imprimibles: los datos se escapan', () => {
       expect(doc).not.toContain('javascript:')
       expect(doc).not.toContain('&amp;nbsp;')
       expect(doc).not.toContain('[object Object]')
-      // Solo los <script> propios, firmados con el nonce de la CSP.
-      const scripts = doc.match(/<script[^>]*>/gi) ?? []
-      expect(scripts.every((s) => /nonce="[0-9a-f]{32}"/.test(s))).toBe(true)
-      expect(doc).toMatch(/Content-Security-Policy" content="default-src 'none';[^"]*script-src 'nonce-[0-9a-f]{32}'/)
+      // Ningún <script>: la impresión la lanza SIRO desde fuera, y la CSP del documento no admite scripts.
+      expect(doc).not.toMatch(/<script/i)
+      expect(doc).toContain(`Content-Security-Policy" content="${CSP_IMPRESION}"`)
+      expect(CSP_IMPRESION).toContain("script-src 'none'")
     })
   }
 })
@@ -81,6 +82,27 @@ describe('lib/imprimir', () => {
   it('abrirVentanaImpresion rechaza un documento que no se armó con html', () => {
     expect(() => abrirVentanaImpresion('<html><body>x</body></html>')).toThrow(/sin escapar/)
     expect(() => documentoConPolitica('<p>x</p>')).toThrow()
+  })
+  it('imprime una sola vez cuando cargan (o fallan) las imágenes, y a los 5 s si alguna nunca responde', () => {
+    vi.useFakeTimers()
+    try {
+      const imagen = () => { const m = {}; return { complete: false, addEventListener: (e, f) => { m[e] = f }, disparar: (e) => m[e]() } }
+      const ventana = (imgs) => ({ document: { images: imgs }, focus: () => {}, print: vi.fn() })
+      const sinImagenes = ventana([])
+      imprimirCuandoCargue(sinImagenes); vi.advanceTimersByTime(150)
+      expect(sinImagenes.print).toHaveBeenCalledTimes(1)
+      const [a, b] = [imagen(), imagen()]
+      const conImagenes = ventana([a, b])
+      imprimirCuandoCargue(conImagenes); a.disparar('load'); vi.advanceTimersByTime(1000)
+      expect(conImagenes.print).not.toHaveBeenCalled()
+      b.disparar('error'); vi.advanceTimersByTime(150)
+      expect(conImagenes.print).toHaveBeenCalledTimes(1)
+      vi.advanceTimersByTime(10000)
+      expect(conImagenes.print).toHaveBeenCalledTimes(1)
+      const colgada = ventana([imagen()])
+      imprimirCuandoCargue(colgada); vi.advanceTimersByTime(5150)
+      expect(colgada.print).toHaveBeenCalledTimes(1)
+    } finally { vi.useRealTimers() }
   })
   it('urlImagenSegura solo admite imágenes embebidas o https', () => {
     expect(urlImagenSegura('data:image/png;base64,AAAA')).toBe('data:image/png;base64,AAAA')

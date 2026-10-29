@@ -100,13 +100,13 @@ export function Login() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Contraseña"
                 autoComplete="current-password"
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-11 text-sm text-slate-700 shadow-sm transition-all placeholder:text-slate-400 focus:border-clinico-azul focus:bg-white focus:outline-none focus:ring-4 focus:ring-clinico-azul/10"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-12 text-sm text-slate-700 shadow-sm transition-all placeholder:text-slate-400 focus:border-clinico-azul focus:bg-white focus:outline-none focus:ring-4 focus:ring-clinico-azul/10"
               />
               <button
                 type="button"
                 onClick={() => setMostrarPassword((v) => !v)}
                 aria-label={mostrarPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-600"
+                className="absolute right-1.5 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 transition-colors hover:text-slate-600"
               >
                 <IconoOjo tachado={mostrarPassword} />
               </button>

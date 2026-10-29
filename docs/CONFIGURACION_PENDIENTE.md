@@ -28,5 +28,5 @@ Un valor inválido (texto, 0) se ignora y rige el de por omisión. Los límites 
 
 ## D. Protecciones que dependen de tu infraestructura (no se pueden resolver en el código)
 * **CAPTCHA o límite por IP** para el formulario público (la base de datos no conoce la IP): configúralo en Supabase, Vercel o un WAF. La migración 102 limita por correo y global, y un atacante que cambie de correo puede agotar el límite global y bloquear temporalmente a personas legítimas.
-* **Imponer la CSP:** hoy está en modo reporte; cámbiala a obligatoria tras observarla en un navegador real.
+* **CSP:** impuesta desde el 28/10/2026 (`Content-Security-Policy` en `frontend/vercel.json`), validada con el build real. Si un recurso nuevo de otro dominio no carga, el navegador lo indica en la consola con «Refused to…»: agrégalo a la directiva correspondiente.
 * **Rotación de la llave SIS y de la clave de Resend:** define tu calendario.

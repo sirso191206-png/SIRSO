@@ -254,16 +254,7 @@ export async function imprimirReceta({ receta, paciente, clinicaId, incluirSigno
       </div>`}
       <div class="guia-corte">✂ cortar aquí</div>
       </div>
-
-      <script>
-        // window.print() no debe llamarse de inmediato: si hay logo,
-        // la imagen aún puede estar descargándose desde Supabase Storage
-        // y se imprimiría en blanco. 'load' sí espera a que todas las
-        // imágenes terminen de cargar (o fallen) antes de disparar.
-        window.addEventListener('load', function () {
-          setTimeout(function () { window.print() }, 150)
-        })
-      </script>
+
     </body>
     </html>
   `

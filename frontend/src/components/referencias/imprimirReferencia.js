@@ -57,7 +57,6 @@ export async function imprimirReferencia({ referencia, paciente, clinicaId }) {
         </div>
       </div>
 
-      <script>window.print()</script>
     </body>
     </html>
   `

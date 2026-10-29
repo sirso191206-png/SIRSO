@@ -52,7 +52,7 @@ export function ModalClinicasDePlan({ plan, onCerrar, onCambio }) {
       ) : clinicas.length === 0 ? (
         <p className="text-sm text-slate-500">Ninguna clínica usa este plan.</p>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-slate-200">
+        <div className="overflow-x-auto rounded-xl border border-slate-200">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-left text-slate-500">
               <tr>

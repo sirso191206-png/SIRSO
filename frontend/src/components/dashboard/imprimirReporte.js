@@ -100,7 +100,6 @@ export function armarReporte({ clinica, series, filtrosTexto = [], puedeVerFinan
   ${seccion('Pacientes nuevos por mes', barrasSvg(nuevos, { etiqueta: (f) => f.mes, valor: (f) => f.pacientes, color: '#0EA5E9' }), tabla('pacientesNuevos', nuevos))}
 
   <footer>Generado con SIRO. Datos agregados de la clínica; no incluye datos personales de pacientes.</footer>
-  <script>window.addEventListener('load', function () { setTimeout(function () { window.print() }, 150) })</script>
 </body>
 </html>`
 }

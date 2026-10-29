@@ -60,7 +60,6 @@ export async function imprimirPresupuesto({ paciente, tratamientos, clinicaId })
       </table>
       <div class="total">Total general: <strong>$${formatearMoneda(totalGeneral)}</strong></div>
       <div class="pie">Este presupuesto es una estimación y puede variar según la evolución del tratamiento.</div>
-      <script>window.print()</script>
     </body>
     </html>
   `

@@ -112,22 +112,24 @@ export function PagoEnLinea({ abierta, onCambiar, onDisponible } = {}) {
       {cobro.pagos?.length > 0 && (
         <div className="mt-5">
           <div className="mb-2 text-sm font-medium text-slate-700">Historial de pagos</div>
-          <table className="w-full text-left text-sm">
-            <thead className="text-xs text-slate-500">
-              <tr><th className="py-1">Fecha</th><th>Periodo</th><th>Monto</th><th>Estado</th><th /></tr>
-            </thead>
-            <tbody>
-              {cobro.pagos.map((p, i) => (
-                <tr key={i} className="border-t border-slate-100">
-                  <td className="py-1">{fecha(p.fecha)}</td>
-                  <td>{fecha(p.periodo_inicio)} – {fecha(p.periodo_fin)}</td>
-                  <td>{formatearPrecio(p.monto, p.moneda)}</td>
-                  <td className={p.estado === 'pagado' ? 'text-emerald-700' : 'text-red-700'}>{p.estado === 'pagado' ? 'Pagado' : 'Falló'}</td>
-                  <td>{p.url_comprobante && <a href={p.url_comprobante} target="_blank" rel="noopener noreferrer" className="text-clinico-azul underline">Recibo</a>}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="text-xs text-slate-500">
+                <tr><th className="py-1">Fecha</th><th>Periodo</th><th>Monto</th><th>Estado</th><th /></tr>
+              </thead>
+              <tbody>
+                {cobro.pagos.map((p, i) => (
+                  <tr key={i} className="border-t border-slate-100">
+                    <td className="py-1">{fecha(p.fecha)}</td>
+                    <td>{fecha(p.periodo_inicio)} – {fecha(p.periodo_fin)}</td>
+                    <td>{formatearPrecio(p.monto, p.moneda)}</td>
+                    <td className={p.estado === 'pagado' ? 'text-emerald-700' : 'text-red-700'}>{p.estado === 'pagado' ? 'Pagado' : 'Falló'}</td>
+                    <td>{p.url_comprobante && <a href={p.url_comprobante} target="_blank" rel="noopener noreferrer" className="text-clinico-azul underline">Recibo</a>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </SeccionDesplegable>

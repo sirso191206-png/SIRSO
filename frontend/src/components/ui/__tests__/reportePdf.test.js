@@ -32,11 +32,12 @@ describe('reporte en PDF del tablero', () => {
   })
 
   it('escapa los textos y pasa la política de la ventana de impresión', () => {
-    const doc = documentoConPolitica(armarReporte({ clinica: { nombre: '<b>x</b>', logo_url: 'javascript:alert(1)' }, series, puedeVerFinanzas: true }), 'a'.repeat(32))
+    const doc = documentoConPolitica(armarReporte({ clinica: { nombre: '<b>x</b>', logo_url: 'javascript:alert(1)' }, series, puedeVerFinanzas: true }))
     expect(doc).not.toMatch(/<img src=x/i)
     expect(doc).not.toContain('<b>x</b>')
     expect(doc).not.toContain('javascript:')
-    expect(doc).toContain(`<script nonce="${'a'.repeat(32)}">`)
+    expect(doc).not.toMatch(/<script/i)
+    expect(doc).toContain("script-src 'none'")
   })
 
   it('sin datos muestra un aviso en vez de una gráfica vacía', () => {

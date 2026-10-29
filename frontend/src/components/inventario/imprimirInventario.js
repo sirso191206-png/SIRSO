@@ -74,8 +74,7 @@ export function documentoInventario({ clinicaNombre, materiales, movimientos, no
           <thead><tr><th>Fecha</th><th>Material</th><th>Tipo</th><th class="num">Cantidad</th><th class="num">Stock</th><th>Motivo</th><th>Registró</th></tr></thead>
           <tbody>${filasMovimientos}</tbody>
         </table>`}
-
-      <script>window.print()</script>
+
     </body>
     </html>
   `

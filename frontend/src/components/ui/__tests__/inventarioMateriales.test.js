@@ -94,7 +94,7 @@ describe('exportación CSV', () => {
 
 describe('reporte imprimible (plantilla html de lib/imprimir)', () => {
   const ATAQUE = '"><img src=x onerror="alert(1)"><script>alert(2)</script>'
-  it('todo dato capturado se escapa y el único script es el propio, con nonce', () => {
+  it('todo dato capturado se escapa y el documento no lleva ningún script', () => {
     const doc = documentoInventario({
       clinicaNombre: ATAQUE,
       materiales: [{ nombre: ATAQUE, categoria: ATAQUE, unidad: ATAQUE, stock: 0, stock_minimo: 1, sucursal_id: null }],
@@ -104,10 +104,10 @@ describe('reporte imprimible (plantilla html de lib/imprimir)', () => {
       desde: new Date('2026-10-01'),
       hasta: new Date('2026-10-28')
     })
-    const texto = documentoConPolitica(doc, 'a'.repeat(32))
+    const texto = documentoConPolitica(doc)
     expect(texto).not.toContain('<img')
     expect(texto).not.toContain('<script>alert')
-    expect(texto.match(/<script/g)).toHaveLength(1)
+    expect(texto).not.toMatch(/<script/i)
     expect(texto).toContain('&lt;img src=x onerror=&quot;alert(1)&quot;&gt;')
     expect(texto).toContain('Agotado')
   })

@@ -65,7 +65,6 @@ export async function imprimirCorteDeCaja({ pagos, desde, hasta, clinicaId, tota
         <tbody>${filasDetalle}</tbody>
       </table>
 
-      <script>window.print()</script>
     </body>
     </html>
   `
