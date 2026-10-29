@@ -46,3 +46,9 @@ export function calcularEdad(fechaNacimiento) {
   if (m < 0 || (m === 0 && hoy.getDate() < nacimiento.getDate())) edad--
   return edad
 }
+
+// «2015-03-12» (fecha sin hora, como la guarda la base) → «12/03/2015». Sin pasar por Date: así no se corre un día por zona horaria.
+export function fechaCorta(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso ?? ''))
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : (iso ?? '')
+}

@@ -20,8 +20,10 @@ export async function verificarConexionReal(supabase, { tiempoLimiteMs = 5000 } 
     }, tiempoLimiteMs)
   })
   try {
+    // legal_documents: legible con y sin sesión (los documentos legales son públicos). Desde la migración 120 el rol
+    // anónimo ya no puede leer `usuarios`, así que esa tabla daría «sin conexión» en las páginas públicas.
     const { error } = await Promise.race([
-      supabase.from('usuarios').select('id').limit(1).abortSignal(controlador.signal),
+      supabase.from('legal_documents').select('id').limit(1).abortSignal(controlador.signal),
       limite
     ])
     return !error

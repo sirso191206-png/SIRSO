@@ -96,6 +96,7 @@ export function Arco() {
                   <button
                     type="button"
                     key={t.value}
+                    aria-pressed={tipo === t.value}
                     onClick={() => setTipo(t.value)}
                     className={`rounded-lg border p-3 text-left text-sm ${tipo === t.value ? 'border-clinico-azul bg-clinico-azulClaro' : 'border-slate-200'}`}
                   >
@@ -110,7 +111,7 @@ export function Arco() {
             <Input label="Correo de contacto" type="email" required value={correo} onChange={(e) => setCorreo(e.target.value)} />
 
             <label className="block text-sm">
-              <span className="mb-1 block font-medium text-slate-700">Describe tu solicitud</span>
+              <span className="mb-1 block font-medium text-slate-700">Describe tu solicitud <span className="text-clinico-rojo" aria-hidden="true">*</span></span>
               <textarea
                 value={descripcion}
                 onChange={(e) => setDescripcion(e.target.value)}

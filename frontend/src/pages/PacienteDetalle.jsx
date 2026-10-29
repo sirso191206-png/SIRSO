@@ -4,6 +4,7 @@ import { calcularEdad } from '../lib/fechas'
 import { usePacienteDetalle } from '../hooks/usePacienteDetalle'
 import { useExpediente } from '../hooks/useExpediente'
 import { useAuthStore } from '../store/useAuthStore'
+import { registrarExportacion } from '../services/auditoria'
 import { Odontograma } from '../components/odontograma/Odontograma'
 import { TabExpediente } from '../components/expediente/TabExpediente'
 import { TabTratamientos } from '../components/tratamientos/TabTratamientos'
@@ -61,6 +62,8 @@ export function PacienteDetalle() {
     setImprimiendoExpediente(true)
     try {
       await imprimirExpedienteCompleto({ paciente, clinicaId: perfil.clinica_id })
+      // Imprimir el expediente completo saca datos de salud del sistema: queda en la auditoría (no bloquea si falla).
+      registrarExportacion({ usuarioId: perfil.id, entidad: 'expedientes', filas: 1, filtros: { paciente_id: paciente.id, tipo: 'impresion_expediente' } }).catch(() => {})
     } catch (err) {
       toastError('No se pudo generar el expediente para imprimir: ' + err.message)
     } finally {

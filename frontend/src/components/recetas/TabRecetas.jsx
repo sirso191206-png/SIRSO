@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useRecetas } from '../../hooks/useRecetas'
 import { useExpediente } from '../../hooks/useExpediente'
 import { conflictosDeAlergia } from '../../lib/alergiasMedicamentos'
+import { registrarExportacion } from '../../services/auditoria'
 import { useAuthStore } from '../../store/useAuthStore'
 import { toastExito, toastError } from '../../store/useToastStore'
 import { imprimirReceta } from './imprimirReceta'
@@ -32,6 +33,7 @@ export function TabRecetas({ pacienteId, paciente }) {
     setImprimiendoId(receta.id)
     try {
       await imprimirReceta({ receta, paciente, clinicaId: perfil.clinica_id, alergias })
+      registrarExportacion({ usuarioId: perfil.id, entidad: 'recetas', filas: 1, filtros: { paciente_id: pacienteId, tipo: 'impresion_receta' } }).catch(() => {})
     } catch (err) {
       toastError(err.message)
     } finally {
@@ -189,6 +191,11 @@ export function ModalNuevaReceta({ abierto, onCerrar, onGuardar, perfil, alergia
   return (
     <Modal abierto={abierto} onCerrar={cerrar} titulo="Nueva receta" ancho="grande">
       <form onSubmit={handleSubmit} className="max-h-[70vh] space-y-4 overflow-y-auto pr-1">
+        {!perfil?.cedula_profesional && (
+          <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            Tu perfil no tiene cédula profesional: la receta saldrá sin ella. Agrégala en tu menú de usuario → Datos profesionales.
+          </p>
+        )}
         {alergias.length > 0 && (
           <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-clinico-rojo">
             <strong>⚠ Alergias registradas:</strong>{' '}

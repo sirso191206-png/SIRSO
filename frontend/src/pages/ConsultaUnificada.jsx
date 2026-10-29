@@ -1,4 +1,7 @@
 import { useState } from 'react'
+import { estaturaEnCm } from '../lib/texto'
+import { toastError } from '../store/useToastStore'
+import { imprimirReceta } from '../components/recetas/imprimirReceta'
 import { useParams } from 'react-router-dom'
 import { useConsultaForm } from '../hooks/useConsultaForm'
 import { useAuthStore } from '../store/useAuthStore'
@@ -103,7 +106,7 @@ export function ConsultaUnificada() {
           <CampoSignoVital label="Temperatura" unidad="°C" valor={f.signosVitalesForm.temperatura} onChange={(v) => f.setSignosVitalesForm((s) => ({ ...s, temperatura: v }))} paso="0.1" />
           <CampoSignoVital label="SpO₂" unidad="%" valor={f.signosVitalesForm.saturacion_oxigeno} onChange={(v) => f.setSignosVitalesForm((s) => ({ ...s, saturacion_oxigeno: v }))} />
           <CampoSignoVital label="Peso" unidad="kg" valor={f.signosVitalesForm.peso} onChange={(v) => f.setSignosVitalesForm((s) => ({ ...s, peso: v }))} paso="0.1" />
-          <CampoSignoVital label="Estatura" unidad="m" valor={f.signosVitalesForm.estatura} onChange={(v) => f.setSignosVitalesForm((s) => ({ ...s, estatura: v }))} paso="0.01" />
+          <CampoSignoVital label="Estatura" unidad="cm" valor={f.signosVitalesForm.estatura} onChange={(v) => f.setSignosVitalesForm((s) => ({ ...s, estatura: v }))} paso="1" />
         </div>
         <Button variante="secundario" className="mt-3 inline-flex items-center gap-1.5" onClick={f.guardarSignosVitalesForm} disabled={f.guardandoSignosVitales}>
           {f.guardandoSignosVitales ? 'Guardando…' : (<><Icon.heartPulse /> Guardar signos vitales</>)}
@@ -111,13 +114,24 @@ export function ConsultaUnificada() {
         {f.signosVitales.length > 0 && (
           <p className="mt-2 text-xs text-slate-400">
             Último registro: {new Date(f.signosVitales[0].creado_en).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+            {' · '}
+            {/* Los valores guardados se ven aquí (antes los campos se vaciaban y no se sabía qué había quedado). */}
+            {[
+              f.signosVitales[0].presion_sistolica && f.signosVitales[0].presion_diastolica ? `TA ${f.signosVitales[0].presion_sistolica}/${f.signosVitales[0].presion_diastolica}` : null,
+              f.signosVitales[0].frecuencia_cardiaca ? `FC ${f.signosVitales[0].frecuencia_cardiaca}` : null,
+              f.signosVitales[0].frecuencia_respiratoria ? `FR ${f.signosVitales[0].frecuencia_respiratoria}` : null,
+              f.signosVitales[0].temperatura ? `${f.signosVitales[0].temperatura} °C` : null,
+              f.signosVitales[0].saturacion_oxigeno ? `SpO₂ ${f.signosVitales[0].saturacion_oxigeno}%` : null,
+              f.signosVitales[0].peso ? `${f.signosVitales[0].peso} kg` : null,
+              estaturaEnCm(f.signosVitales[0].estatura) ? `${estaturaEnCm(f.signosVitales[0].estatura)} cm` : null
+            ].filter(Boolean).join(' · ')}
           </p>
         )}
       </Seccion>
 
       {/* Sección 3: Hallazgos */}
       <Seccion titulo="3. Hallazgos clínicos" funcionalidad="notas_clinicas">
-        <BotonesRapidos opciones={HALLAZGOS_RAPIDOS} onClick={(op) => f.setHallazgos((actual) => actual.includes(op) ? actual : (actual ? `${actual}, ${op}` : op))} />
+        <BotonesRapidos opciones={HALLAZGOS_RAPIDOS} onClick={(op) => f.setHallazgos((actual) => actual.includes(op) ? actual : (actual.trim() ? `${actual.trim()} ${op}. ` : `${op}. `))} />
         <label className="block text-sm">
           <span className="mb-1 block font-medium text-slate-700">Exploración</span>
           <textarea value={f.hallazgos} onChange={(e) => f.setHallazgos(e.target.value)} rows={2} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
@@ -254,8 +268,19 @@ export function ConsultaUnificada() {
         <div className="mt-3 space-y-2">
           {f.recetas.length === 0 && <p className="text-sm text-slate-400">Sin recetas generadas en este expediente.</p>}
           {f.recetas.slice(0, 3).map((r) => (
-            <div key={r.id} className="rounded-lg border border-slate-200 p-2 text-sm text-slate-600">
-              {new Date(r.creado_en).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })} · {r.medicamentos?.length ?? 0} medicamento(s)
+            <div key={r.id} className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 p-2 text-sm text-slate-600">
+              <span>
+                {new Date(r.creado_en).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })} ·{' '}
+                {(r.medicamentos ?? []).map((m) => m.medicamento).filter(Boolean).join(', ') || `${r.medicamentos?.length ?? 0} medicamento(s)`}
+              </span>
+              {/* Antes la receta de la consulta no se podía ver ni imprimir desde aquí. */}
+              <button
+                type="button"
+                onClick={() => imprimirReceta({ receta: r, paciente: { id: f.cita.paciente_id, ...f.cita.paciente }, clinicaId: f.perfil.clinica_id, alergias: f.expediente?.alergias ?? [] }).catch((err) => toastError(err.message))}
+                className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-clinico-azul hover:underline"
+              >
+                <Icon.printer /> Imprimir
+              </button>
             </div>
           ))}
         </div>

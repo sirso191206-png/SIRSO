@@ -138,7 +138,7 @@ export function Odontograma3DDirectoGLB() {
       </div>
 
       <p className="mt-2 text-xs text-slate-400">
-        Arrastra para rotar, rueda del mouse para zoom, clic derecho para desplazar (pan). Los botones
+        Arrastra o desliza para rotar; rueda del mouse o pellizco para acercar; clic derecho o dos dedos para desplazar. Los botones
         reencuadran sobre el centro real de la escena, calculado con Box3.
       </p>
     </div>

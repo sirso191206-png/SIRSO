@@ -27,9 +27,9 @@ export default {
         }
       },
       animation: {
-        'slide-in-left': 'slide-in-left 600ms ease both',
-        'slide-in-right': 'slide-in-right 600ms ease both',
-        'fade-in': 'fade-in 350ms ease both'
+        'slide-in-left': 'slide-in-left 300ms ease both',
+        'slide-in-right': 'slide-in-right 300ms ease both',
+        'fade-in': 'fade-in 200ms ease both'
       }
     }
   },

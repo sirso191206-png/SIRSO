@@ -303,6 +303,7 @@ export function Agenda() {
         onAgendar={agendar}
         dentistas={dentistas}
         fechaInicial={fechaParaNuevaCita}
+        fechaPorDefecto={fechaBase}
       />
 
       <ModalNuevaUrgencia
@@ -341,10 +342,15 @@ function ModalBloqueoHorario({ abierto, onCerrar, onGuardar, dentistas }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    const inicio = new Date(`${fecha}T${horaInicio}`)
+    const fin = new Date(`${fecha}T${horaFin}`)
+    // Antes la base lo rechazaba con un mensaje técnico (chk_horario_bloqueado).
+    if (!(fin > inicio)) {
+      toastError('La hora «Hasta» debe ser después de la hora «Desde».')
+      return
+    }
     setGuardando(true)
     try {
-      const inicio = new Date(`${fecha}T${horaInicio}`)
-      const fin = new Date(`${fecha}T${horaFin}`)
       await onGuardar({
         tipo,
         titulo: titulo || null,

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useAuthStore } from '../../store/useAuthStore'
 import { useConexion } from '../../hooks/useConexion'
-import { CONFIG_PIN } from '../../lib/pinOffline'
+import { CONFIG_PIN, validarFormatoPin } from '../../lib/pinOffline'
 import { toastExito, toastError } from '../../store/useToastStore'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
@@ -113,7 +113,7 @@ export function SeccionPinOffline() {
         <div className="mb-4 text-sm text-slate-700">
           <p className="flex items-center gap-1.5 font-medium text-green-700"><Icon.checkCircle /> PIN activo en este equipo</p>
           <p className="mt-1 text-xs text-slate-500">
-            Vale hasta <strong>{fechaHora(estado.expiraEn)}</strong> sin conexión ({ETIQUETA_DURACION[estado.duracionHoras]}
+            Vale hasta <strong>{fechaHora(estado.expiraEn)}</strong> sin conexión ({ETIQUETA_DURACION[estado.duracionHoras]}{' '}
             desde la última vez que se conectó). Cada vez que SIRO se conecta, ese plazo se renueva.
           </p>
         </div>
@@ -125,6 +125,10 @@ export function SeccionPinOffline() {
             <Input label="PIN actual" type="password" inputMode="numeric" autoComplete="off" maxLength={10} value={pinActual} onChange={soloDigitos(setPinActual)} />
           )}
           <Input label={modo === 'cambiar' ? 'PIN nuevo' : 'PIN'} type="password" inputMode="numeric" autoComplete="off" maxLength={10} value={pin} onChange={soloDigitos(setPin)} placeholder={`${CONFIG_PIN.longitudMin} a ${CONFIG_PIN.longitudMax} dígitos`} />
+          {/* El motivo se ve en el formulario mismo (el aviso emergente desaparece en segundos y se perdía). */}
+          {pin.length >= CONFIG_PIN.longitudMin && !validarFormatoPin(pin).valido && (
+            <p className="-mt-1 text-xs text-clinico-rojo">{ERRORES[validarFormatoPin(pin).motivo]}</p>
+          )}
           <Input label="Confirma el PIN" type="password" inputMode="numeric" autoComplete="off" maxLength={10} value={confirmacion} onChange={soloDigitos(setConfirmacion)} />
 
           <label className="block text-sm">

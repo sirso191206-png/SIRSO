@@ -56,13 +56,21 @@ export function ReservarCita() {
     return () => { activo = false }
   }, [info, slug, servicioId, fecha, sucursalId, requiereSucursal])
 
-  const cambiar = (campo) => (e) => setDatos((d) => ({ ...d, [campo]: e.target.value }))
+  // Al corregir un campo su error rojo desaparece en el momento (antes seguía ahí hasta volver a enviar).
+  const cambiar = (campo) => (e) => {
+    setDatos((d) => ({ ...d, [campo]: e.target.value }))
+    setErrores((er) => (er[campo] ? { ...er, [campo]: undefined } : er))
+  }
+  const hoy = new Date().toISOString().slice(0, 10)
+  const fechaPasada = Boolean(fecha) && fecha < (info?.fecha_minima ?? hoy)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setErrorEnvio('')
     const nuevos = validarSolicitudReserva(datos)
-    if (!inicio) nuevos.inicio = 'Elige un horario.'
+    if (!servicioId) nuevos.servicio = 'Elige un servicio.'
+    if (requiereSucursal && !sucursalId) nuevos.sucursal = 'Elige una sucursal.'
+    if (!inicio) nuevos.inicio = fecha ? 'Elige un horario.' : 'Elige el día y luego un horario.'
     setErrores(nuevos)
     if (Object.keys(nuevos).length > 0) return
     setEnviando(true)
@@ -135,32 +143,35 @@ export function ReservarCita() {
               <form onSubmit={handleSubmit} className="space-y-5" noValidate>
                 <fieldset className="space-y-3">
                   <legend className="mb-2 text-sm font-semibold text-slate-700">1. ¿Qué necesitas?</legend>
-                  <select value={servicioId} onChange={(e) => setServicioId(e.target.value)} className={CAMPO} aria-label="Servicio" required>
+                  <select value={servicioId} onChange={(e) => { setServicioId(e.target.value); setErrores((er) => ({ ...er, servicio: undefined })) }} className={CAMPO} aria-label="Servicio" required>
                     <option value="">Elige un servicio</option>
                     {info.servicios.map((s) => <option key={s.id} value={s.id}>{s.nombre} ({s.duracion_min} min)</option>)}
                   </select>
+                  {errores.servicio && <p className="text-xs text-clinico-rojo">{errores.servicio}</p>}
                   {requiereSucursal && (
                     <select value={sucursalId} onChange={(e) => setSucursalId(e.target.value)} className={CAMPO} aria-label="Sucursal" required>
                       <option value="">Elige una sucursal</option>
                       {info.sucursales.map((s) => <option key={s.id} value={s.id}>{s.nombre}{s.direccion ? ` — ${s.direccion}` : ''}</option>)}
                     </select>
                   )}
+                  {errores.sucursal && <p className="text-xs text-clinico-rojo">{errores.sucursal}</p>}
                 </fieldset>
 
                 <fieldset className="space-y-3">
                   <legend className="mb-2 text-sm font-semibold text-slate-700">2. ¿Qué día y a qué hora?</legend>
                   <input type="date" value={fecha} min={info.fecha_minima} max={info.fecha_maxima} onChange={(e) => setFecha(e.target.value)}
                     className={CAMPO} aria-label="Fecha" required />
-                  {fecha && !esDiaDeAtencion(fecha, info.dias_semana) && <p className="text-sm text-slate-500">Ese día no hay atención. Elige otro.</p>}
+                  {fechaPasada && <p className="text-sm text-slate-500">Esa fecha ya pasó. Elige un día a partir de hoy.</p>}
+                  {fecha && !fechaPasada && !esDiaDeAtencion(fecha, info.dias_semana) && <p className="text-sm text-slate-500">Ese día no hay atención. Elige otro.</p>}
                   {cargandoHorarios && <p className="text-sm text-slate-400">Buscando horarios libres…</p>}
                   {errorHorarios && <p className="text-sm text-clinico-rojo">{errorHorarios}</p>}
-                  {horarios && horarios.length === 0 && esDiaDeAtencion(fecha, info.dias_semana) && !cargandoHorarios && (
+                  {horarios && horarios.length === 0 && !fechaPasada && esDiaDeAtencion(fecha, info.dias_semana) && !cargandoHorarios && (
                     <p className="text-sm text-slate-500">No quedan horarios libres ese día. Prueba con otro.</p>
                   )}
                   {horarios && horarios.length > 0 && (
                     <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Horarios libres">
                       {horarios.map((h) => (
-                        <button key={h.inicio} type="button" role="radio" aria-checked={inicio === h.inicio} onClick={() => setInicio(h.inicio)}
+                        <button key={h.inicio} type="button" role="radio" aria-checked={inicio === h.inicio} onClick={() => { setInicio(h.inicio); setErrores((er) => ({ ...er, inicio: undefined })) }}
                           className={`rounded-lg border px-3 py-2 text-sm font-medium ${inicio === h.inicio ? 'border-clinico-azul bg-clinico-azul text-white' : 'border-slate-300 bg-white text-slate-700 hover:border-clinico-azul'}`}>
                           {h.hora}
                         </button>

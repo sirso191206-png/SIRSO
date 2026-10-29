@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../../store/useAuthStore'
 import { useEscucharCierreSesion } from '../../hooks/useEscucharCierreSesion'
@@ -24,6 +24,9 @@ export function ProtectedRoute({ children }) {
   const location = useLocation()
   // Menú lateral en teléfono/tableta: se cierra solo al cambiar de pantalla.
   const [menuAbierto, setMenuAbierto] = useState(false)
+  // A dónde volver después de iniciar sesión. Memorizado: un objeto nuevo en cada render haría que <Navigate> vuelva a
+  // navegar en cada render (ciclo infinito).
+  const estadoLogin = useMemo(() => ({ desde: location.pathname + (location.search ?? '') }), [location.pathname, location.search])
   useEffect(() => { setMenuAbierto(false) }, [location.pathname])
 
   // Si otro dispositivo cierra esta misma sesión (p. ej. "Cerrar todas
@@ -77,7 +80,8 @@ export function ProtectedRoute({ children }) {
     // Sin internet y con un PIN vigente: se ofrece desbloquear la sesión
     // offline en vez de mandar a un login que no podría completarse.
     if (desbloqueoOffline) return <PantallaDesbloqueoPin />
-    return <Navigate to="/login" replace />
+    // Se recuerda a dónde quería ir para volver ahí después de iniciar sesión.
+    return <Navigate to="/login" replace state={estadoLogin} />
   }
 
   // Clínica suspendida: nadie de la clínica entra, salvo el super admin.

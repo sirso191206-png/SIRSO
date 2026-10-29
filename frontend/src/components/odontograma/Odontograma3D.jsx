@@ -97,7 +97,7 @@ export function Odontograma3D({ pacienteId, odontograma, onVerEnExpediente, onIr
       <LeyendaClinica />
 
       <p className="text-xs text-slate-400">
-        Modelo anatómico 3D interactivo. Arrastra para rotar y usa la rueda del mouse para acercar o alejar.
+        Modelo anatómico 3D interactivo. Arrastra (o desliza con el dedo) para rotar; acerca o aleja con la rueda del mouse o pellizcando la pantalla.
       </p>
     </div>
   )

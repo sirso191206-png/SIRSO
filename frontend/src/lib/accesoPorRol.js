@@ -69,3 +69,9 @@ export function puedeEntrarARuta(pathname, perfil) {
 export function rutaInicioPorRol(rol) {
   return rol === 'recepcion' ? '/agenda' : '/'
 }
+
+// Nombre del rol para mostrar (nunca el valor técnico: «owner», «recepcion»).
+export const ETIQUETA_ROL = { owner: 'Propietario', dentista: 'Odontólogo', recepcion: 'Recepción', asistente: 'Asistente' }
+export function etiquetaRol(rol) {
+  return ETIQUETA_ROL[rol] ?? rol ?? ''
+}

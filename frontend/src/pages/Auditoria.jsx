@@ -5,12 +5,12 @@ import { toastError, toastExito } from '../store/useToastStore'
 import { Button } from '../components/ui/Button'
 import { Icon } from '../components/ui/Icon'
 import { listarAuditoria, listarUsuariosParaFiltro, registrarExportacion, TAMANO_PAGINA } from '../services/auditoria'
-import { MODULOS_AUDITABLES, TIPOS_ACCION, etiquetaAccion, etiquetaModulo, formatearFechaHora, rangoDeFechas, registroCorto } from '../lib/auditoria'
+import { MODULOS_AUDITABLES, TIPOS_ACCION, autorDeAuditoria, etiquetaAccion, etiquetaModulo, formatearFechaHora, rangoDeFechas, registroCorto } from '../lib/auditoria'
 import { aCsv, descargarCsv } from '../lib/csv'
 
 const COLUMNAS_CSV = [
   { titulo: 'Fecha y hora', valor: (f) => formatearFechaHora(f.creado_en) },
-  { titulo: 'Usuario', valor: (f) => f.usuario?.nombre ?? 'Usuario eliminado' },
+  { titulo: 'Usuario', valor: (f) => autorDeAuditoria(f) },
   { titulo: 'Acción', valor: (f) => etiquetaAccion(f.accion) },
   { titulo: 'Módulo', valor: (f) => etiquetaModulo(f.entidad) },
   { titulo: 'Registro afectado', valor: (f) => f.entidad_id ?? '' }
@@ -146,7 +146,7 @@ export function Auditoria() {
                 {filas.map((f) => (
                   <tr key={f.id} className="border-t border-slate-100">
                     <td className="whitespace-nowrap px-4 py-2 text-slate-500">{formatearFechaHora(f.creado_en)}</td>
-                    <td className="px-4 py-2 font-medium text-slate-700">{f.usuario?.nombre ?? 'Usuario eliminado'}</td>
+                    <td className="px-4 py-2 font-medium text-slate-700">{autorDeAuditoria(f)}</td>
                     <td className="px-4 py-2 text-slate-700">{etiquetaAccion(f.accion)}</td>
                     <td className="px-4 py-2 text-slate-500">{etiquetaModulo(f.entidad)}</td>
                     <td className="px-4 py-2 font-mono text-xs text-slate-400" title={f.entidad_id ?? ''}>{registroCorto(f.entidad_id)}</td>

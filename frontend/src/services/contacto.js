@@ -39,9 +39,7 @@ export async function enviarMensajeContacto({ nombre, correo, mensaje }) {
   const { error: errorEnvio } = await supabase.functions.invoke('enviar-contacto', {
     body: { mensajeId: id, nombre, correo, mensaje }
   })
-  if (errorEnvio) {
-    // El mensaje ya quedó guardado — se informa que el correo no salió,
-    // pero no se pierde la información del visitante.
-    throw new Error('Tu mensaje se guardó, pero no se pudo enviar el correo de notificación. Igual lo vamos a revisar.')
-  }
+  // El mensaje ya quedó guardado aunque el aviso por correo no salga: NO es un error para quien escribe (antes se
+  // mostraba en rojo y el formulario no se vaciaba, así que era fácil mandarlo dos veces).
+  return { notificado: !errorEnvio }
 }

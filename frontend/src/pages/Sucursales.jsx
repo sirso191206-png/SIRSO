@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { normalizarTelefono, telefonoValido, MENSAJE_TELEFONO_INVALIDO } from '../lib/telefono'
 import { useSucursales } from '../hooks/useSucursales'
 import { useAuthStore } from '../store/useAuthStore'
 import { toastExito, toastError } from '../store/useToastStore'
@@ -119,9 +120,10 @@ function ModalNuevaSucursal({ abierto, onCerrar, clinicaId, onCrear }) {
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!form.nombre.trim()) return
+    if (!telefonoValido(form.telefono) || !telefonoValido(form.whatsapp)) return toastError(MENSAJE_TELEFONO_INVALIDO)
     setGuardando(true)
     try {
-      await onCrear({ clinica_id: clinicaId, ...form })
+      await onCrear({ clinica_id: clinicaId, ...form, telefono: normalizarTelefono(form.telefono), whatsapp: normalizarTelefono(form.whatsapp) })
       toastExito(`Sucursal "${form.nombre}" creada.`)
       setForm({ nombre: '', direccion: '', telefono: '', whatsapp: '', correo: '' })
       onCerrar()

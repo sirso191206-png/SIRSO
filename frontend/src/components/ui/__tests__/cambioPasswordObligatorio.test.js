@@ -19,7 +19,7 @@ vi.mock('../../planes/BloqueoPorPago', () => ({ BloqueoPorPago: () => React.crea
 vi.mock('../../../hooks/useSuscripcionAlDia', () => ({ useSuscripcionAlDia: () => {} }))
 vi.mock('../../../hooks/useFuncionalidad', () => ({ usePlanActual: () => ({ suscripcion: h.suscripcion ?? null }) }))
 vi.mock('../../layout/Sidebar', () => ({ Sidebar: () => React.createElement('nav', null, 'MENU-LATERAL') }))
-vi.mock('../../../lib/accesoPorRol', () => ({ puedeEntrarARuta: () => true }))
+vi.mock('../../../lib/accesoPorRol', () => ({ puedeEntrarARuta: () => true, rutaInicioPorRol: () => '/' }))
 
 import { validarCambioPassword, mensajeErrorCambioPassword } from '../../../lib/cambioPasswordObligatorio.js'
 import { CambioPasswordObligatorio } from '../../auth/CambioPasswordObligatorio.jsx'

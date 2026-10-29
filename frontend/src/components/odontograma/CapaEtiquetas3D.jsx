@@ -8,7 +8,7 @@ import { proyectarPunto } from './proyeccionEtiquetas'
 /** DOM — va FUERA del <Canvas>, encima. `registroRef` (Map clave → elemento) lo lee el proyector. */
 export function CapaEtiquetas({ items, registroRef }) {
   return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true" data-capa-etiquetas="">
+    <div className="pointer-events-none absolute inset-0 isolate z-0 overflow-hidden" aria-hidden="true" data-capa-etiquetas="">
       {items.map((item) => (
         <div
           key={item.clave}

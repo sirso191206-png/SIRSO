@@ -10,10 +10,16 @@ const colores = {
   no_asistio: 'bg-red-100 text-red-800'
 }
 
+// Sin texto propio se muestra el estado legible («en_progreso» → «En progreso»), nunca el valor técnico en minúsculas.
+function etiquetaEstado(estado) {
+  const t = String(estado ?? '').replace(/_/g, ' ').trim()
+  return t ? t.charAt(0).toUpperCase() + t.slice(1) : ''
+}
+
 export function Badge({ estado, children }) {
   return (
     <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${colores[estado] ?? 'bg-slate-100 text-slate-700'}`}>
-      {children ?? estado}
+      {children ?? etiquetaEstado(estado)}
     </span>
   )
 }

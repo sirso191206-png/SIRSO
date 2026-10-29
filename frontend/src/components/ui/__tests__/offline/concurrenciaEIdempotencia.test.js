@@ -32,7 +32,7 @@ beforeEach(() => {
   // (incluido el caso de conflicto, que si tocara también al
   // heartbeat, haría que el código nunca llegara a intentar el UPDATE
   // real que la prueba quiere observar).
-  supabaseMock.from.mockImplementation((t) => crearQueryMock(t, () => (t === 'usuarios' ? ok([{ id: 'x' }]) : respuesta), registro))
+  supabaseMock.from.mockImplementation((t) => crearQueryMock(t, () => ((t === 'usuarios' || t === 'legal_documents') ? ok([{ id: 'x' }]) : respuesta), registro))
 })
 
 // PGRST116 = "0 filas coinciden" — lo que devuelve PostgREST cuando el

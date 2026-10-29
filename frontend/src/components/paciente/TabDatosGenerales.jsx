@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { actualizarPaciente } from '../../services/pacientes'
-import { calcularEdad } from '../../lib/fechas'
+import { calcularEdad, fechaCorta } from '../../lib/fechas'
 import { normalizarTelefono, telefonoValido, MENSAJE_TELEFONO_INVALIDO } from '../../lib/telefono'
 import { useAuthStore } from '../../store/useAuthStore'
 import { useSucursalStore } from '../../store/useSucursalStore'
@@ -238,7 +238,7 @@ export function TabDatosGenerales({ paciente, alGuardar }) {
           <Campo label="Primer apellido" valor={paciente.primer_apellido} />
           <Campo label="Segundo apellido" valor={paciente.segundo_apellido} />
           <Campo label="CURP" valor={paciente.curp} />
-          <Campo label="Fecha de nacimiento" valor={paciente.fecha_nacimiento} />
+          <Campo label="Fecha de nacimiento" valor={fechaCorta(paciente.fecha_nacimiento)} />
           <Campo label="Sexo" valor={{ M: 'Masculino', F: 'Femenino', X: 'Otro' }[paciente.sexo]} />
           <Campo label="Estado civil" valor={ESTADO_CIVIL.find((e) => e.value === paciente.estado_civil)?.label} />
           <Campo label="Ocupación" valor={paciente.ocupacion} />

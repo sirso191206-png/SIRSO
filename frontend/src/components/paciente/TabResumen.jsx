@@ -113,18 +113,18 @@ export function TabResumen({ pacienteId, paciente, onIrA, onNuevaConsulta, inici
           </span>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 [&>div]:min-w-0">
           <div>
             <div className="text-xs text-slate-400">Total</div>
-            <div className="text-2xl font-bold text-slate-800">${formatearMoneda(saldo.total_tratamientos)}</div>
+            <div className="break-words text-xl font-bold text-slate-800 lg:text-2xl">${formatearMoneda(saldo.total_tratamientos)}</div>
           </div>
           <div>
             <div className="text-xs text-slate-400">Pagado</div>
-            <div className="text-2xl font-bold text-clinico-verde">${formatearMoneda(saldo.total_pagado)}</div>
+            <div className="break-words text-xl font-bold text-clinico-verde lg:text-2xl">${formatearMoneda(saldo.total_pagado)}</div>
           </div>
           <div>
             <div className="text-xs text-slate-400">Pendiente</div>
-            <div className={`text-2xl font-bold ${saldo.saldo > 0 ? 'text-clinico-ambar' : 'text-slate-300'}`}>
+            <div className={`break-words text-xl font-bold lg:text-2xl ${saldo.saldo > 0 ? 'text-clinico-ambar' : 'text-slate-300'}`}>
               ${formatearMoneda(saldo.saldo)}
             </div>
           </div>

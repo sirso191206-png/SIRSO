@@ -38,7 +38,12 @@ export function PlanActualClinica({ onMejorarPlan = null } = {}) {
             <div className="text-sm text-slate-500">Tu clínica todavía no tiene un plan contratado registrado.</div>
           )}
         </div>
-        {onMejorarPlan ? (
+        {funcionalidades.length > 0 && funcionalidades.every((f) => f.habilitada) ? (
+          // Ya incluye todas las funcionalidades: no hay a qué «mejorar».
+          <Link to="/contacto" className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">
+            Hablar con soporte
+          </Link>
+        ) : onMejorarPlan ? (
           <button type="button" onClick={onMejorarPlan} className="rounded-xl bg-clinico-azul px-4 py-2 text-sm font-medium text-white hover:opacity-90">
             Mejorar plan
           </button>

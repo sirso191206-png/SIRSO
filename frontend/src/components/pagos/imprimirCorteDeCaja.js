@@ -21,7 +21,8 @@ export async function imprimirCorteDeCaja({ pagos, desde, hasta, clinicaId, tota
       <td>${p.numero_recibo}</td>
       <td>${p.paciente?.nombre_completo ?? ''}</td>
       <td>${NOMBRE_METODO[p.metodo] ?? p.metodo}</td>
-      <td>${p.tipo}</td>
+      <td>${p.tipo ? p.tipo.charAt(0).toUpperCase() + p.tipo.slice(1) : ''}</td>
+      <td>${p.registrado_por?.nombre ?? ''}</td>
       <td style="text-align:right">${p.tipo === 'reembolso' ? '-' : ''}$${formatearMoneda(p.monto)}</td>
     </tr>
   `)
@@ -61,10 +62,14 @@ export async function imprimirCorteDeCaja({ pagos, desde, hasta, clinicaId, tota
 
       <h2>Detalle de movimientos</h2>
       <table>
-        <thead><tr><th>Recibo</th><th>Paciente</th><th>Método</th><th>Tipo</th><th style="text-align:right">Monto</th></tr></thead>
+        <thead><tr><th>Recibo</th><th>Paciente</th><th>Método</th><th>Tipo</th><th>Registrado por</th><th style="text-align:right">Monto</th></tr></thead>
         <tbody>${filasDetalle}</tbody>
       </table>
 
+      <div style="margin-top:56px;display:flex;justify-content:space-between;gap:32px;font-size:12px;color:#475569;">
+        <div style="flex:1;border-top:1px solid #94A3B8;padding-top:6px;text-align:center;">Entregó</div>
+        <div style="flex:1;border-top:1px solid #94A3B8;padding-top:6px;text-align:center;">Recibió</div>
+      </div>
     </body>
     </html>
   `

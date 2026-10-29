@@ -9,6 +9,13 @@ import { useConsultasPendientes } from '../../hooks/useConsultasPendientes'
 import { CorregirCitaCompletada } from './CorregirCitaCompletada'
 import { Icon } from '../ui/Icon'
 
+// Valor para un <input type="datetime-local"> en hora LOCAL (toISOString daría la hora UTC).
+function fechaHoraLocal(iso) {
+  const d = new Date(iso)
+  const dos = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${dos(d.getMonth() + 1)}-${dos(d.getDate())}T${dos(d.getHours())}:${dos(d.getMinutes())}`
+}
+
 export function PanelCita({ cita, onCerrar, onCambiarEstado, onReagendar, onDesagendar, onCorregida }) {
   const navigate = useNavigate()
   const perfil = useAuthStore((s) => s.perfil)
@@ -151,7 +158,7 @@ export function PanelCita({ cita, onCerrar, onCambiarEstado, onReagendar, onDesa
                 <Icon.x /> No asistió
               </Button>
             )}
-            <Button variante="secundario" onClick={() => setReprogramando(true)} disabled={procesando} className="inline-flex items-center justify-center gap-1.5">
+            <Button variante="secundario" onClick={() => { setNuevoInicio(fechaHoraLocal(cita.inicio)); setReprogramando(true) }} disabled={procesando} className="inline-flex items-center justify-center gap-1.5">
               <Icon.refresh /> Reprogramar
             </Button>
             <Button
@@ -182,7 +189,7 @@ export function PanelCita({ cita, onCerrar, onCambiarEstado, onReagendar, onDesa
                 {procesando ? 'Guardando…' : 'Confirmar'}
               </Button>
               <Button type="button" variante="secundario" onClick={() => setReprogramando(false)} className="flex-1">
-                Cancelar
+                No reprogramar
               </Button>
             </div>
           </form>

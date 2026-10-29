@@ -32,7 +32,9 @@ select pg_temp.t('K3 las filas EXISTENTES no se revisan ni se tocan (la restricc
   and (select bool_and(not convalidated) from pg_constraint where conrelid = 'public.mensajes_contacto'::regclass and conname like 'mensajes_contacto_%_longitud'));
 select pg_temp.t('K4 las tres restricciones existen y el SELECT sigue reservado al superadministrador (un anónimo no lee mensajes ajenos)',
   (select count(*) from pg_constraint where conrelid = 'public.mensajes_contacto'::regclass and conname like 'mensajes_contacto_%_longitud') = 3
-  and pg_temp.anon($q$select count(*)::text from mensajes_contacto$q$) = '0');
+  and (pg_temp.anon($q$select count(*)::text from mensajes_contacto$q$) = '0'
+       -- desde la 120 el rol anónimo ni siquiera tiene SELECT (más estricto que 0 filas)
+       or pg_temp.anon($q$select count(*)::text from mensajes_contacto$q$) like 'ERR|42501%'));
 do $$ declare v_f int; v_o int; begin
   select count(*) filter (where ok), count(*) filter (where not ok) into v_o, v_f from _res;
   raise notice 'RESULTADO 099: % pasaron, % fallaron (de %)', v_o, v_f, v_o + v_f;

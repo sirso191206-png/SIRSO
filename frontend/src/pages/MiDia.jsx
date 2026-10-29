@@ -3,7 +3,7 @@ import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/useAuthStore'
 import { useMiDia } from '../hooks/useMiDia'
 import { useConsultasPendientes } from '../hooks/useConsultasPendientes'
-import { capitalizarPrimeraLetra } from '../lib/texto'
+import { capitalizarPrimeraLetra, nombreParaSaludo } from '../lib/texto'
 import { ColaDeEspera } from '../components/ColaDeEspera'
 import { ModalNuevaUrgencia } from '../components/ModalNuevaUrgencia'
 import { useDisponibilidad } from '../hooks/useFuncionalidad'
@@ -40,7 +40,7 @@ export function MiDia() {
     return (
       <div>
         <h1 className="mb-6 text-2xl font-semibold tracking-tight text-slate-800">
-          {saludo()}, {perfil?.nombre?.split(' ')[0]}
+          {saludo()}, {nombreParaSaludo(perfil?.nombre)}
         </h1>
         <div className="h-40 animate-pulse rounded-2xl bg-slate-100" />
       </div>
@@ -65,7 +65,7 @@ export function MiDia() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-800">
-            {saludo()}, {perfil?.nombre?.split(' ')[0]}
+            {saludo()}, {nombreParaSaludo(perfil?.nombre)}
           </h1>
           <p className="text-sm text-slate-500">{fechaHoy}</p>
         </div>

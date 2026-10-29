@@ -35,10 +35,13 @@ export function ModalPreferenciasCookies({ abierto, onCerrar }) {
                   <span className="text-xs text-slate-400">Sin uso actualmente</span>
                 ) : (
                   <button
+                    type="button"
                     role="switch"
                     aria-checked={locales[cat.id]}
+                    aria-label={`Permitir cookies de ${cat.label.toLowerCase()}`}
                     onClick={() => setLocales((l) => ({ ...l, [cat.id]: !l[cat.id] }))}
-                    className={`h-5 w-9 rounded-full transition ${locales[cat.id] ? 'bg-clinico-azul' : 'bg-slate-300'}`}
+                    // Área táctil de 44 px aunque el interruptor se vea pequeño.
+                    className={`relative h-5 w-9 rounded-full transition before:absolute before:-inset-3 before:content-[''] ${locales[cat.id] ? 'bg-clinico-azul' : 'bg-slate-300'}`}
                   >
                     <span className={`block h-4 w-4 rounded-full bg-white transition ${locales[cat.id] ? 'translate-x-4' : 'translate-x-0.5'}`} />
                   </button>

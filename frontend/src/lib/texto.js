@@ -15,3 +15,19 @@ export function sanitizarTerminoBusqueda(texto) {
   if (!texto) return ''
   return texto.replace(/[,()%*]/g, ' ').trim()
 }
+
+// Cómo saludar a alguien por su nombre: «Dra. Laura Méndez» → «Dra. Laura» (antes salía solo «Dra.»).
+export function nombreParaSaludo(nombre) {
+  const partes = String(nombre ?? '').trim().split(/\s+/).filter(Boolean)
+  const titulo = []
+  while (partes.length > 1 && /\.$/.test(partes[0])) titulo.push(partes.shift())
+  return [...titulo, partes[0] ?? ''].join(' ').trim()
+}
+
+// La estatura se captura en centímetros en el expediente, pero la consulta la capturaba en metros: un valor menor a 3 se
+// toma como metros. Siempre devuelve centímetros (o null).
+export function estaturaEnCm(valor) {
+  const n = Number(valor)
+  if (!Number.isFinite(n) || n <= 0) return null
+  return n < 3 ? Math.round(n * 100) : Math.round(n)
+}

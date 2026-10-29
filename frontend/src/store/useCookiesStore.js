@@ -42,7 +42,8 @@ if (guardadas && guardadas.preferencias?.preferencias !== true) borrarPreferenci
 // tiene sentido un interruptor que enciende algo que no existe.
 export const useCookiesStore = create((set, get) => ({
   decisionTomada: Boolean(guardadas),
-  preferencias: guardadas?.preferencias ?? { necesarias: true, preferencias: true, analiticas: false, marketing: false },
+  // Sin decisión, lo opcional empieza APAGADO (al abrir «Configurar» no debe aparecer ya activado).
+  preferencias: guardadas?.preferencias ?? { necesarias: true, preferencias: false, analiticas: false, marketing: false },
 
   guardar: (preferencias) => {
     const datos = { version: VERSION_ACTUAL, preferencias: { ...preferencias, necesarias: true, analiticas: false, marketing: false }, fecha: new Date().toISOString() }

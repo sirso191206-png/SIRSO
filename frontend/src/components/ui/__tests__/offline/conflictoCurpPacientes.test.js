@@ -74,7 +74,7 @@ beforeEach(() => {
         return eq ? ok({ id: `exp-de-${eq[1][1]}` }) : ok([]) // sin filtro = lectura masiva de la réplica
       }
       if (t === 'citas') return ok([])
-      if (t === 'usuarios') return ok([{ id: 'x' }])
+      if ((t === 'usuarios' || t === 'legal_documents')) return ok([{ id: 'x' }])
       if (t !== 'pacientes' && t !== 'v_pacientes_seguro') return ok(null)
 
       const insert = ops.find(([met]) => met === 'insert')
@@ -428,7 +428,7 @@ describe('Creación EN LÍNEA con un CURP que otra persona acaba de registrar', 
   })
 
   it('un error que NO es del CURP se propaga tal cual (no se disfraza)', async () => {
-    m.from.mockImplementation((tabla) => crearQueryMock(tabla, (t) => (t === 'usuarios' ? ok([{ id: 'x' }]) : fallo('otra falla', '500')), []))
+    m.from.mockImplementation((tabla) => crearQueryMock(tabla, (t) => ((t === 'usuarios' || t === 'legal_documents') ? ok([{ id: 'x' }]) : fallo('otra falla', '500')), []))
     await expect(crearPaciente({ nombre_completo: 'X', curp: CURP_A })).rejects.toThrow('otra falla')
   })
 

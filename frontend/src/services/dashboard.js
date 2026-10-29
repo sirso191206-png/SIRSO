@@ -91,7 +91,7 @@ export async function obtenerActividadReciente(limite = 10) {
   const { data, error } = await supabase
     .from('auditoria')
     // Solo lo que se muestra: `detalle` guarda la fila completa del cambio (datos de pacientes) y no se pide.
-    .select('id, creado_en, accion, entidad, usuario:usuarios(nombre)')
+    .select('id, creado_en, accion, entidad, usuario_id, usuario:usuarios(nombre)')
     .order('creado_en', { ascending: false })
     .limit(limite)
   if (error) throw error

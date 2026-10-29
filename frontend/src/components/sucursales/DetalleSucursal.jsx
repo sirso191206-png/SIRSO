@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { etiquetaRol } from '../../lib/accesoPorRol'
 import { toastExito, toastError } from '../../store/useToastStore'
 import {
   listarConsultorios, crearConsultorio, desactivarConsultorio,
@@ -219,7 +220,7 @@ function BloqueUsuarios({ sucursalId }) {
     <div>
       <h3 className="mb-2 text-sm font-semibold text-slate-700">Usuarios asignados</h3>
       <p className="mb-2 text-xs text-slate-400">
-        El owner ve todas las sucursales automáticamente — no hace falta asignarlo aquí.
+        El propietario ve todas las sucursales automáticamente — no hace falta asignarlo aquí.
       </p>
       <div className="space-y-1.5">
         {asignados.length === 0 && <p className="text-xs text-slate-400">Nadie asignado todavía.</p>}
@@ -240,7 +241,7 @@ function BloqueUsuarios({ sucursalId }) {
           >
             <option value="">Elegir usuario…</option>
             {disponibles.map((u) => (
-              <option key={u.id} value={u.id}>{u.nombre} — {u.rol}</option>
+              <option key={u.id} value={u.id}>{u.nombre} — {etiquetaRol(u.rol)}</option>
             ))}
           </select>
           <Button type="submit" variante="secundario" disabled={guardando || !seleccionado}>Asignar</Button>

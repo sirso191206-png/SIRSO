@@ -87,7 +87,7 @@ describe('configuración del owner', () => {
 describe('mensajes de error', () => {
   it('cada pista del servidor tiene un texto claro; los de validación usan el del servidor', () => {
     expect(mensajeErrorReserva({ hint: 'RESERVA_DEMASIADAS' })).toMatch(/demasiadas/)
-    expect(mensajeErrorReserva({ hint: 'RESERVA_NO_DISPONIBLE' })).toMatch(/no tiene la reserva/)
+    expect(mensajeErrorReserva({ hint: 'RESERVA_NO_DISPONIBLE' })).toMatch(/no existe o la clínica lo desactivó/)
     expect(mensajeErrorReserva({ hint: 'RESERVA_DATOS_INVALIDOS', message: 'Escribe un correo electrónico válido.' })).toBe('Escribe un correo electrónico válido.')
     expect(mensajeErrorReserva({ code: '23505' })).toMatch(/enlace ya lo usa/)
     expect(mensajeErrorReserva({ code: 'XX000', message: 'detalle técnico' })).not.toContain('detalle técnico')

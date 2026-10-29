@@ -9,9 +9,16 @@ export function PaginaNoEncontrada() {
       <div className="max-w-md rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
         <h1 className="mb-2 text-xl font-semibold text-slate-800">No encontramos esta página</h1>
         <p className="mb-6 text-sm text-slate-500">La dirección no existe o cambió. Tu información no se ve afectada.</p>
-        <Link to={session ? '/' : '/login'} className="rounded-lg bg-clinico-azul px-4 py-2 text-sm font-medium text-white hover:opacity-90">
-          {session ? 'Ir al inicio' : 'Iniciar sesión'}
-        </Link>
+        <img src="/Siro_logo.png" alt="SIRO" className="mx-auto mb-4 h-12 object-contain" />
+        <div className="flex flex-wrap justify-center gap-3">
+          <Link to={session ? '/' : '/login'} className="rounded-lg bg-clinico-azul px-4 py-2 text-sm font-medium text-white hover:opacity-90">
+            {session ? 'Ir al inicio' : 'Iniciar sesión'}
+          </Link>
+          <Link to="/contacto" className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">
+            Contacto
+          </Link>
+        </div>
+        <p className="mt-4 text-xs text-slate-400">Si te enviaron un enlace para agendar una cita, revisa que esté completo o pídeselo de nuevo a tu clínica.</p>
       </div>
     </div>
   )

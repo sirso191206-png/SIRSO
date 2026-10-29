@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase'
+import { estaturaEnCm } from '../../lib/texto'
 import { abrirVentanaImpresion, html } from '../../lib/imprimir'
 import { calcularEdad } from '../../lib/fechas'
 import { obtenerExpediente, obtenerNotasClinicas } from '../../services/expedientes'
@@ -190,7 +191,7 @@ export async function imprimirExpedienteCompleto({ paciente, clinicaId }) {
         <tr>
           <td>${fecha(s.creado_en)}</td>
           <td>${s.peso ?? '—'}</td>
-          <td>${s.estatura ?? '—'}</td>
+          <td>${estaturaEnCm(s.estatura) ?? '—'}</td>
           <td>${s.presion_sistolica && s.presion_diastolica ? `${s.presion_sistolica}/${s.presion_diastolica}` : (s.presion_arterial ?? '—')}</td>
           <td>${s.temperatura ?? '—'}</td>
           <td>${s.frecuencia_cardiaca ?? '—'}</td>

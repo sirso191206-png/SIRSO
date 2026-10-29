@@ -11,7 +11,7 @@ export function HeaderPublico({ enlace, textoEnlace }) {
           <img src="/SIRO.png" alt="" className="h-8 w-auto" aria-hidden="true" />
           <span className="text-xl font-bold text-clinico-azul">SIRO</span>
         </Link>
-        <Link to={enlace} className="text-sm font-semibold tracking-wide text-slate-700 transition-colors hover:text-clinico-azul">
+        <Link to={enlace} className="inline-flex min-h-[44px] items-center text-sm font-semibold tracking-wide text-slate-700 transition-colors hover:text-clinico-azul">
           {textoEnlace}
         </Link>
       </div>

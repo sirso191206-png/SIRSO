@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAuthStore } from '../store/useAuthStore'
 import { HeaderPublico } from '../components/layout/HeaderPublico'
 import { ModalOlvidePassword } from '../components/ModalOlvidePassword'
@@ -19,6 +19,9 @@ export function Login() {
   const login = useAuthStore((s) => s.login)
   const desbloqueoOffline = useAuthStore((s) => s.desbloqueoOffline)
   const navigate = useNavigate()
+  const location = useLocation()
+  // Solo rutas internas de SIRO (nunca una URL externa): vuelve a la pantalla que se pidió antes de iniciar sesión.
+  const destino = typeof location.state?.desde === 'string' && location.state.desde.startsWith('/') && !location.state.desde.startsWith('//') ? location.state.desde : '/'
   // «Recordar usuario» es de la categoría Preferencias: sin ese permiso no se guarda nada (se avisa junto a la casilla).
   const puedeRecordar = useCookiesStore((s) => s.decisionTomada && s.preferencias.preferencias === true)
   const preferenciasCookies = useCookiesStore((s) => s.preferencias)
@@ -40,7 +43,7 @@ export function Login() {
     setError(null)
 
     if (!correo.trim() || !password) {
-      setError('Ingresa tu usuario y contraseña.')
+      setError('Ingresa tu correo y tu contraseña.')
       return
     }
 
@@ -49,7 +52,7 @@ export function Login() {
       await login(correo, password)
       if (recordar) guardarPreferenciaLocal(CLAVE_USUARIO_RECORDADO, correo)
       else borrarPreferenciaLocal(CLAVE_USUARIO_RECORDADO)
-      navigate('/')
+      navigate(destino, { replace: true })
     } catch (err) {
       setError('Correo o contraseña incorrectos.')
     } finally {
@@ -83,7 +86,8 @@ export function Login() {
                 type="text"
                 value={correo}
                 onChange={(e) => setCorreo(e.target.value)}
-                placeholder="Usuario"
+                placeholder="Correo electrónico"
+                aria-label="Correo electrónico"
                 autoComplete="username"
                 autoFocus
                 className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-sm text-slate-700 shadow-sm transition-all placeholder:text-slate-400 focus:border-clinico-azul focus:bg-white focus:outline-none focus:ring-4 focus:ring-clinico-azul/10"
@@ -99,6 +103,7 @@ export function Login() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Contraseña"
+                aria-label="Contraseña"
                 autoComplete="current-password"
                 className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-12 text-sm text-slate-700 shadow-sm transition-all placeholder:text-slate-400 focus:border-clinico-azul focus:bg-white focus:outline-none focus:ring-4 focus:ring-clinico-azul/10"
               />

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { etiquetaRol } from '../lib/accesoPorRol'
 import { useUsuarios } from '../hooks/useUsuarios'
 import { useAuthStore } from '../store/useAuthStore'
 import { useFuncionalidad, usePuedeAgregar } from '../hooks/useFuncionalidad'
@@ -14,7 +15,7 @@ import { listarDentistas } from '../services/usuarios'
 import { listarAsignaciones, asignarAsistenteADentista, quitarAsignacion } from '../services/asignacionesAsistente'
 
 const ROLES = [
-  { value: 'owner', label: 'Owner' },
+  { value: 'owner', label: 'Propietario' },
   { value: 'dentista', label: 'Dentista' },
   { value: 'recepcion', label: 'Recepción' },
   { value: 'asistente', label: 'Asistente' }
@@ -98,7 +99,7 @@ export function Usuarios() {
                     {u.id === perfil.id && <span className="ml-2 text-xs text-slate-400">(tú)</span>}
                   </td>
                   <td className="px-4 py-2 text-slate-600">{u.correo}</td>
-                  <td className="px-4 py-2 capitalize text-slate-600">{u.rol}</td>
+                  <td className="px-4 py-2 text-slate-600">{etiquetaRol(u.rol)}</td>
                   <td className="px-4 py-2">
                     <span
                       className={`rounded-full px-2 py-0.5 text-xs font-medium ${

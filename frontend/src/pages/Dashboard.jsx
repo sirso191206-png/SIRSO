@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { nombreParaSaludo } from '../lib/texto'
 import { useNavigate } from 'react-router-dom'
 import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
@@ -18,7 +19,7 @@ import { toastError, toastExito } from '../store/useToastStore'
 import { Icon } from '../components/ui/Icon'
 import { FiltrosReportes } from '../components/dashboard/FiltrosReportes'
 import { infoEstado } from '../components/agenda/constantes'
-import { etiquetaAccion, etiquetaModulo } from '../lib/auditoria'
+import { autorDeAuditoria, etiquetaAccion, etiquetaModulo } from '../lib/auditoria'
 import { TarjetaEstadistica } from '../components/dashboard/TarjetaEstadistica'
 import { SeccionLista } from '../components/dashboard/SeccionLista'
 
@@ -80,7 +81,8 @@ export function Dashboard() {
   if (cargando || !datos) {
     return (
       <div>
-        <h1 className="mb-6 text-2xl font-semibold text-slate-800">Hola, {perfil?.nombre?.split(' ')[0]}</h1>
+        <h1 className="text-2xl font-semibold text-slate-800">Reportes</h1>
+        <p className="mb-6 text-sm text-slate-500">Hola, {nombreParaSaludo(perfil?.nombre)}</p>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="h-20 animate-pulse rounded-xl bg-slate-100" />
@@ -94,7 +96,10 @@ export function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold text-slate-800">Hola, {perfil?.nombre?.split(' ')[0]}</h1>
+      <div>
+        <h1 className="text-2xl font-semibold text-slate-800">Reportes</h1>
+        <p className="text-sm text-slate-500">Hola, {nombreParaSaludo(perfil?.nombre)}</p>
+      </div>
 
       {/* Tarjetas */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -213,7 +218,7 @@ export function Dashboard() {
             vacio="Sin actividad reciente."
             render={(a) => (
               <div key={a.id} className="text-xs text-slate-500">
-                <span className="font-medium text-slate-700">{a.usuario?.nombre ?? 'Usuario eliminado'}</span>
+                <span className="font-medium text-slate-700">{autorDeAuditoria(a)}</span>
                 {' '}{etiquetaAccion(a.accion)}
                 <span className="text-slate-400"> · {etiquetaModulo(a.entidad)}</span>
                 <span className="ml-1 text-slate-400">· {new Date(a.creado_en).toLocaleString('es-MX')}</span>

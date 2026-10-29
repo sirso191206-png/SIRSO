@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
+import { normalizarRfc, normalizarTelefono, rfcValido, telefonoValido, MENSAJE_TELEFONO_INVALIDO } from '../lib/telefono'
 import { obtenerMiClinica, actualizarMiClinica, subirLogoClinica } from '../services/clinicas'
 import { useAuthStore } from '../store/useAuthStore'
 import { toastExito, toastError } from '../store/useToastStore'
@@ -68,6 +69,8 @@ export function ConfiguracionClinica() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (!rfcValido(form.rfc)) return toastError('El RFC no tiene un formato válido (p. ej. ABC010203XY1 o ABCD010203XY1).')
+    if (!telefonoValido(form.telefono)) return toastError(MENSAJE_TELEFONO_INVALIDO)
     setGuardando(true)
     try {
       await actualizarMiClinica(perfil.clinica_id, {
@@ -75,11 +78,11 @@ export function ConfiguracionClinica() {
         tipo_establecimiento: form.tipo_establecimiento || null,
         clave_unidad_medica: form.clave_unidad_medica || null,
         direccion: form.direccion || null,
-        telefono: form.telefono || null,
+        telefono: normalizarTelefono(form.telefono) || null,
         correo: form.correo || null,
         responsable_sanitario: form.responsable_sanitario || null,
         razon_social: form.razon_social || null,
-        rfc: form.rfc || null,
+        rfc: normalizarRfc(form.rfc) || null,
         correo_privacidad: form.correo_privacidad || null
       })
       toastExito('Datos del establecimiento actualizados.')
@@ -95,6 +98,7 @@ export function ConfiguracionClinica() {
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-slate-800">Configuración de la clínica</h1>
         <p className="text-sm text-slate-500">Tu plan, el pago en línea, los datos que aparecen en recibos, recetas y documentos, y la reserva de citas en línea.</p>
+        <Link to="/configuracion/seguridad" className="mt-1 inline-block text-sm font-medium text-clinico-azul hover:underline">Seguridad: contraseña, PIN y sesiones activas →</Link>
       </div>
 
       <PlanActualClinica onMejorarPlan={pagoDisponible ? irAPago : null} />

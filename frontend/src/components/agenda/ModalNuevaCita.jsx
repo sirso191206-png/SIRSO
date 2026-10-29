@@ -12,7 +12,8 @@ import { Input } from '../ui/Input'
 import { Button } from '../ui/Button'
 import { fechaInputLocal } from '../../lib/fechas'
 
-export function ModalNuevaCita({ abierto, onCerrar, onAgendar, dentistas, fechaInicial }) {
+// `fechaPorDefecto`: el día que se está viendo en la agenda; el formulario ya no empieza con la fecha vacía.
+export function ModalNuevaCita({ abierto, onCerrar, onAgendar, dentistas, fechaInicial, fechaPorDefecto }) {
   const perfil = useAuthStore((s) => s.perfil)
   const sucursalActualId = useSucursalStore((s) => s.sucursalActualId)
   const { sucursales } = useSucursales()
@@ -34,6 +35,7 @@ export function ModalNuevaCita({ abierto, onCerrar, onAgendar, dentistas, fechaI
   const [recordatorio, setRecordatorio] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [errorLocal, setErrorLocal] = useState(null)
+  const [confirmaPasada, setConfirmaPasada] = useState(false)
 
   // Selección estructurada de sucursal/consultorio/sillón — solo tiene
   // sentido si la clínica ya creó sucursales. Se precarga con la
@@ -66,8 +68,10 @@ export function ModalNuevaCita({ abierto, onCerrar, onAgendar, dentistas, fechaI
       const f = new Date(fechaInicial)
       setFecha(fechaInputLocal(f))   // fecha LOCAL del hueco elegido (con toISOString, desde las 18:00 proponía el día siguiente — H24)
       setHoraInicio(f.toTimeString().slice(0, 5))
+    } else if (abierto && fechaPorDefecto) {
+      setFecha((actual) => actual || fechaInputLocal(new Date(fechaPorDefecto)))
     }
-  }, [abierto, fechaInicial])
+  }, [abierto, fechaInicial, fechaPorDefecto])
 
   const limpiar = () => {
     setTermino('')
@@ -81,6 +85,7 @@ export function ModalNuevaCita({ abierto, onCerrar, onAgendar, dentistas, fechaI
     setNotas('')
     setConsultorio('')
     setRecordatorio(false)
+    setConfirmaPasada(false)
     setSucursalId('')
     setConsultorioId('')
     setSillonId('')
@@ -104,6 +109,11 @@ export function ModalNuevaCita({ abierto, onCerrar, onAgendar, dentistas, fechaI
     const inicioDate = new Date(`${fecha}T${horaInicio}`)
     const finDate = new Date(inicioDate.getTime() + duracionMin * 60000)
     if (finDate <= inicioDate) return setErrorLocal('La hora final debe ser posterior a la inicial.')
+    // Una cita en el pasado puede ser válida (registrar algo que ya ocurrió), pero casi siempre es un error de fecha.
+    if (inicioDate < new Date() && !confirmaPasada) {
+      setConfirmaPasada(true)
+      return setErrorLocal('Esa fecha y hora ya pasaron. Si de verdad quieres registrarla así, vuelve a pulsar «Agendar».')
+    }
 
     setGuardando(true)
     try {
@@ -212,8 +222,8 @@ export function ModalNuevaCita({ abierto, onCerrar, onAgendar, dentistas, fechaI
         )}
 
         <div className="grid grid-cols-2 gap-3">
-          <Input label="Fecha" type="date" required value={fecha} onChange={(e) => setFecha(e.target.value)} />
-          <Input label="Hora de inicio" type="time" required value={horaInicio} onChange={(e) => setHoraInicio(e.target.value)} />
+          <Input label="Fecha" type="date" required value={fecha} onChange={(e) => { setConfirmaPasada(false); setFecha(e.target.value) }} />
+          <Input label="Hora de inicio" type="time" required value={horaInicio} onChange={(e) => { setConfirmaPasada(false); setHoraInicio(e.target.value) }} />
         </div>
 
         <div>

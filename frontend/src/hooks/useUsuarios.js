@@ -17,6 +17,11 @@ export function useUsuarios() {
   }, [recargar])
 
   const crear = async (datos) => {
+    // Si el correo ya es de alguien de este equipo se dice tal cual (el servidor responde con un mensaje genérico a
+    // propósito, para no revelar si un correo existe en OTRA clínica).
+    const correo = String(datos?.correo ?? '').trim().toLowerCase()
+    const existente = usuarios.find((u) => String(u.correo ?? '').toLowerCase() === correo)
+    if (existente) throw new Error(`Ese correo ya es de ${existente.nombre}, que ya forma parte de tu equipo.`)
     const resultado = await crearUsuario(datos)
     await recargar()
     return resultado

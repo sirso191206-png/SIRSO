@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase'
+import { estaturaEnCm } from '../../lib/texto'
 import { abrirVentanaImpresion, html, urlImagenSegura } from '../../lib/imprimir'
 import { calcularEdad } from '../../lib/fechas'
 import { obtenerSignosVitales } from '../../services/signosVitales'
@@ -31,7 +32,7 @@ export function bloqueSignosVitales(sv) {
     sv.temperatura ? `Temperatura: ${sv.temperatura} °C` : null,
     sv.saturacion_oxigeno ? `SpO₂: ${sv.saturacion_oxigeno} %` : null,
     sv.peso ? `Peso: ${sv.peso} kg` : null,
-    sv.estatura ? `Talla: ${sv.estatura} m` : null,
+    estaturaEnCm(sv.estatura) ? `Talla: ${estaturaEnCm(sv.estatura)} cm` : null,
   ].filter(Boolean)
 
   if (filas.length === 0) return '' // hay registro pero sin ningún valor útil — no mostrar sección vacía

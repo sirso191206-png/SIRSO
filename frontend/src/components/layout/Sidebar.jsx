@@ -9,7 +9,7 @@ import { usePrecargaAutomaticaDelDia } from '../../hooks/usePrecargaAutomaticaDe
 import { useSincronizacionClinica } from '../../hooks/useSincronizacionClinica'
 import { useDisponibilidad, usePuedeVerSucursales } from '../../hooks/useFuncionalidad'
 import { enlacesVisibles } from '../../lib/planes'
-import { rolesDeRuta } from '../../lib/accesoPorRol'
+import { rolesDeRuta, ETIQUETA_ROL } from '../../lib/accesoPorRol'
 import { useCierreSesionSeguro } from '../../hooks/useCierreSesionSeguro'
 import { PadFirma } from '../PadFirma'
 import { Modal } from '../ui/Modal'
@@ -85,12 +85,6 @@ const SECCIONES_BASE = [
 // menú y el acceso por URL no pueden contradecirse.
 const SECCIONES = SECCIONES_BASE.map((s) => ({ ...s, enlaces: s.enlaces.map((e) => ({ ...e, roles: rolesDeRuta(e.to) })) }))
 
-const ETIQUETA_ROL = {
-  owner: 'Propietario',
-  dentista: 'Odontólogo',
-  recepcion: 'Recepción',
-  asistente: 'Asistente'
-}
 
 // Badge de rol — colores propios, distintos del Badge de estados
 // clínicos (que ya sirve a tratamientos/citas y no debía tocarse).

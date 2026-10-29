@@ -28,7 +28,7 @@ export function Contacto() {
     try {
       await enviarMensajeContacto({ nombre: nombre.trim(), correo: correo.trim(), mensaje: mensaje.trim() })
       setEstadoEnvio('exito')
-      setMensajeEstado('Tu mensaje fue enviado correctamente. Te responderemos pronto.')
+      setMensajeEstado('Recibimos tu mensaje. Te responderemos pronto al correo que nos diste.')
       setNombre('')
       setCorreo('')
       setMensaje('')
@@ -78,6 +78,8 @@ export function Contacto() {
                 value={nombre} maxLength={LIMITES_CONTACTO.nombre}
                 onChange={(e) => setNombre(e.target.value)}
                 placeholder="Nombre"
+                aria-label="Nombre"
+                autoComplete="name"
                 className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 shadow-sm transition-all placeholder:text-slate-400 focus:border-clinico-azul focus:bg-white focus:outline-none focus:ring-4 focus:ring-clinico-azul/10"
               />
               {errores.nombre && <p className="mt-1 text-xs text-clinico-rojo">{errores.nombre}</p>}
@@ -89,6 +91,8 @@ export function Contacto() {
                 value={correo} maxLength={LIMITES_CONTACTO.correo}
                 onChange={(e) => setCorreo(e.target.value)}
                 placeholder="Correo"
+                aria-label="Correo electrónico"
+                autoComplete="email"
                 className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 shadow-sm transition-all placeholder:text-slate-400 focus:border-clinico-azul focus:bg-white focus:outline-none focus:ring-4 focus:ring-clinico-azul/10"
               />
               {errores.correo && <p className="mt-1 text-xs text-clinico-rojo">{errores.correo}</p>}
@@ -99,6 +103,7 @@ export function Contacto() {
                 value={mensaje} maxLength={LIMITES_CONTACTO.mensaje}
                 onChange={(e) => setMensaje(e.target.value)}
                 placeholder="Mensaje"
+                aria-label="Mensaje"
                 rows={4}
                 className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 shadow-sm transition-all placeholder:text-slate-400 focus:border-clinico-azul focus:bg-white focus:outline-none focus:ring-4 focus:ring-clinico-azul/10"
               />
@@ -106,7 +111,7 @@ export function Contacto() {
             </div>
 
             {estadoEnvio && (
-              <p className={`rounded-lg px-3 py-2 text-sm ${estadoEnvio === 'exito' ? 'bg-green-50 text-clinico-verde' : 'bg-red-50 text-clinico-rojo'}`}>
+              <p role={estadoEnvio === 'exito' ? 'status' : 'alert'} className={`rounded-lg px-3 py-2 text-sm ${estadoEnvio === 'exito' ? 'bg-green-50 text-clinico-verde' : 'bg-red-50 text-clinico-rojo'}`}>
                 {mensajeEstado}
               </p>
             )}

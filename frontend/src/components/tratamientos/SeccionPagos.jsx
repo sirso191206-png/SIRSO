@@ -34,7 +34,7 @@ export function SeccionPagos({ pacienteId, paciente }) {
   const handleImprimir = async (pago) => {
     setImprimiendoId(pago.id)
     try {
-      await imprimirRecibo({ pago, paciente, clinicaId: perfil.clinica_id })
+      await imprimirRecibo({ pago, paciente, clinicaId: perfil.clinica_id, saldo: saldo?.saldo ?? null, registradoPor: pago.registrado_por === perfil.id ? perfil.nombre : null })
     } catch (err) {
       toastError(err.message)
     } finally {
@@ -68,6 +68,11 @@ export function SeccionPagos({ pacienteId, paciente }) {
           // redibujado deshabilitado), y el id de la operación se conserva hasta que el cobro se confirma: si se pierde la respuesta
           // y se vuelve a pulsar, el reintento es la MISMA operación y no crea un segundo cobro.
           if (enviandoRef.current) return
+          // Un monto vacío, cero o negativo antes se ignoraba sin decir nada.
+          if (!(Number(monto) > 0)) {
+            toastError('Escribe un monto mayor a 0.')
+            return
+          }
           enviandoRef.current = true
           setGuardando(true)
           const datos = { paciente_id: pacienteId, monto: Number(monto), metodo, tipo: 'pago' }
@@ -87,7 +92,7 @@ export function SeccionPagos({ pacienteId, paciente }) {
         }}
         className="mb-3 flex gap-2"
       >
-        <Input type="number" step="0.01" placeholder="Monto" value={monto} onChange={(e) => setMonto(e.target.value)} required className="w-32" />
+        <Input type="number" min="0.01" step="0.01" placeholder="Monto" aria-label="Monto" value={monto} onChange={(e) => setMonto(e.target.value)} required className="w-32" />
         <select value={metodo} onChange={(e) => setMetodo(e.target.value)} className="rounded-lg border border-slate-300 text-sm">
           <option value="efectivo">Efectivo</option>
           <option value="tarjeta">Tarjeta</option>
@@ -107,7 +112,7 @@ export function SeccionPagos({ pacienteId, paciente }) {
           <div key={p.id} className={`flex items-center justify-between rounded-lg border p-3 text-sm ${p.anulado_en ? 'border-slate-200 bg-slate-50 opacity-60' : 'border-slate-200'}`}>
             <div>
               <span className="font-mono text-xs text-slate-400">{p.numero_recibo}</span>
-              <span className="ml-2">{p.tipo} · {p.metodo}</span>
+              <span className="ml-2 capitalize">{p.tipo} · {p.metodo}</span>
               {p.anulado_en && <span className="ml-2 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-medium uppercase text-slate-600">Anulado</span>}
             </div>
             <span className="font-medium">${formatearMoneda(p.monto)}</span>

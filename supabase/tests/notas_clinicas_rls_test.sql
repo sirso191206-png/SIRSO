@@ -66,7 +66,8 @@ select pg_temp.t('N2 las 4 políticas siguen exactamente como se describieron: n
   and (select relrowsecurity from pg_class where oid = 'notas_clinicas'::regclass) and not exists (select 1 from pg_policies where tablename = 'notas_clinicas' and 'anon' = any (roles)));
 -- ===== N3: anónimos =====
 select pg_temp.t('N3 un ANÓNIMO no lee ni escribe notas aunque las políticas permisivas sean para "public" (las funciones de identidad devuelven NULL → ninguna condición se cumple): 0 filas visibles y el INSERT se rechaza',
-  pg_temp.como('anon', null, 'select count(*)::text from notas_clinicas') = '0'
+  (pg_temp.como('anon', null, 'select count(*)::text from notas_clinicas') = '0'
+   or pg_temp.como('anon', null, 'select count(*)::text from notas_clinicas') like 'ERR|42501%') -- 120: sin SELECT para anon
   and pg_temp.ins_exp('anon', null, (select id from expedientes where paciente_id = 'b6000000-0000-0000-0000-000000000001')) like 'ERR|42501|%');
 -- ===== N4-N6: quién puede insertar y quién puede leer =====
 select pg_temp.t('N4 pueden INSERTAR (con JWT real): el dentista con SU paciente y el owner con cualquiera de su clínica',

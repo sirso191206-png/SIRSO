@@ -44,8 +44,8 @@ export function ModalOlvidePassword({ abierto, onCerrar, correoInicial }) {
       {estado === 'enviado' ? (
         <div className="space-y-4 text-center">
           <p className="text-sm text-slate-600">
-            Correo enviado correctamente. Revisa tu bandeja de entrada (y la carpeta de spam) y sigue el enlace para
-            crear una nueva contraseña.
+            Si ese correo tiene una cuenta en SIRO, te llegará un enlace en unos minutos. Revisa tu bandeja de entrada
+            (y la carpeta de spam) y síguelo para crear una nueva contraseña.
           </p>
           <button
             onClick={cerrar}

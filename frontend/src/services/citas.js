@@ -16,7 +16,7 @@ export async function obtenerCitaPorId(id) {
   const { datos } = await conCacheDeLectura(`cita:${id}`, async () => {
     const { data, error } = await supabase
       .from('citas')
-      .select('*, paciente:pacientes(nombre_completo, telefono, numero_expediente), dentista:usuarios(nombre)')
+      .select('*, paciente:pacientes(id, nombre_completo, telefono, numero_expediente, fecha_nacimiento, sexo), dentista:usuarios(nombre)')
       .eq('id', id)
       .single()
     if (error) throw clasificarErrorDeDatos(error, { haySesion: await haySesionVigente(), entidad: 'la cita' })

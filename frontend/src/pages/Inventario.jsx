@@ -309,12 +309,19 @@ function ModalMovimiento({ material, onCerrar, onRegistrar }) {
   const [cantidad, setCantidad] = useState('')
   const [motivo, setMotivo] = useState('')
   const [guardando, setGuardando] = useState(false)
+  const [confirmaNegativo, setConfirmaNegativo] = useState(false)
   const ayuda = TIPOS_MOVIMIENTO.find((t) => t.valor === tipo)?.ayuda
+  // Una salida mayor a lo que hay se avisa ANTES de registrarla (antes solo se avisaba después, con el stock ya negativo).
+  const dejaNegativo = tipo === 'salida' && Number(cantidad) > Number(material.stock ?? 0)
 
   const guardar = async (e) => {
     e.preventDefault()
     const invalido = validarMovimiento({ tipo, cantidad, motivo })
     if (invalido) return toastError(invalido)
+    if (dejaNegativo && !confirmaNegativo) {
+      setConfirmaNegativo(true)
+      return
+    }
     setGuardando(true)
     try {
       const r = await onRegistrar({ materialId: material.id, tipo, cantidad: Number(cantidad), motivo: motivo.trim() || null })
@@ -342,7 +349,13 @@ function ModalMovimiento({ material, onCerrar, onRegistrar }) {
           ))}
         </div>
         <p className="text-xs text-slate-500">{ayuda}</p>
-        <Input label={tipo === 'ajuste' ? `Stock contado (${material.unidad})` : `Cantidad (${material.unidad})`} type="number" min="0" step="any" value={cantidad} onChange={(e) => setCantidad(e.target.value)} required />
+        <Input label={tipo === 'ajuste' ? `Stock contado (${material.unidad})` : `Cantidad (${material.unidad})`} type="number" min="0" step="any" value={cantidad} onChange={(e) => { setCantidad(e.target.value); setConfirmaNegativo(false) }} required />
+        {dejaNegativo && (
+          <p role="alert" className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            Sacarías más de lo que hay ({formatearCantidad(material.stock)} {material.unidad}): el stock quedaría en negativo.
+            {confirmaNegativo ? ' Vuelve a pulsar el botón para registrarlo de todos modos.' : ' Revisa la cantidad o haz primero un ajuste por conteo físico.'}
+          </p>
+        )}
         <Input label={tipo === 'entrada' ? 'Nota (opcional: proveedor, factura…)' : 'Motivo'} value={motivo} onChange={(e) => setMotivo(e.target.value)} maxLength={300} />
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variante="secundario" onClick={onCerrar}>Cancelar</Button>

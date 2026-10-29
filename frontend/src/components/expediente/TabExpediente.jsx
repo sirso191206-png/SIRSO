@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { estaturaEnCm } from '../../lib/texto'
 import { useExpediente } from '../../hooks/useExpediente'
 import { useSignosVitales } from '../../hooks/useSignosVitales'
 import { useAuthStore } from '../../store/useAuthStore'
@@ -437,7 +438,7 @@ function SeccionNotas({ pacienteId }) {
 // ============================================================
 function calcularImc(peso, estatura) {
   if (!peso || !estatura) return null
-  const estaturaMetros = estatura / 100
+  const estaturaMetros = estaturaEnCm(estatura) / 100
   return (peso / (estaturaMetros * estaturaMetros)).toFixed(1)
 }
 

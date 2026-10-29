@@ -23,3 +23,12 @@ export function terminoTelefonico(termino) {
   const digitos = texto.replace(/\D/g, '')
   return digitos.length >= 3 ? digitos : null
 }
+
+// RFC mexicano: 3 letras (moral) o 4 (física), fecha AAMMDD y homoclave de 3. Se compara en mayúsculas y sin espacios.
+export function normalizarRfc(valor) {
+  return String(valor ?? '').toUpperCase().replace(/\s+/g, '')
+}
+export function rfcValido(valor) {
+  const r = normalizarRfc(valor)
+  return r === '' || /^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$/.test(r)
+}

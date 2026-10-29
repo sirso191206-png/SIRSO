@@ -5,8 +5,12 @@ import { formatearMoneda } from '../../lib/formato'
 const NOMBRE_METODO = { efectivo: 'Efectivo', tarjeta: 'Tarjeta', transferencia: 'Transferencia', otro: 'Otro' }
 const NOMBRE_TIPO = { anticipo: 'Anticipo', pago: 'Pago', reembolso: 'Reembolso' }
 
-export async function imprimirRecibo({ pago, paciente, clinicaId }) {
-  const { data: clinica } = await supabase.from('clinicas').select('nombre').eq('id', clinicaId).single()
+// `saldo` (opcional): saldo pendiente del paciente después de este pago. `registradoPor` (opcional): quién cobró.
+export async function imprimirRecibo({ pago, paciente, clinicaId, saldo = null, registradoPor = null }) {
+  // Datos del establecimiento: Configuración dice que aparecen en los recibos.
+  const { data: clinica } = await supabase.from('clinicas').select('nombre, direccion, telefono, rfc, razon_social').eq('id', clinicaId).single()
+  const datosClinica = [clinica?.razon_social && clinica.razon_social !== clinica?.nombre ? clinica.razon_social : null, clinica?.direccion,
+    clinica?.telefono ? `Tel. ${clinica.telefono}` : null, clinica?.rfc ? `RFC ${clinica.rfc}` : null].filter(Boolean)
 
   const documento = html`
     <!doctype html>
@@ -35,7 +39,8 @@ export async function imprimirRecibo({ pago, paciente, clinicaId }) {
       <div class="encabezado">
         <div>
           <h1>${clinica?.nombre ?? 'Consultorio'}</h1>
-          <div style="font-size:12px;color:#64748B;">Recibo de pago</div>
+          ${datosClinica.map((d) => html`<div style="font-size:11px;color:#64748B;">${d}</div>`)}
+          <div style="font-size:12px;color:#64748B;margin-top:4px;">Recibo de pago</div>
         </div>
         <div class="folio">
           <div class="folio-numero">${pago.numero_recibo}</div>
@@ -48,12 +53,14 @@ export async function imprimirRecibo({ pago, paciente, clinicaId }) {
         <dd>${paciente.nombre_completo}${paciente.numero_expediente ? ` (${paciente.numero_expediente})` : ''}</dd>
         <dt>Método de pago</dt>
         <dd>${NOMBRE_METODO[pago.metodo] ?? pago.metodo}</dd>
+        ${registradoPor ? html`<dt>Recibió</dt><dd>${registradoPor}</dd>` : ''}
       </dl>
 
       <div class="monto">
         <div class="monto-numero">$${formatearMoneda(pago.monto)}</div>
         <div class="monto-tipo">${NOMBRE_TIPO[pago.tipo] ?? pago.tipo}</div>
       </div>
+      ${saldo !== null && saldo !== undefined ? html`<p style="text-align:center;font-size:13px;color:#475569;">Saldo pendiente al imprimir: <strong>$${formatearMoneda(Math.max(0, Number(saldo)))}</strong></p>` : ''}
 
       <div class="pie">Este recibo es un comprobante de pago, no sustituye una factura fiscal.</div>
     </body>

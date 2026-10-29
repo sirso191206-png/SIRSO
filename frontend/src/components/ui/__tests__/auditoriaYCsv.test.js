@@ -73,7 +73,7 @@ describe('etiquetas legibles de la auditoría', () => {
     expect(etiquetaAccion('editar_notas_clinicas')).toBe('Editar nota clínica')
   })
   it('acciones propias: exportar, cerrar sesión remota y las de plan', () => {
-    expect(etiquetaAccion('exportar')).toBe('Exportar información')
+    expect(etiquetaAccion('exportar')).toBe('Exportar o imprimir información')
     expect(etiquetaAccion('DATA_EXPORTED')).toBe('Exportar los datos de un paciente') // evento que registra la exportación de un expediente
     expect(etiquetaAccion('cerrar_sesion_remota')).toBe('Cerrar sesión de otro dispositivo')
     expect(etiquetaAccion('ajustar_condiciones_clinica')).not.toMatch(/_/)

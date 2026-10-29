@@ -7,19 +7,36 @@ const MODULOS = {
   tratamientos: 'Tratamientos', recetas: 'Recetas', consentimientos_informados: 'Consentimientos',
   referencias_medicas: 'Referencias médicas', usuarios: 'Usuarios', arco_solicitudes: 'Derechos ARCO',
   incidentes_seguridad: 'Incidentes de seguridad', suscripciones: 'Suscripción', planes_catalogo: 'Planes', sesiones: 'Sesiones',
-  reportes: 'Reportes', auditoria: 'Auditoría'
+  reportes: 'Reportes', auditoria: 'Auditoría',
+  // Migración 120: acciones administrativas.
+  clinicas: 'Datos de la clínica', catalogo_tratamientos: 'Catálogo', sucursales: 'Sucursales', consultorios: 'Consultorios',
+  sucursal_usuarios: 'Asignación a sucursales', reserva_config: 'Reserva en línea', reserva_servicios: 'Reserva en línea',
+  materiales: 'Inventario', movimientos_inventario: 'Inventario', receta_materiales: 'Inventario',
+  horarios_bloqueados: 'Horarios bloqueados'
 }
 const SINGULAR = {
   pacientes: 'paciente', expedientes: 'expediente', notas_clinicas: 'nota clínica', citas: 'cita', pagos: 'pago',
   tratamientos: 'tratamiento', recetas: 'receta', consentimientos_informados: 'consentimiento',
   referencias_medicas: 'referencia médica', usuarios: 'usuario', arco_solicitudes: 'solicitud ARCO',
-  incidentes_seguridad: 'incidente de seguridad'
+  incidentes_seguridad: 'incidente de seguridad',
+  clinicas: 'datos de la clínica', catalogo_tratamientos: 'tratamiento del catálogo', sucursales: 'sucursal',
+  consultorios: 'consultorio', sucursal_usuarios: 'asignación a sucursal', reserva_config: 'configuración de la reserva en línea',
+  reserva_servicios: 'servicio de la reserva en línea', materiales: 'material', movimientos_inventario: 'movimiento de inventario',
+  receta_materiales: 'material de un tratamiento', horarios_bloqueados: 'horario bloqueado'
 }
 const VERBO = { crear: 'Crear', editar: 'Editar', eliminar: 'Eliminar' }
 const OTRAS = {
-  exportar: 'Exportar información',
+  exportar: 'Exportar o imprimir información',
   DATA_EXPORTED: 'Exportar los datos de un paciente',
-  cerrar_sesion_remota: 'Cerrar sesión de otro dispositivo'
+  cerrar_sesion_remota: 'Cerrar sesión de otro dispositivo',
+  ver_clinica: 'Consultar la clínica (soporte de SIRO)'
+}
+
+// Quién hizo la acción. Sin usuario es el propio sistema (procesos automáticos); con un usuario que la clínica no puede
+// ver es el personal de soporte de SIRO (los usuarios con registros nunca se borran: migración 111).
+export function autorDeAuditoria(fila) {
+  if (fila?.usuario?.nombre) return fila.usuario.nombre
+  return fila?.usuario_id ? 'Soporte de SIRO' : 'Sistema'
 }
 
 export const MODULOS_AUDITABLES = Object.entries(MODULOS)
