@@ -4,13 +4,13 @@ export function FooterPublico() {
   return (
     <footer className="border-t border-slate-200 py-6">
       <div className="mx-auto flex max-w-[1500px] flex-wrap items-center justify-center gap-x-6 gap-y-2 px-6 text-xs text-slate-400 sm:px-10">
-        <Link to="/legal/privacidad" className="inline-block py-2 hover:text-clinico-azul">Aviso de Privacidad</Link>
-        <Link to="/legal/terminos" className="inline-block py-2 hover:text-clinico-azul">Términos y Condiciones</Link>
-        <Link to="/legal/cookies" className="inline-block py-2 hover:text-clinico-azul">Cookies y almacenamiento</Link>
-        <Link to="/legal/cookies/preferencias" className="inline-block py-2 hover:text-clinico-azul">Preferencias de almacenamiento</Link>
-        <Link to="/legal/arco" className="inline-block py-2 hover:text-clinico-azul">Derechos ARCO</Link>
-        <Link to="/legal/seguridad" className="inline-block py-2 hover:text-clinico-azul">Seguridad</Link>
-        <Link to="/contacto" className="inline-block py-2 hover:text-clinico-azul">Contacto</Link>
+        <Link to="/legal/privacidad" className="inline-flex min-h-[44px] items-center hover:text-clinico-azul">Aviso de Privacidad</Link>
+        <Link to="/legal/terminos" className="inline-flex min-h-[44px] items-center hover:text-clinico-azul">Términos y Condiciones</Link>
+        <Link to="/legal/cookies" className="inline-flex min-h-[44px] items-center hover:text-clinico-azul">Cookies y almacenamiento</Link>
+        <Link to="/legal/cookies/preferencias" className="inline-flex min-h-[44px] items-center hover:text-clinico-azul">Preferencias de almacenamiento</Link>
+        <Link to="/legal/arco" className="inline-flex min-h-[44px] items-center hover:text-clinico-azul">Derechos ARCO</Link>
+        <Link to="/legal/seguridad" className="inline-flex min-h-[44px] items-center hover:text-clinico-azul">Seguridad</Link>
+        <Link to="/contacto" className="inline-flex min-h-[44px] items-center hover:text-clinico-azul">Contacto</Link>
       </div>
     </footer>
   )

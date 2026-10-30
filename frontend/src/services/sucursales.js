@@ -146,3 +146,16 @@ export async function quitarUsuarioDeSucursal(sucursalUsuarioId) {
     .eq('id', sucursalUsuarioId)
   if (error) throw error
 }
+
+// Personal activo (que no es propietario) sin ninguna sucursal activa asignada. Con sucursales, ese personal NO ve las
+// citas ni las solicitudes de reserva en línea que quedan en una sucursal (RLS: auth_sucursal_permitida).
+export async function personalSinSucursal() {
+  const [{ data: equipo, error: e1 }, { data: asignaciones, error: e2 }] = await Promise.all([
+    supabase.from('usuarios').select('id, nombre, rol').eq('activo', true).neq('rol', 'owner'),
+    supabase.from('sucursal_usuarios').select('usuario_id, sucursal:sucursales(activa)').eq('activo', true)
+  ])
+  if (e1) throw e1
+  if (e2) throw e2
+  const asignados = new Set((asignaciones ?? []).filter((a) => a.sucursal?.activa).map((a) => a.usuario_id))
+  return (equipo ?? []).filter((u) => !asignados.has(u.id))
+}

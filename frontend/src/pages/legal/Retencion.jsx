@@ -10,7 +10,7 @@ export function Retencion() {
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50">
-      {!session && <HeaderPublico enlace="/login" textoEnlace="Iniciar sesión" />}
+      {!session && <HeaderPublico enlace="/login" textoEnlace="Iniciar sesión" navegacion />}
       <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-12 sm:px-10">
         <BarraRegresoPublica />
         <h1 className="mb-6 text-2xl font-semibold text-slate-800">Política de Conservación de Información</h1>

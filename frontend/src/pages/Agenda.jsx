@@ -118,7 +118,7 @@ export function Agenda() {
   const { lista: listaEspera, agregar: agregarListaEspera, marcarAtendido } = useListaEspera()
   const disponible = useDisponibilidad()
   // Solicitudes de la reserva en línea: se dibujan en la cuadrícula como «Pendiente de confirmar» y se resuelven aquí.
-  const { solicitudes, confirmar: confirmarSolicitud, rechazar: rechazarSolicitud } = useSolicitudesCita({ activo: disponible('reserva_en_linea') })
+  const { solicitudes, error: errorSolicitudes, confirmar: confirmarSolicitud, rechazar: rechazarSolicitud } = useSolicitudesCita({ activo: disponible('reserva_en_linea') })
   const citasConSolicitudes = useMemo(() => [
     ...citas,
     ...solicitudesVisiblesEnAgenda(solicitudes, { desde, hasta, dentistaId: filtroDentista, estado: filtroEstado, sucursalId: sucursalActualId }).map(solicitudComoCita)
@@ -283,6 +283,7 @@ export function Agenda() {
       )}
 
       <ModalSolicitudesEnLinea
+        error={errorSolicitudes}
         abierto={modalSolicitudes}
         onCerrar={() => setModalSolicitudes(false)}
         solicitudes={solicitudes}

@@ -34,7 +34,9 @@ export function Precios() {
   }, [])
 
   const hayAnual = Array.isArray(planes) && planes.some((p) => p.permite_anual && Number(p.precio_anual) > 0)
-  const mayorAhorro = Array.isArray(planes) ? Math.max(0, ...planes.map(ahorroAnual)) : 0
+  const ahorros = Array.isArray(planes) ? planes.map(ahorroAnual).filter((a) => a > 0) : []
+  const mayorAhorro = Math.max(0, ...ahorros)
+  const ahorroUniforme = ahorros.length > 0 && ahorros.every((a) => a === mayorAhorro)
   // Todas las funcionalidades que aparecen en algún plan, en el orden en que llegan (la base las ordena).
   const todasLasFunciones = useMemo(() => {
     if (!Array.isArray(planes)) return []
@@ -57,7 +59,7 @@ export function Precios() {
 
           {hayAnual && (
             <div className="mt-8 inline-flex rounded-xl border border-slate-300 bg-white p-1" role="group" aria-label="Forma de pago">
-              {[['mensual', 'Mensual'], ['anual', mayorAhorro > 0 ? `Anual (ahorra hasta ${mayorAhorro}%)` : 'Anual']].map(([valor, etiqueta]) => (
+              {[['mensual', 'Mensual'], ['anual', mayorAhorro > 0 ? `Anual (ahorra ${ahorroUniforme ? '' : 'hasta '}${mayorAhorro}%)` : 'Anual']].map(([valor, etiqueta]) => (
                 <button key={valor} type="button" aria-pressed={periodo === valor} onClick={() => setPeriodo(valor)}
                   className={`min-h-[44px] rounded-lg px-4 text-sm font-semibold transition-colors ${periodo === valor ? 'bg-clinico-azul text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
                   {etiqueta}
@@ -105,9 +107,10 @@ export function Precios() {
                       Quiero el plan {p.nombre}
                     </Link>
                     <ul className="mt-6 space-y-2 border-t border-slate-100 pt-5 text-sm text-slate-700">
-                      {p.max_usuarios != null && <li>✓ {Number(p.max_usuarios) === 1 ? '1 usuario' : `Hasta ${p.max_usuarios} usuarios`}</li>}
-                      {p.max_pacientes != null && <li>✓ Hasta {Number(p.max_pacientes).toLocaleString('es-MX')} pacientes</li>}
-                      {p.limite_sucursales != null && <li>✓ {Number(p.limite_sucursales) === 1 ? '1 sucursal' : `Hasta ${p.limite_sucursales} sucursales`}</li>}
+                      {/* Sin límite en la base (null) = ilimitado: se dice, en vez de omitirlo. */}
+                      <li>✓ {p.max_usuarios == null ? 'Usuarios ilimitados' : Number(p.max_usuarios) === 1 ? '1 usuario' : `Hasta ${p.max_usuarios} usuarios`}</li>
+                      <li>✓ {p.max_pacientes == null ? 'Pacientes ilimitados' : `Hasta ${Number(p.max_pacientes).toLocaleString('es-MX')} pacientes`}</li>
+                      <li>✓ {p.limite_sucursales == null ? 'Sucursales ilimitadas' : Number(p.limite_sucursales) === 1 ? '1 sucursal' : `Hasta ${p.limite_sucursales} sucursales`}</li>
                       {p.max_almacenamiento_mb != null && <li>✓ {Number(p.max_almacenamiento_mb) >= 1024 ? `${Math.round(Number(p.max_almacenamiento_mb) / 1024)} GB` : `${p.max_almacenamiento_mb} MB`} para fotos y documentos</li>}
                       <li>✓ {(p.funcionalidades ?? []).length} funcionalidades</li>
                     </ul>

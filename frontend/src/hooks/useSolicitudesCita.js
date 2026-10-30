@@ -5,13 +5,17 @@ import { listarSolicitudesPendientes, confirmarSolicitudCita, rechazarSolicitudC
 // solo las suyas). Sin conexión, o sin la funcionalidad, la lista queda vacía: la Agenda sigue funcionando igual.
 export function useSolicitudesCita({ activo }) {
   const [solicitudes, setSolicitudes] = useState([])
+  const [error, setError] = useState(null)
 
   const recargar = useCallback(async () => {
-    if (!activo) { setSolicitudes([]); return }
+    if (!activo) { setSolicitudes([]); setError(null); return }
     try {
       setSolicitudes(await listarSolicitudesPendientes())
-    } catch {
+      setError(null)
+    } catch (err) {
+      // Antes se tragaba el error y el panel decía «no hay solicitudes»: ahora se informa.
       setSolicitudes([])
+      setError(err?.message || 'No se pudieron cargar las solicitudes.')
     }
   }, [activo])
 
@@ -30,5 +34,5 @@ export function useSolicitudesCita({ activo }) {
     await recargar()
   }
 
-  return { solicitudes, recargar, confirmar, rechazar }
+  return { solicitudes, error, recargar, confirmar, rechazar }
 }

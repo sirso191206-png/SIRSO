@@ -12,11 +12,12 @@ const fechaHora = (iso) => capitalizarPrimeraLetra(new Date(iso).toLocaleString(
 }))
 
 // Lista de solicitudes de cita en línea pendientes (botón de la Agenda).
-export function ModalSolicitudesEnLinea({ abierto, onCerrar, solicitudes, onAbrir }) {
+export function ModalSolicitudesEnLinea({ abierto, onCerrar, solicitudes, onAbrir, error = null }) {
   const info = infoEstado('pendiente_confirmar')
   return (
     <Modal abierto={abierto} onCerrar={onCerrar} titulo="Solicitudes en línea">
-      {solicitudes.length === 0 && <p className="text-sm text-slate-400">No hay solicitudes pendientes de confirmar.</p>}
+      {error && <p role="alert" className="mb-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-clinico-rojo">No se pudieron cargar las solicitudes: {error}</p>}
+      {!error && solicitudes.length === 0 && <p className="text-sm text-slate-400">No hay solicitudes pendientes de confirmar.</p>}
       <ul className="space-y-2">
         {solicitudes.map((s) => (
           <li key={s.id}>

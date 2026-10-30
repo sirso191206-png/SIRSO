@@ -16,7 +16,7 @@ export function Cookies() {
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50">
-      {!session && <HeaderPublico enlace="/login" textoEnlace="Iniciar sesión" />}
+      {!session && <HeaderPublico enlace="/login" textoEnlace="Iniciar sesión" navegacion />}
       <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-12 sm:px-10">
         <BarraRegresoPublica />
         <div className="mb-6 flex items-center justify-between">

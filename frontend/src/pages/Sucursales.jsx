@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { normalizarTelefono, telefonoValido, MENSAJE_TELEFONO_INVALIDO } from '../lib/telefono'
 import { useSucursales } from '../hooks/useSucursales'
 import { useAuthStore } from '../store/useAuthStore'
@@ -11,6 +11,7 @@ import { mensajeErrorDePlan } from '../lib/planes'
 import { usePuedeAgregar } from '../hooks/useFuncionalidad'
 import { usePlanStore } from '../store/usePlanStore'
 import { AvisoAltaBloqueada } from '../components/planes/AvisoAltaBloqueada'
+import { personalSinSucursal } from '../services/sucursales'
 
 export function Sucursales() {
   const perfil = useAuthStore((s) => s.perfil)
@@ -25,6 +26,16 @@ export function Sucursales() {
   }
   const [modalAbierto, setModalAbierto] = useState(false)
   const [expandidaId, setExpandidaId] = useState(null)
+  const [sinSucursal, setSinSucursal] = useState([])
+  const haySucursalesActivas = sucursales.some((s) => s.activa)
+
+  // Personal sin sucursal: no verá las citas ni las solicitudes en línea de las sucursales. Se avisa al propietario.
+  useEffect(() => {
+    if (perfil?.rol !== 'owner' || !haySucursalesActivas) { setSinSucursal([]); return }
+    let activo = true
+    personalSinSucursal().then((l) => activo && setSinSucursal(l)).catch(() => activo && setSinSucursal([]))
+    return () => { activo = false }
+  }, [perfil?.rol, haySucursalesActivas, expandidaId])
 
   if (perfil?.rol !== 'owner') {
     return <p className="text-slate-400">Esta sección solo está disponible para el owner de la clínica.</p>
@@ -55,6 +66,14 @@ export function Sucursales() {
         Si tu clínica opera en un solo lugar, no necesitas crear ninguna sucursal — todo sigue funcionando exactamente
         igual. Esto es solo para clínicas con más de una ubicación.
       </p>
+
+      {sinSucursal.length > 0 && (
+        <div role="alert" className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <strong>{sinSucursal.map((u) => u.nombre).join(', ')}</strong> {sinSucursal.length === 1 ? 'no está asignado' : 'no están asignados'} a ninguna
+          sucursal: no {sinSucursal.length === 1 ? 'verá' : 'verán'} las citas ni las solicitudes de reserva en línea de tus sucursales.
+          Asígnalos abriendo cada sucursal.
+        </div>
+      )}
 
       {cargando ? (
         <p className="text-slate-400">Cargando…</p>
