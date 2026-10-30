@@ -339,7 +339,8 @@ select pg_temp.t('C1 TODA tabla con RLS está cubierta por la lista explícita, 
        -- catálogos globales (solo lectura para clínicas) y tablas sin acceso por la API
        and c.relname not in ('funcionalidades','plan_funcionalidades','planes_catalogo','plataforma_config','legal_documents',
                              'politicas_conservacion','retenciones_legales','conservacion_historial',   -- migración 104: SIN ningún acceso para anon ni authenticated (solo servidor)
-                             'stripe_eventos')   -- migración 114: registro de eventos del webhook, SIN acceso para anon ni authenticated
+                             'stripe_eventos',   -- migración 114: registro de eventos del webhook, SIN acceso para anon ni authenticated
+                             'telefonos_normalizacion_122')   -- migración 122: bitácora de la normalización, SIN acceso por la API
   ));
 
 -- ============================================================ FUNCIONES expuestas

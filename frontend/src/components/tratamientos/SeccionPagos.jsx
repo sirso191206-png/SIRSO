@@ -47,7 +47,8 @@ export function SeccionPagos({ pacienteId, paciente }) {
       <h3 className="mb-3 text-sm font-semibold text-slate-700">Pagos</h3>
 
       <div className="mb-3 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
-        Total tratamientos: ${formatearMoneda(saldo.total_tratamientos)} · Pagado: ${formatearMoneda(saldo.total_pagado)} · Pendiente: ${formatearMoneda(Math.max(saldo.saldo, 0))}
+        {/* «Cargos» = tratamientos ACEPTADOS (con descuento). Lo planeado es presupuesto: se muestra aparte y no se cobra (migración 122). */}
+        Cargos: ${formatearMoneda(saldo.total_tratamientos)} · Pagado: ${formatearMoneda(saldo.total_pagado)} · Pendiente: ${formatearMoneda(Math.max(saldo.saldo, 0))}
         {saldo.saldo < 0 && (
           // Si se registró un pago mayor al costo de los tratamientos
           // (p. ej. un monto capturado por error), el saldo queda
@@ -58,6 +59,11 @@ export function SeccionPagos({ pacienteId, paciente }) {
           // de abajo y vuelve a registrarlo — eso sí mueve el saldo de
           // verdad; esto solo cambia cómo se muestra.
           <span className="ml-1 font-medium text-clinico-verde">· A favor del paciente: ${formatearMoneda(-saldo.saldo)}</span>
+        )}
+        {Number(saldo.total_presupuestado) > 0 && (
+          <div className="mt-1 text-xs text-slate-500">
+            Presupuestado (planeado, aún no aceptado): ${formatearMoneda(saldo.total_presupuestado)} — no cuenta como deuda hasta que el paciente lo acepte.
+          </div>
         )}
       </div>
 

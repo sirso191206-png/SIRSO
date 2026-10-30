@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom'
 
 // Título de la pestaña según la pantalla (antes era el mismo en todas, incluso en la página «no encontrada»).
 const TITULOS = [
-  [/^\/$/, 'Mi día'], [/^\/login/, 'Iniciar sesión'], [/^\/agenda/, 'Agenda'], [/^\/pacientes\/.+/, 'Expediente'],
+  [/^\/$/, 'Mi día'], [/^\/inicio/, 'Software para clínicas dentales'], [/^\/login/, 'Iniciar sesión'], [/^\/agenda/, 'Agenda'], [/^\/pacientes\/.+/, 'Expediente'],
   [/^\/pacientes/, 'Pacientes'], [/^\/consulta/, 'Consulta'], [/^\/catalogo/, 'Catálogo'], [/^\/corte-de-caja/, 'Corte de caja'],
   [/^\/inventario/, 'Inventario'], [/^\/reportes/, 'Reportes'], [/^\/auditoria/, 'Auditoría'], [/^\/usuarios/, 'Usuarios'],
   [/^\/sucursales/, 'Sucursales'], [/^\/configuracion\/seguridad/, 'Seguridad'], [/^\/configuracion/, 'Configuración'],

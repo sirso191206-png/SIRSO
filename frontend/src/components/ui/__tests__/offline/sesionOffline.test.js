@@ -81,7 +81,7 @@ describe('useAuthStore.cargarPerfil — el arranque no depende de Supabase (secc
     await useAuthStore.getState().cargarPerfil(session)
 
     const s = useAuthStore.getState()
-    expect(s.perfil).toEqual(perfilAna)
+    expect(s.perfil).toMatchObject(perfilAna) // + curp/rfc/firma, que llegan aparte (migración 121)
     expect(s.connectionStatus).toBe('online')
     expect(s.clinicaNombre).toBe('Clínica Sonrisa')
     await esperarGuardadoLocal()
@@ -97,7 +97,7 @@ describe('useAuthStore.cargarPerfil — el arranque no depende de Supabase (secc
     await useAuthStore.getState().cargarPerfil(session)
 
     const s = useAuthStore.getState()
-    expect(s.perfil).toEqual(perfilAna)
+    expect(s.perfil).toMatchObject(perfilAna)
     expect(s.clinicaNombre).toBe('Clínica Sonrisa')
     expect(s.clinicaEstado).toBe('activa')
     expect(s.connectionStatus).toBe('offline')

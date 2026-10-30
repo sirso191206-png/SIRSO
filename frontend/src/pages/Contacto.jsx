@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useState } from 'react'
 import { enviarMensajeContacto, validarContacto, LIMITES_CONTACTO } from '../services/contacto'
 import { HeaderPublico } from '../components/layout/HeaderPublico'
@@ -7,7 +7,9 @@ import { BarraRegresoPublica } from '../components/layout/BarraRegreso'
 export function Contacto() {
   const [nombre, setNombre] = useState('')
   const [correo, setCorreo] = useState('')
-  const [mensaje, setMensaje] = useState('')
+  // Desde la página pública: «Solicitar una demostración» o «Quiero este plan» llegan con el mensaje ya empezado.
+  const [parametros] = useSearchParams()
+  const [mensaje, setMensaje] = useState(() => mensajeInicial(parametros))
   const [errores, setErrores] = useState({})
   const [enviando, setEnviando] = useState(false)
   const [estadoEnvio, setEstadoEnvio] = useState(null) // null | 'exito' | 'error'
@@ -141,4 +143,12 @@ export function Contacto() {
       </footer>
     </div>
   )
+}
+
+function mensajeInicial(parametros) {
+  const asunto = parametros.get('asunto')
+  if (asunto === 'demo') return 'Hola, me gustaría una demostración de SIRO para mi clínica.'
+  if (asunto === 'planes') return 'Hola, me gustaría conocer los planes y precios de SIRO.'
+  if (asunto === 'plan') return `Hola, me interesa el plan ${String(parametros.get('plan') ?? '').slice(0, 40)} de SIRO.`
+  return ''
 }

@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase'
-import { sanitizarTerminoBusqueda } from '../lib/texto'
+import { sanitizarTerminoBusqueda, sinAcentos } from '../lib/texto'
 import { conCacheDeLectura, actualizarCacheDeLectura } from '../lib/cacheLectura'
 import { indexarPaciente, buscarEnIndiceLocal } from '../lib/indicePacientesOffline'
 import { crearPacienteOffline, obtenerPacienteOfflineLocal } from '../lib/pacientesOffline'
@@ -7,12 +7,13 @@ import { encolarOperacion } from '../lib/colaOffline'
 import { esIdOffline, resolverId } from '../lib/mapeoIdsOffline'
 import { verificarConexionReal } from '../lib/conectividadReal'
 import { buscarEnReplicaClinica, obtenerPacienteDeReplica } from '../lib/pacientesReplica'
-import { terminoTelefonico } from '../lib/telefono'
+import { normalizarTelefono, terminoTelefonico } from '../lib/telefono'
 
-// Filtro «or» de PostgREST para buscar pacientes. Si lo escrito parece un teléfono («55 1234 5678»), también se buscan solo
-// sus dígitos: los teléfonos se guardan sin espacios ni guiones (lib/telefono.js).
+// Filtro «or» de PostgREST para buscar pacientes. `busqueda` (migración 122) es nombre + apellidos + expediente + correo en
+// minúsculas y sin acentos: se compara contra el término también sin acentos («Jose Garcia» encuentra «José García»). Si
+// lo escrito parece un teléfono («55 1234 5678»), también se buscan solo sus dígitos (se guardan sin espacios ni guiones).
 function filtroDeBusqueda(termino, terminoLimpio, columnas) {
-  const condiciones = columnas.map((c) => `${c}.ilike.%${terminoLimpio}%`)
+  const condiciones = columnas.map((c) => `${c}.ilike.%${c === 'busqueda' ? sinAcentos(terminoLimpio) : terminoLimpio}%`)
   const digitos = terminoTelefonico(termino)
   if (digitos && digitos !== terminoLimpio) condiciones.push(`telefono.ilike.%${digitos}%`)
   return condiciones.join(',')
@@ -20,14 +21,25 @@ function filtroDeBusqueda(termino, terminoLimpio, columnas) {
 
 // Si ya existe un paciente con esa CURP en la clínica, lo regresa (para
 // no crear un expediente duplicado) — si no, regresa null.
-export async function buscarPacientePorCurp(curp) {
-  const { data, error } = await supabase
-    .from('pacientes')
-    .select('id, nombre_completo, numero_expediente, archivado_en')
-    .eq('curp', curp)
-    .maybeSingle()
+// Columnas de `pacientes` que se pueden leer directo de la tabla. La CURP no: la base solo la entrega por
+// v_pacientes_seguro (a quien tiene asignado al paciente) — migración 121.
+export const COLUMNAS_PACIENTE = 'id, clinica_id, nombre_completo, fecha_nacimiento, telefono, correo, direccion, contacto_emergencia, seguro_medico, notas_generales, creado_en, creado_por, archivado_en, numero_expediente, sexo, primer_apellido, segundo_apellido, estado_civil, ocupacion, escolaridad, nacionalidad, telefono_secundario, whatsapp, calle, numero_exterior, numero_interior, colonia, municipio, estado_domicilio, codigo_postal, tipo_paciente, estado_expediente, referido_por, tutor_legal, dentista_responsable_id, actualizado_en'
+
+// ¿Ya hay un paciente con esa CURP en la clínica? Por una función que responde sin devolver la CURP (recepción no la puede
+// leer). Mientras la base no tenga la migración 121, se consulta como antes.
+async function pacientePorCurp(curp, columnas) {
+  const { data, error } = await supabase.rpc('fn_paciente_por_curp', { p_curp: curp })
+  if (error && (error.code === 'PGRST202' || /could not find the function/i.test(error.message ?? ''))) {
+    const anterior = await supabase.from('pacientes').select(columnas).eq('curp', curp).maybeSingle()
+    if (anterior.error) throw anterior.error
+    return anterior.data
+  }
   if (error) throw error
-  return data
+  return (Array.isArray(data) ? data[0] : data) ?? null
+}
+
+export async function buscarPacientePorCurp(curp) {
+  return pacientePorCurp(curp, 'id, nombre_completo, numero_expediente, archivado_en')
 }
 
 export async function buscarPacientes(termino, { incluirArchivados = false } = {}) {
@@ -70,7 +82,7 @@ export async function buscarPacientes(termino, { incluirArchivados = false } = {
 
   const terminoLimpio = sanitizarTerminoBusqueda(termino)
   if (terminoLimpio) {
-    query = query.or(filtroDeBusqueda(termino, terminoLimpio, ['nombre_completo', 'telefono']))
+    query = query.or(filtroDeBusqueda(termino, terminoLimpio, ['busqueda', 'telefono']))
   }
 
   const { data, error } = await query
@@ -142,7 +154,7 @@ export async function crearPaciente(paciente, { usuarioId, clinicaId, sucursalId
   const { data, error } = await supabase
     .from('pacientes')
     .insert(paciente)
-    .select()
+    .select(COLUMNAS_PACIENTE)
     .single()
   // La verificación previa de CURP (pages/Pacientes.jsx) no alcanza a
   // ver un registro que otra persona crea casi al mismo tiempo — la
@@ -207,12 +219,8 @@ async function rellenarVaciosDelExistente(existente, paciente) {
 // - Si el existente no es visible para esta sesión (RLS) tampoco se
 //   puede comprobar que sea la misma persona → conflicto.
 async function resolverCurpExistente(paciente) {
-  const { data: existente, error } = await supabase
-    .from('pacientes')
-    .select('id, nombre_completo, numero_expediente, fecha_nacimiento, telefono, correo, direccion')
-    .eq('curp', paciente.curp)
-    .maybeSingle()
-  if (error) throw error // no se pudo comprobar → transitorio, se reintenta
+  // Si no se pudo comprobar, el error se propaga: es transitorio y se reintenta.
+  const existente = await pacientePorCurp(paciente.curp, 'id, nombre_completo, numero_expediente, fecha_nacimiento, telefono, correo, direccion')
   if (!existente) throw new Error('CONFLICTO_CURP')
 
   const mismoNombre = normalizarNombre(existente.nombre_completo) === normalizarNombre(paciente.nombre_completo)
@@ -236,7 +244,7 @@ export async function crearPacienteEnServidor(paciente) {
   let { data, error } = await supabase
     .from('pacientes')
     .upsert(paciente)
-    .select()
+    .select(COLUMNAS_PACIENTE)
     .single()
   if (error && paciente.curp && esConflictoCurp(error)) {
     data = await resolverCurpExistente(paciente)
@@ -264,7 +272,7 @@ export async function actualizarPacienteEnServidor(id, cambios, actualizadoEnEsp
   if (actualizadoEnEsperado) {
     query = query.eq('actualizado_en', actualizadoEnEsperado)
   }
-  const { data, error } = await query.select().single()
+  const { data, error } = await query.select(COLUMNAS_PACIENTE).single()
   if (error) {
     if (error.code === 'PGRST116' && actualizadoEnEsperado) {
       throw new Error('CONFLICTO_CONCURRENCIA')
@@ -343,7 +351,7 @@ export async function reasignarPaciente(id, dentistaResponsableId) {
     .from('pacientes')
     .update({ dentista_responsable_id: dentistaResponsableId })
     .eq('id', id)
-    .select()
+    .select(COLUMNAS_PACIENTE)
     .single()
   if (error) throw error
   return data
@@ -421,7 +429,7 @@ export async function buscarPosiblesDuplicados({ nombre_completo, telefono }) {
   const { data, error } = await supabase
     .from('pacientes')
     .select('id, nombre_completo, telefono')
-    .or(`telefono.eq.${telefonoLimpio},nombre_completo.ilike.%${nombreLimpio}%`)
+    .or(`telefono.eq.${normalizarTelefono(telefonoLimpio) || telefonoLimpio},busqueda.ilike.%${sinAcentos(nombreLimpio)}%`)
     .limit(5)
   if (error) throw error
   return data
@@ -483,7 +491,7 @@ async function _buscarPacientesDetalladoReal({
     // varios .or() se combinan con Y. Un teléfono con espacios se trata como una sola búsqueda.
     const palabras = terminoTelefonico(termino) ? [terminoLimpio] : terminoLimpio.split(/\s+/).filter(Boolean)
     for (const palabra of palabras) {
-      query = query.or(filtroDeBusqueda(palabra, palabra, ['nombre_completo', 'primer_apellido', 'segundo_apellido', 'telefono', 'correo', 'numero_expediente']))
+      query = query.or(filtroDeBusqueda(palabra, palabra, ['busqueda', 'telefono']))
     }
   }
 

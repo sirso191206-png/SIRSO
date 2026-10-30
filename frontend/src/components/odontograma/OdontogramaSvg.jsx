@@ -1,20 +1,27 @@
 import { COLOR_PIEZA, FILA_SUPERIOR, FILA_INFERIOR, nombreCara, colorCara, caraDe } from './constantesOdontograma'
+import { useEsTactil } from '../../hooks/useEsTactil'
 
 // Tamaño de cada diente y separación entre ellos
 const S = 38
 const GAP = 4
 const O = 11 // offset del cuadro central (oclusal/incisal)
 
-export function OdontogramaSvg({ porNumero, onClickCara, onClickDiente, soloLectura = false }) {
+// `onSeleccionarDiente` (opcional): en pantallas táctiles, tocar CUALQUIER parte de una pieza (o su número) la selecciona
+// entera y el contenedor abre la vista ampliada (ModalDienteTactil). Las caras en el odontograma completo son demasiado
+// pequeñas para el dedo; con mouse todo sigue igual (clic en la cara o en el número).
+export function OdontogramaSvg({ porNumero, onClickCara, onClickDiente, onSeleccionarDiente, soloLectura = false }) {
+  const tactil = useEsTactil() && Boolean(onSeleccionarDiente) && !soloLectura
   return (
-    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white p-6">
-      <svg viewBox="0 0 700 230" className="w-full min-w-[680px]">
+    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white p-3 sm:p-6">
+      {/* En táctil, más ancho mínimo: cada pieza queda de ~50 px (área de toque cómoda); la proporción no cambia. */}
+      <svg viewBox="0 0 700 230" className={`w-full ${tactil ? 'min-w-[880px] touch-manipulation' : 'min-w-[680px]'}`}>
         <FilaDientes
           numeros={FILA_SUPERIOR}
           y={15}
           porNumero={porNumero}
           onClickCara={onClickCara}
           onClickDiente={onClickDiente}
+          onSeleccionarDiente={tactil ? onSeleccionarDiente : null}
           soloLectura={soloLectura}
         />
         <line x1="10" y1="115" x2="690" y2="115" stroke="#E2E8F0" strokeDasharray="4 4" />
@@ -24,6 +31,7 @@ export function OdontogramaSvg({ porNumero, onClickCara, onClickDiente, soloLect
           porNumero={porNumero}
           onClickCara={onClickCara}
           onClickDiente={onClickDiente}
+          onSeleccionarDiente={tactil ? onSeleccionarDiente : null}
           soloLectura={soloLectura}
         />
       </svg>
@@ -31,7 +39,7 @@ export function OdontogramaSvg({ porNumero, onClickCara, onClickDiente, soloLect
   )
 }
 
-function FilaDientes({ numeros, y, porNumero, onClickCara, onClickDiente, soloLectura }) {
+function FilaDientes({ numeros, y, porNumero, onClickCara, onClickDiente, onSeleccionarDiente, soloLectura }) {
   return (
     <g>
       {numeros.map((numero, i) => {
@@ -61,6 +69,20 @@ function FilaDientes({ numeros, y, porNumero, onClickCara, onClickDiente, soloLe
             >
               {numero}
             </text>
+            {onSeleccionarDiente && (
+              // Capa de toque: cubre la pieza Y su número (≈50×70 px en pantalla), sin invadir a las vecinas (4 de separación).
+              <rect
+                x={x - 1}
+                y={y - 1}
+                width={S + 2}
+                height={S + 18}
+                fill="transparent"
+                role="button"
+                aria-label={`Pieza ${numero}`}
+                style={{ cursor: 'pointer' }}
+                onClick={() => onSeleccionarDiente(pieza)}
+              />
+            )}
           </g>
         )
       })}

@@ -479,7 +479,8 @@ describe('Gestionar el PIN: solo con sesión REAL y con internet', () => {
 
     expect(r.ok).toBe(true)
     expect((await obtenerEstadoPin('u1'))).toMatchObject({ configurado: true, duracionHoras: 24 })
-    expect((await leerPerfilOffline('u1')).perfil).toEqual(ana)
+    // El perfil trae además curp/rfc/firma (vienen aparte desde la migración 121).
+    expect((await leerPerfilOffline('u1')).perfil).toMatchObject(ana)
   })
 
   it('SIN internet no se puede crear, cambiar ni revocar el PIN', async () => {

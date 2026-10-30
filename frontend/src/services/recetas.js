@@ -7,7 +7,8 @@ import { conCacheDeLectura } from '../lib/cacheLectura'
 // esos dos campos, rompiendo la simetría que sí existía para
 // nombre/cédula. Ver imprimirReceta.js (datosProfesionalParaImprimir)
 // para cómo se usa este respaldo.
-const SELECT_CON_DENTISTA = '*, dentista:usuarios(nombre, cedula_profesional, rfc, escuela_procedencia)'
+// Sin el RFC del dentista: es privado (migración 121). La receta imprime el RFC de su snapshot (rfc_snapshot).
+const SELECT_CON_DENTISTA = '*, dentista:usuarios(nombre, cedula_profesional, escuela_procedencia)'
 
 export async function obtenerRecetas(pacienteId) {
   const { datos } = await conCacheDeLectura(`recetas:${pacienteId}`, async () => {

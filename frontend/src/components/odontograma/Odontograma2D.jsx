@@ -6,6 +6,7 @@ import { useAuthStore } from '../../store/useAuthStore'
 import { toastExito, toastError } from '../../store/useToastStore'
 import { ESTADOS_CARA, COLOR_PIEZA, nombreCara, caraDe, calcularEstadoInicial } from './constantesOdontograma'
 import { OdontogramaSvg } from './OdontogramaSvg'
+import { ModalDienteTactil } from './ModalDienteTactil'
 import { ModalCara } from './ModalCara'
 import { ModalPiezaGeneral } from './ModalPiezaGeneral'
 
@@ -18,6 +19,7 @@ export function Odontograma2D({ pacienteId, odontograma }) {
   const [piezaModalGeneral, setPiezaModalGeneral] = useState(null)
   const [caraModal, setCaraModal] = useState(null) // { pieza, cara } — solo si no hay condición activa
   const [condicionActiva, setCondicionActiva] = useState(null)
+  const [piezaTactil, setPiezaTactil] = useState(null) // pieza tocada en pantalla táctil (vista ampliada)
   const [comparando, setComparando] = useState(false)
   const [piezasIniciales, setPiezasIniciales] = useState(null)
   const [cargandoComparacion, setCargandoComparacion] = useState(false)
@@ -121,6 +123,7 @@ export function Odontograma2D({ pacienteId, odontograma }) {
           porNumero={porNumero}
           onClickCara={handleClickCara}
           onClickDiente={setPiezaModalGeneral}
+          onSeleccionarDiente={setPiezaTactil}
         />
       )}
 
@@ -148,6 +151,15 @@ export function Odontograma2D({ pacienteId, odontograma }) {
       <p className="text-xs text-slate-400">
         Sin condición activa: clic en una cara abre su detalle. Con una condición activa seleccionada arriba: clic pinta esa cara directamente. Clic en el número de la pieza: condiciones generales, diagnóstico, tratamiento e historial.
       </p>
+
+      {piezaTactil && (
+        <ModalDienteTactil
+          pieza={porNumero[piezaTactil.numero_pieza] ?? piezaTactil}
+          onCerrar={() => setPiezaTactil(null)}
+          onElegirCara={(cara) => { const pieza = porNumero[piezaTactil.numero_pieza] ?? piezaTactil; setPiezaTactil(null); handleClickCara(pieza, cara) }}
+          onEstadoGeneral={() => { setPiezaModalGeneral(porNumero[piezaTactil.numero_pieza] ?? piezaTactil); setPiezaTactil(null) }}
+        />
+      )}
 
       {caraModal && (
         <ModalCara

@@ -64,3 +64,22 @@ describe('apellidos editados', () => {
     expect(nombreTrasCambioDeApellidos('Ana Pérez Gil', { primer_apellido: 'Pérez', segundo_apellido: 'Gil' }, { primer_apellido: 'Pérez', segundo_apellido: '' })).toBe('Ana Pérez')
   })
 })
+
+describe('búsqueda sin acentos y planes públicos', async () => {
+  const { sinAcentos } = await import('../../../lib/texto')
+  const { buscarCie10 } = await import('../../../lib/cie10')
+  const { formatearPrecioPublico } = await import('../../../services/planesPublicos')
+  it('José/Jose, García/Garcia, Clínica/Clinica, Rodríguez/Rodriguez comparan igual', () => {
+    for (const [con, sin] of [['José', 'jose'], ['García', 'garcia'], ['Clínica', 'clinica'], ['RODRÍGUEZ', 'rodriguez'], ['Peña', 'pena']]) {
+      expect(sinAcentos(con)).toBe(sinAcentos(sin))
+    }
+  })
+  it('CIE-10 encuentra con o sin acentos', () => {
+    expect(buscarCie10('dentina').length).toBeGreaterThan(0)
+    expect(buscarCie10('erosion').map((c) => c.codigo)).toEqual(buscarCie10('erosión').map((c) => c.codigo))
+  })
+  it('el precio público se formatea en pesos sin inventar decimales', () => {
+    expect(formatearPrecioPublico(999, 'MXN')).toMatch(/999/)
+    expect(formatearPrecioPublico('x')).toBe('')
+  })
+})

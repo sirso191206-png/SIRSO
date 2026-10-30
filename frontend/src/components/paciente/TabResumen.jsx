@@ -113,9 +113,14 @@ export function TabResumen({ pacienteId, paciente, onIrA, onNuevaConsulta, inici
           </span>
         </div>
 
+        {Number(saldo.total_presupuestado) > 0 && (
+          <p className="mb-3 text-xs text-slate-500">
+            Presupuestado sin aceptar: ${formatearMoneda(saldo.total_presupuestado)} (no es deuda hasta que el paciente lo acepte).
+          </p>
+        )}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 [&>div]:min-w-0">
           <div>
-            <div className="text-xs text-slate-400">Total</div>
+            <div className="text-xs text-slate-400">Cargos</div>
             <div className="break-words text-xl font-bold text-slate-800 lg:text-2xl">${formatearMoneda(saldo.total_tratamientos)}</div>
           </div>
           <div>

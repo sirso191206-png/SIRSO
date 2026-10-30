@@ -15,6 +15,7 @@ import { crearQueryMock, ok, fallo } from './helpers/supabaseMock.js'
 const m = vi.hoisted(() => ({
   refreshSession: vi.fn(),
   from: vi.fn(),
+  rpc: vi.fn(),
   crearNotaClinica: vi.fn(),
   crearReceta: vi.fn(),
   actualizarPiezaOdontograma: vi.fn(),
@@ -25,7 +26,7 @@ const m = vi.hoisted(() => ({
   toastError: vi.fn()
 }))
 
-vi.mock('../../../../lib/supabase', () => ({ supabase: { auth: { refreshSession: m.refreshSession }, from: m.from } }))
+vi.mock('../../../../lib/supabase', () => ({ supabase: { auth: { refreshSession: m.refreshSession }, from: m.from, rpc: m.rpc } }))
 vi.mock('../../../../services/expedientes', async (importarOriginal) => {
   const real = await importarOriginal()
   return { ...real, crearNotaClinica: m.crearNotaClinica }
@@ -67,6 +68,14 @@ beforeEach(() => {
   updatesVistos = []
   ocultarExistenteALaBusqueda = false
 
+  // Búsqueda por CURP (migración 121): función del servidor que responde sin devolver la CURP; con RLS, solo la clínica de
+  // la sesión.
+  m.rpc.mockImplementation(async (nombre, args) => {
+    if (nombre !== 'fn_paciente_por_curp') return { data: null, error: null }
+    if (ocultarExistenteALaBusqueda) return { data: [], error: null }
+    const p = servidor.find((x) => x.clinica_id === clinicaSesion && x.curp === args.p_curp)
+    return { data: p ? [p] : [], error: null }
+  })
   m.from.mockImplementation((tabla) =>
     crearQueryMock(tabla, (t, ops) => {
       if (t === 'expedientes') {

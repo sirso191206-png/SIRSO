@@ -1,3 +1,4 @@
+import { sinAcentos } from './texto'
 // Catálogo CIE-10 (OMS) — capítulo K00-K14: enfermedades de la cavidad
 // oral, las glándulas salivales y los maxilares. Es la sección que un
 // odontólogo usa en la práctica real — el catálogo CIE-10 completo tiene
@@ -118,8 +119,8 @@ export const CATALOGO_CIE10 = [
 // catálogo es chico (K00-K14) y no necesita nada más sofisticado.
 export function buscarCie10(termino) {
   if (!termino || termino.trim().length < 2) return []
-  const t = termino.toLowerCase().trim()
+  const t = sinAcentos(termino).trim()
   return CATALOGO_CIE10.filter(
-    (c) => c.codigo.toLowerCase().includes(t) || c.descripcion.toLowerCase().includes(t)
+    (c) => c.codigo.toLowerCase().includes(t) || sinAcentos(c.descripcion).includes(t)
   ).slice(0, 15)
 }

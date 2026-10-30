@@ -80,6 +80,8 @@ export function ProtectedRoute({ children }) {
     // Sin internet y con un PIN vigente: se ofrece desbloquear la sesión
     // offline en vez de mandar a un login que no podría completarse.
     if (desbloqueoOffline) return <PantallaDesbloqueoPin />
+    // La raíz sin sesión es la página pública de SIRO (quien ya tiene cuenta entra desde ahí con «Iniciar sesión»).
+    if (location.pathname === '/') return <Navigate to="/inicio" replace />
     // Se recuerda a dónde quería ir para volver ahí después de iniciar sesión.
     return <Navigate to="/login" replace state={estadoLogin} />
   }

@@ -80,7 +80,8 @@ end $$;
 select pg_temp.t('P1 ninguna tabla ni vista de public tiene TRUNCATE, REFERENCES ni TRIGGER para anon o authenticated',
   (select count(*) from information_schema.role_table_grants where table_schema = 'public' and grantee in ('anon', 'authenticated') and privilege_type in ('TRUNCATE', 'REFERENCES', 'TRIGGER')) = 0);
 select pg_temp.t('P2 lo necesario SIGUE: authenticated conserva SELECT en pacientes y citas, INSERT en notas (y NO tiene UPDATE ni DELETE sobre notas, como antes); RLS sigue activa en todas las tablas con clinica_id/paciente_id',
-  has_table_privilege('authenticated', 'pacientes', 'SELECT') and has_table_privilege('authenticated', 'citas', 'UPDATE') and has_table_privilege('authenticated', 'notas_clinicas', 'INSERT')
+  -- desde la 121 el SELECT de pacientes es por columna (sin la CURP): basta con que se puedan leer las columnas de trabajo
+  has_column_privilege('authenticated', 'pacientes', 'nombre_completo', 'SELECT') and has_table_privilege('authenticated', 'citas', 'UPDATE') and has_table_privilege('authenticated', 'notas_clinicas', 'INSERT')
   and not has_table_privilege('authenticated', 'notas_clinicas', 'UPDATE') and not has_table_privilege('authenticated', 'notas_clinicas', 'DELETE')
   and (select count(*) from pg_class c where c.relnamespace = 'public'::regnamespace and c.relkind = 'r' and not c.relrowsecurity and exists (select 1 from pg_attribute a where a.attrelid = c.oid and a.attname in ('clinica_id', 'paciente_id') and not a.attisdropped)) = 0);
 select pg_temp.t('P3 el servicio y el propietario de la base conservan lo suyo (la eliminación de clínicas y el mantenimiento no se tocan)',

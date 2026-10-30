@@ -31,3 +31,9 @@ export function estaturaEnCm(valor) {
   if (!Number.isFinite(n) || n <= 0) return null
   return n < 3 ? Math.round(n * 100) : Math.round(n)
 }
+
+// Minúsculas y sin acentos, igual que la columna pacientes.busqueda (fn_sin_acentos, migración 122): «José» y «jose» buscan
+// lo mismo. Solo para COMPARAR; nunca se usa para guardar.
+export function sinAcentos(texto) {
+  return String(texto ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+}

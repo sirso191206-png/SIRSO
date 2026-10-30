@@ -2,13 +2,39 @@ import { supabase, invocarFuncionAutenticada } from '../lib/supabase'
 import { conCacheDeLectura } from '../lib/cacheLectura'
 import { nombreParaSelector } from '../lib/profesionales'
 
+// Columnas de `usuarios` que cualquier miembro de la clínica puede leer. CURP, RFC y firma NO están aquí: la base solo las
+// entrega por funciones con su propia regla (migración 121) — pedirlas en un select responde «permission denied».
+export const COLUMNAS_USUARIO = 'id, clinica_id, nombre, correo, rol, activo, creado_en, ultimo_acceso, es_super_admin, cedula_profesional, escuela_procedencia, ejerce_como_dentista, debe_cambiar_password'
+
+// La propia CURP, RFC y firma (cualquier usuario, solo lo suyo).
+// Mientras una base todavía no tenga la migración 121 (la función no existe: PGRST202), se leen como antes, de la tabla.
+const funcionNoExiste = (error) => error?.code === 'PGRST202' || /could not find the function/i.test(error?.message ?? '')
+
+export async function obtenerMiPerfilPrivado(userId) {
+  const { data, error } = await supabase.rpc('mi_perfil_privado')
+  if (error && funcionNoExiste(error) && userId) {
+    const anterior = await supabase.from('usuarios').select('curp, rfc, firma_png').eq('id', userId).maybeSingle()
+    if (anterior.error) throw anterior.error
+    return anterior.data ?? { curp: null, rfc: null, firma_png: null }
+  }
+  if (error) throw error
+  return (Array.isArray(data) ? data[0] : data) ?? { curp: null, rfc: null, firma_png: null }
+}
+
 export async function listarUsuarios() {
   const { data, error } = await supabase
     .from('usuarios')
-    .select('*')
+    .select(COLUMNAS_USUARIO)
     .order('nombre')
   if (error) throw error
-  return data
+  // RFC y CURP del equipo: solo el propietario los recibe (los administra aquí). Para otros roles la función no devuelve
+  // filas y la lista queda sin esos datos.
+  let { data: privados, error: errorPrivados } = await supabase.rpc('datos_privados_equipo')
+  if (errorPrivados && funcionNoExiste(errorPrivados)) {
+    privados = (await supabase.from('usuarios').select('id, curp, rfc')).data
+  }
+  const porId = new Map((privados ?? []).map((p) => [p.id, p]))
+  return data.map((u) => ({ ...u, rfc: porId.get(u.id)?.rfc ?? null, curp: porId.get(u.id)?.curp ?? null }))
 }
 
 // Odontólogos activos de la clínica: los dentistas Y los propietarios que ejercen como dentista (marca
@@ -44,7 +70,7 @@ export async function cambiarActivoUsuario(id, activo) {
     .from('usuarios')
     .update({ activo })
     .eq('id', id)
-    .select()
+    .select(COLUMNAS_USUARIO)
     .single()
   if (error) throw error
   return data
@@ -67,10 +93,10 @@ export async function actualizarUsuario(id, { nombre, rol, cedulaProfesional, rf
       escuela_procedencia: escuelaProcedencia || null
     })
     .eq('id', id)
-    .select()
+    .select(COLUMNAS_USUARIO)
     .single()
   if (error) throw error
-  return data
+  return { ...data, rfc: rfc || null }
 }
 
 // Autoedición del propio perfil profesional — a propósito NO toca
@@ -92,10 +118,10 @@ export async function actualizarMiPerfilProfesional(id, { nombre, rfc, cedulaPro
     .from('usuarios')
     .update(cambios)
     .eq('id', id)
-    .select()
+    .select(COLUMNAS_USUARIO)
     .single()
   if (error) throw error
-  return data
+  return { ...data, rfc: cambios.rfc, firma_png: cambios.firma_png }
 }
 
 export async function eliminarUsuario(usuarioId) {

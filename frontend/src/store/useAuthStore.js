@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { supabase, invocarFuncionAutenticada } from '../lib/supabase'
 import { registrarSesion, marcarSesionFinalizada } from '../services/sesiones'
+import { COLUMNAS_USUARIO, obtenerMiPerfilPrivado } from '../services/usuarios'
 import { guardarPerfilOffline, leerPerfilOffline } from '../lib/cacheAuth'
 import { obtenerPinDisponible, obtenerEstadoPin, verificarPin, configurarPin, cambiarPin, revocarPin, registrarValidacionOnline } from '../lib/pinOffline'
 import { evaluarCierreDeSesion, limpiarDatosLocalesDeSesion, asegurarCacheDeEsteUsuario } from '../lib/cierreSesion'
@@ -150,9 +151,11 @@ export const useAuthStore = create((set, get) => ({
     let data = null
     let fallaDeRed = false
     try {
-      const respuesta = await supabase.from('usuarios').select('*').eq('id', session.user.id).single()
+      const respuesta = await supabase.from('usuarios').select(COLUMNAS_USUARIO).eq('id', session.user.id).single()
       if (respuesta.error) throw respuesta.error
-      data = respuesta.data
+      // CURP, RFC y firma propios vienen aparte (la base no deja leerlos con un select: migración 121).
+      const privado = await obtenerMiPerfilPrivado(session.user.id).catch(() => ({}))
+      data = { ...respuesta.data, curp: privado.curp ?? null, rfc: privado.rfc ?? null, firma_png: privado.firma_png ?? null }
     } catch (error) {
       console.error('Error cargando perfil de usuario:', error.message)
       fallaDeRed = true
