@@ -12,7 +12,23 @@ import { normalizarTelefono, terminoTelefonico } from '../lib/telefono'
 // Filtro «or» de PostgREST para buscar pacientes. `busqueda` (migración 122) es nombre + apellidos + expediente + correo en
 // minúsculas y sin acentos: se compara contra el término también sin acentos («Jose Garcia» encuentra «José García»). Si
 // lo escrito parece un teléfono («55 1234 5678»), también se buscan solo sus dígitos (se guardan sin espacios ni guiones).
-function filtroDeBusqueda(termino, terminoLimpio, columnas) {
+// Mientras una base no tenga la migración 122 (sin la columna `busqueda`), se busca como antes: nombre, apellidos, correo y
+// expediente, sensible a acentos. Se detecta una vez (error 42703) y se repite la consulta.
+let busquedaDisponible = true
+const COLUMNAS_BUSQUEDA_ANTERIOR = ['nombre_completo', 'primer_apellido', 'segundo_apellido', 'correo', 'numero_expediente']
+const faltaBusqueda = (error) => error?.code === '42703' && /busqueda/.test(error?.message ?? '')
+
+async function conRespaldoDeBusqueda(construir) {
+  const resultado = await construir()
+  if (resultado.error && busquedaDisponible && faltaBusqueda(resultado.error)) {
+    busquedaDisponible = false
+    return construir()
+  }
+  return resultado
+}
+
+function filtroDeBusqueda(termino, terminoLimpio, columnasPedidas) {
+  const columnas = busquedaDisponible ? columnasPedidas : columnasPedidas.flatMap((c) => (c === 'busqueda' ? COLUMNAS_BUSQUEDA_ANTERIOR : [c]))
   const condiciones = columnas.map((c) => `${c}.ilike.%${c === 'busqueda' ? sinAcentos(terminoLimpio) : terminoLimpio}%`)
   const digitos = terminoTelefonico(termino)
   if (digitos && digitos !== terminoLimpio) condiciones.push(`telefono.ilike.%${digitos}%`)
@@ -70,22 +86,17 @@ export async function buscarPacientes(termino, { incluirArchivados = false } = {
     return [...basicosDeReplica, ...delIndiceConDisponibilidad]
   }
 
-  let query = supabase
-    .from('v_pacientes_seguro')
-    .select('id, nombre_completo, telefono, correo, fecha_nacimiento, archivado_en')
-    .order('nombre_completo')
-    .limit(50)
-
-  if (!incluirArchivados) {
-    query = query.is('archivado_en', null)
-  }
-
   const terminoLimpio = sanitizarTerminoBusqueda(termino)
-  if (terminoLimpio) {
-    query = query.or(filtroDeBusqueda(termino, terminoLimpio, ['busqueda', 'telefono']))
-  }
-
-  const { data, error } = await query
+  const { data, error } = await conRespaldoDeBusqueda(() => {
+    let query = supabase
+      .from('v_pacientes_seguro')
+      .select('id, nombre_completo, telefono, correo, fecha_nacimiento, archivado_en')
+      .order('nombre_completo')
+      .limit(50)
+    if (!incluirArchivados) query = query.is('archivado_en', null)
+    if (terminoLimpio) query = query.or(filtroDeBusqueda(termino, terminoLimpio, ['busqueda', 'telefono']))
+    return query
+  })
   if (error) throw error
   return data
 }
@@ -426,11 +437,13 @@ export async function restaurarPaciente(id, operador = {}) {
 export async function buscarPosiblesDuplicados({ nombre_completo, telefono }) {
   const nombreLimpio = sanitizarTerminoBusqueda(nombre_completo)
   const telefonoLimpio = sanitizarTerminoBusqueda(telefono)
-  const { data, error } = await supabase
+  const { data, error } = await conRespaldoDeBusqueda(() => supabase
     .from('pacientes')
     .select('id, nombre_completo, telefono')
-    .or(`telefono.eq.${normalizarTelefono(telefonoLimpio) || telefonoLimpio},busqueda.ilike.%${sinAcentos(nombreLimpio)}%`)
-    .limit(5)
+    .or(busquedaDisponible
+      ? `telefono.eq.${normalizarTelefono(telefonoLimpio) || telefonoLimpio},busqueda.ilike.%${sinAcentos(nombreLimpio)}%`
+      : `telefono.eq.${telefonoLimpio},nombre_completo.ilike.%${nombreLimpio}%`)
+    .limit(5))
   if (error) throw error
   return data
 }
@@ -478,30 +491,31 @@ async function _buscarPacientesDetalladoReal({
     if (idsPermitidos.length === 0) return { pacientes: [], total: 0 }
   }
 
-  let query = supabase
-    .from('v_pacientes_seguro')
-    .select('id, nombre_completo, numero_expediente, telefono, correo, fecha_nacimiento, archivado_en', { count: 'exact' })
-
-  if (filtroEstado === 'activos') query = query.is('archivado_en', null)
-  if (filtroEstado === 'archivados') query = query.not('archivado_en', 'is', null)
-  if (idsPermitidos) query = query.in('id', idsPermitidos)
   const terminoLimpio = sanitizarTerminoBusqueda(termino)
-  if (terminoLimpio) {
-    // Con varias palabras («Diego Martínez») cada palabra debe aparecer en ALGUNO de los campos (nombre o apellidos):
-    // varios .or() se combinan con Y. Un teléfono con espacios se trata como una sola búsqueda.
-    const palabras = terminoTelefonico(termino) ? [terminoLimpio] : terminoLimpio.split(/\s+/).filter(Boolean)
-    for (const palabra of palabras) {
-      query = query.or(filtroDeBusqueda(palabra, palabra, ['busqueda', 'telefono']))
+  const { data: pacientes, error, count } = await conRespaldoDeBusqueda(() => {
+    let query = supabase
+      .from('v_pacientes_seguro')
+      .select('id, nombre_completo, numero_expediente, telefono, correo, fecha_nacimiento, archivado_en', { count: 'exact' })
+
+    if (filtroEstado === 'activos') query = query.is('archivado_en', null)
+    if (filtroEstado === 'archivados') query = query.not('archivado_en', 'is', null)
+    if (idsPermitidos) query = query.in('id', idsPermitidos)
+    if (terminoLimpio) {
+      // Con varias palabras («Diego Martínez») cada palabra debe aparecer en ALGUNO de los campos (nombre o apellidos):
+      // varios .or() se combinan con Y. Un teléfono con espacios se trata como una sola búsqueda.
+      const palabras = terminoTelefonico(termino) ? [terminoLimpio] : terminoLimpio.split(/\s+/).filter(Boolean)
+      for (const palabra of palabras) {
+        query = query.or(filtroDeBusqueda(palabra, palabra, ['busqueda', 'telefono']))
+      }
     }
-  }
 
-  const [campoOrden, direccion] = orden.split('.')
-  query = query.order(campoOrden, { ascending: direccion !== 'desc' })
+    const [campoOrden, direccion] = orden.split('.')
+    query = query.order(campoOrden, { ascending: direccion !== 'desc' })
 
-  const desde = (pagina - 1) * porPagina
-  query = query.range(desde, desde + porPagina - 1)
-
-  const { data: pacientes, error, count } = await query
+    const desde = (pagina - 1) * porPagina
+    query = query.range(desde, desde + porPagina - 1)
+    return query
+  })
   if (error) throw error
   if (pacientes.length === 0) return { pacientes: [], total: count ?? 0 }
 
