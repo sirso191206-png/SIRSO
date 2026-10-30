@@ -3,7 +3,7 @@ import { SeccionDesplegable } from '../ui/SeccionDesplegable'
 import { Input } from '../ui/Input'
 import { Button } from '../ui/Button'
 import { toastExito, toastError } from '../../store/useToastStore'
-import { useFuncionalidad } from '../../hooks/useFuncionalidad'
+import { useFuncionalidad, useFuncionalidadDeLaClinica } from '../../hooks/useFuncionalidad'
 import {
   obtenerConfigReserva, guardarConfigReserva, listarServiciosReserva,
   crearServicioReserva, actualizarServicioReserva, eliminarServicioReserva
@@ -20,6 +20,7 @@ const hhmm = (t) => (t ?? '').slice(0, 5)
 // confirman o rechazan desde la Agenda.
 export function SeccionReservaEnLinea({ clinicaId, nombreClinica }) {
   const disponible = useFuncionalidad('reserva_en_linea')
+  const incluidaEnLaClinica = useFuncionalidadDeLaClinica('reserva_en_linea')
   const [abierta, setAbierta] = useState(false)
   const [cfg, setCfg] = useState(null)
   const [guardada, setGuardada] = useState(false)
@@ -120,6 +121,14 @@ export function SeccionReservaEnLinea({ clinicaId, nombreClinica }) {
         <p className="text-sm text-slate-500">
           Tu plan actual no incluye la reserva en línea. Con ella tus pacientes eligen día y hora libres desde un enlace y tú
           confirmas la cita desde la Agenda.
+        </p>
+      )}
+      {disponible && !incluidaEnLaClinica && (
+        // Solo lo ve el superadmin (que puede configurarla aunque el plan no la incluya): sin la funcionalidad, el enlace
+        // público responde «no disponible» aunque aquí esté activa.
+        <p role="alert" className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          El plan de esta clínica no incluye la reserva en línea: el enlace público mostrará «no disponible». Actívala para
+          esta clínica en Administración → la clínica → Ajustar condiciones (Funcionalidades), o cambia su plan.
         </p>
       )}
       {disponible && !cfg && <p className="text-sm text-slate-400">Cargando…</p>}

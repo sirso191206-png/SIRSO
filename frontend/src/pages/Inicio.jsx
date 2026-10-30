@@ -5,8 +5,8 @@ import { FooterPublico } from '../components/layout/FooterPublico'
 import { obtenerPlanesPublicos, formatearPrecioPublico } from '../services/planesPublicos'
 
 // Página pública de SIRO (/inicio, y «/» para quien no ha iniciado sesión). Solo describe lo que el sistema YA hace;
-// los planes y precios se leen de la base (planes_publicos) —si no se pueden leer, se ofrece cotizar— para no publicar
-// nada distinto de lo que se cobra.
+// el detalle de planes y precios vive en su propia página (/precios); aquí solo se anuncia el precio de entrada, leído
+// de la base (planes_publicos) para no publicar nada distinto de lo que se cobra.
 
 const PROBLEMAS = [
   ['Expedientes en papel o en hojas sueltas', 'Historia clínica, notas, odontograma, recetas y consentimientos en un solo expediente por paciente.'],
@@ -42,9 +42,14 @@ export function Inicio() {
     return () => { activo = false }
   }, [])
 
+  // Plan de entrada (el más barato con precio): solo para anunciar «desde $…» con el precio real.
+  const desde = Array.isArray(planes)
+    ? planes.filter((p) => Number(p.precio_mensual) > 0).sort((a, b) => Number(a.precio_mensual) - Number(b.precio_mensual))[0]
+    : undefined
+
   return (
     <div className="flex min-h-screen flex-col bg-white">
-      <HeaderPublico enlace="/login" textoEnlace="Iniciar sesión" />
+      <HeaderPublico enlace="/login" textoEnlace="Iniciar sesión" navegacion />
 
       <main className="flex-1">
         {/* Portada */}
@@ -62,9 +67,9 @@ export function Inicio() {
               <Link to="/contacto?asunto=demo" className="inline-flex min-h-[48px] items-center rounded-xl bg-clinico-azul px-6 text-sm font-semibold text-white shadow-sm hover:bg-blue-700">
                 Solicitar una demostración
               </Link>
-              <a href="#planes" className="inline-flex min-h-[48px] items-center rounded-xl border border-slate-300 px-6 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+              <Link to="/precios" className="inline-flex min-h-[48px] items-center rounded-xl border border-slate-300 px-6 text-sm font-semibold text-slate-700 hover:bg-slate-50">
                 Ver planes y precios
-              </a>
+              </Link>
             </div>
           </div>
           <img src="/ilustracion-login.svg" alt="Ilustración de una consulta odontológica" width="560" height="420" className="mx-auto w-full max-w-[520px]" loading="eager" />
@@ -116,52 +121,20 @@ export function Inicio() {
           </div>
         </section>
 
-        {/* Planes */}
-        <section id="planes" className="scroll-mt-6 py-14" aria-labelledby="titulo-planes">
-          <div className="mx-auto max-w-6xl px-6 sm:px-10">
-            <h2 id="titulo-planes" className="mb-2 text-2xl font-bold text-slate-900 sm:text-3xl">Planes y precios</h2>
-            <p className="mb-8 text-sm text-slate-500">Precios en pesos mexicanos.</p>
-            {planes === undefined && <p className="text-sm text-slate-400" role="status">Cargando planes…</p>}
-            {planes === null && (
-              <div className="rounded-2xl border border-slate-200 p-6 text-sm text-slate-600">
-                Escríbenos y te enviamos los planes y precios vigentes.{' '}
-                <Link to="/contacto?asunto=planes" className="font-semibold text-clinico-azul hover:underline">Pedir cotización</Link>
-              </div>
-            )}
-            {Array.isArray(planes) && (
-              <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-                {planes.map((p) => (
-                  <article key={p.plan} className={`flex flex-col rounded-2xl border p-6 ${p.recomendado ? 'border-clinico-azul shadow-md' : 'border-slate-200'}`}>
-                    {p.recomendado && <span className="mb-2 self-start rounded-full bg-clinico-azul px-2.5 py-0.5 text-xs font-semibold text-white">Recomendado</span>}
-                    <h3 className="text-lg font-bold text-slate-900">{p.nombre}</h3>
-                    {p.descripcion && <p className="mt-1 text-sm text-slate-500">{p.descripcion}</p>}
-                    <p className="mt-4">
-                      <span className="text-3xl font-bold text-slate-900">{formatearPrecioPublico(p.precio_mensual, p.moneda)}</span>
-                      <span className="text-sm text-slate-500"> / mes</span>
-                    </p>
-                    {p.permite_anual && Number(p.precio_anual) > 0 && (
-                      <p className="text-xs text-slate-500">o {formatearPrecioPublico(p.precio_anual, p.moneda)} al año</p>
-                    )}
-                    <ul className="mt-4 space-y-1 text-sm text-slate-600">
-                      {p.max_usuarios != null && <li>{Number(p.max_usuarios) === 1 ? '1 usuario' : `Hasta ${p.max_usuarios} usuarios`}</li>}
-                      {p.max_pacientes != null && <li>Hasta {Number(p.max_pacientes).toLocaleString('es-MX')} pacientes</li>}
-                      {p.limite_sucursales != null && <li>{p.limite_sucursales === 1 ? '1 sucursal' : `Hasta ${p.limite_sucursales} sucursales`}</li>}
-                    </ul>
-                    {p.funcionalidades?.length > 0 && (
-                      <details className="mt-4 text-sm text-slate-600">
-                        <summary className="cursor-pointer py-2 font-medium text-clinico-azul">{p.funcionalidades.length} funcionalidades incluidas</summary>
-                        <ul className="mt-2 list-inside list-disc space-y-0.5">
-                          {p.funcionalidades.map((f) => <li key={f}>{f}</li>)}
-                        </ul>
-                      </details>
-                    )}
-                    <Link to={`/contacto?asunto=plan&plan=${encodeURIComponent(p.nombre)}`} className="mt-6 inline-flex min-h-[44px] items-center justify-center rounded-xl border border-clinico-azul px-4 text-sm font-semibold text-clinico-azul hover:bg-clinico-azulClaro">
-                      Quiero este plan
-                    </Link>
-                  </article>
-                ))}
-              </div>
-            )}
+        {/* Planes: la página completa de precios es /precios */}
+        <section className="py-14" aria-labelledby="titulo-planes">
+          <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-6 rounded-2xl border border-slate-200 px-6 py-8 sm:px-10 md:flex-row md:items-center">
+            <div>
+              <h2 id="titulo-planes" className="mb-1 text-2xl font-bold text-slate-900">Planes para cada tamaño de clínica</h2>
+              <p className="text-sm text-slate-600">
+                {desde
+                  ? `Desde ${formatearPrecioPublico(desde.precio_mensual, desde.moneda)} al mes. Compara funcionalidades y límites de cada plan.`
+                  : 'Compara funcionalidades, límites y precios de cada plan.'}
+              </p>
+            </div>
+            <Link to="/precios" className="inline-flex min-h-[48px] shrink-0 items-center rounded-xl bg-clinico-azul px-6 text-sm font-semibold text-white hover:bg-blue-700">
+              Ver planes y precios
+            </Link>
           </div>
         </section>
 

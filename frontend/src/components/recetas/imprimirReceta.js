@@ -23,6 +23,21 @@ export function datosProfesionalParaImprimir(receta) {
   }
 }
 
+// Receta vieja (sin rfc_snapshot): el RFC del profesional es privado (migración 121) y ya no llega con la receta. Se
+// lee por sus vías permitidas: el propietario, de su equipo; el propio odontólogo, el suyo. Para otros roles queda vacío.
+export async function rfcPrivadoDelProfesional(dentistaId) {
+  if (!dentistaId) return null
+  try {
+    const equipo = await supabase.rpc('datos_privados_equipo')
+    const delEquipo = (equipo.data ?? []).find((u) => u.id === dentistaId)?.rfc
+    if (delEquipo) return delEquipo
+    const [{ data: sesion }, propio] = await Promise.all([supabase.auth.getUser(), supabase.rpc('mi_perfil_privado')])
+    return sesion?.user?.id === dentistaId ? propio.data?.[0]?.rfc ?? null : null
+  } catch {
+    return null
+  }
+}
+
 export function bloqueSignosVitales(sv) {
   if (!sv) return ''
   const filas = [
@@ -90,6 +105,7 @@ export async function imprimirReceta({ receta, paciente, clinicaId, incluirSigno
   const signosVitales = signosVitalesLista[0] ?? null
 
   const profesional = datosProfesionalParaImprimir(receta)
+  if (!profesional.rfc) profesional.rfc = await rfcPrivadoDelProfesional(receta.dentista_id)
 
   const filas = (receta.medicamentos ?? []).map((m) => html`
     <div class="medicamento">
@@ -257,7 +273,8 @@ export async function imprimirReceta({ receta, paciente, clinicaId, incluirSigno
       </div>`}
       <div class="guia-corte">✂ cortar aquí</div>
       </div>
-
+
+
     </body>
     </html>
   `

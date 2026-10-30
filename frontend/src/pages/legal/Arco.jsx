@@ -110,8 +110,8 @@ export function Arco() {
               </div>
             </div>
 
-            <Input label="Nombre completo" required maxLength={120} value={nombre} onChange={(e) => setNombre(e.target.value)} />
-            <Input label="Correo de contacto" type="email" required maxLength={254} value={correo} onChange={(e) => setCorreo(e.target.value)} />
+            <Input label="Nombre completo" required maxLength={120} aria-invalid={faltantes && !nombre.trim()} value={nombre} onChange={(e) => setNombre(e.target.value)} />
+            <Input label="Correo de contacto" type="email" required maxLength={254} aria-invalid={faltantes && !correo.trim()} value={correo} onChange={(e) => setCorreo(e.target.value)} />
 
             <label className="block text-sm">
               <span className="mb-1 block font-medium text-slate-700">Describe tu solicitud <span className="text-clinico-rojo" aria-hidden="true">*</span></span>

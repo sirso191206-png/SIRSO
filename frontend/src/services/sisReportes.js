@@ -13,23 +13,16 @@ export async function obtenerCitasCompletadasPeriodo(anio, mes) {
   const inicioPeriodo = new Date(anio, mes - 1, 1).toISOString()
   const finPeriodo = new Date(anio, mes, 1).toISOString() // primer día del mes siguiente
 
+  // Solo columnas que EXISTEN y que el rol puede leer: la CURP del paciente y la del profesional están protegidas por
+  // columna (migración 121) y se leen aparte, por sus vías permitidas. Los demás campos SIS que la base aún no guarda
+  // (país/entidad de nacimiento, género, derechohabiencia…) el mapeador los trata como no capturados.
   const { data, error } = await supabase
     .from('citas')
     .select(`
       id, inicio, motivo_consulta,
-      paciente:pacientes(
-        id, nombre_completo, curp, sexo, fecha_nacimiento,
-        primer_apellido, segundo_apellido, pais_nacimiento, entidad_nacimiento,
-        sexo_biologico, genero, se_autodenomina_afromexicano, se_considera_indigena,
-        migrante, pais_procedencia, derechohabiencia
-      ),
-      dentista:usuarios!citas_dentista_id_fkey(
-        id, nombre, cedula_profesional, curp, primer_apellido, segundo_apellido,
-        tipo_personal_sis, pais_nacimiento, programa_smym_g
-      ),
-      notaClinica:notas_clinicas(
-        diagnostico_cie10_codigo, hallazgos, accion_salud_bucal
-      )
+      paciente:pacientes(id, nombre_completo, sexo, fecha_nacimiento, primer_apellido, segundo_apellido),
+      dentista:usuarios!citas_dentista_id_fkey(id, nombre, cedula_profesional),
+      notaClinica:notas_clinicas(diagnostico_cie10_codigo, hallazgos, accion_salud_bucal)
     `)
     .eq('estado', 'completada')
     .gte('inicio', inicioPeriodo)
@@ -38,14 +31,37 @@ export async function obtenerCitasCompletadasPeriodo(anio, mes) {
 
   if (error) throw error
 
+  const curpPacientes = await curpsDePacientes([...new Set(data.map((c) => c.paciente?.id).filter(Boolean))])
+  const curpEquipo = await curpsDelEquipo()
+
   // notaClinica viene como arreglo (relación 1-a-muchos declarada por FK) —
   // nos quedamos con la más reciente si hubiera más de una para la misma cita.
   return data.map((c) => ({
     ...c,
+    paciente: c.paciente ? { ...c.paciente, curp: curpPacientes.get(c.paciente.id) ?? null } : c.paciente,
+    dentista: c.dentista ? { ...c.dentista, curp: curpEquipo.get(c.dentista.id) ?? null } : c.dentista,
     notaClinica: Array.isArray(c.notaClinica) && c.notaClinica.length > 0
       ? c.notaClinica[c.notaClinica.length - 1]
       : null,
   }))
+}
+
+// CURP de pacientes por la vista segura (la entrega a quien puede verla; a los demás, vacía).
+async function curpsDePacientes(ids) {
+  if (ids.length === 0) return new Map()
+  const { data, error } = await supabase.from('v_pacientes_seguro').select('id, curp').in('id', ids)
+  if (error) throw error
+  return new Map(data.map((p) => [p.id, p.curp]))
+}
+
+// CURP del equipo: el propietario la lee de todos (datos_privados_equipo); cualquier otro rol, solo la suya.
+async function curpsDelEquipo() {
+  const equipo = await supabase.rpc('datos_privados_equipo')
+  const filas = equipo.error ? [] : equipo.data ?? []
+  if (filas.length > 0) return new Map(filas.map((u) => [u.id, u.curp]))
+  const [{ data: sesion }, propio] = await Promise.all([supabase.auth.getUser(), supabase.rpc('mi_perfil_privado')])
+  const miCurp = propio.error ? null : propio.data?.[0]?.curp
+  return new Map(sesion?.user?.id && miCurp ? [[sesion.user.id, miCurp]] : [])
 }
 
 /** Todos los signos_vitales de los pacientes dados, para correlacionar por fecha en el cliente. */

@@ -19,6 +19,7 @@ import { TituloDePagina } from './components/layout/TituloDePagina'
 const pagina = (cargar, nombre) => lazy(() => cargar().then((m) => ({ default: m[nombre] })))
 const Contacto = pagina(() => import('./pages/Contacto'), 'Contacto')
 const Inicio = pagina(() => import('./pages/Inicio'), 'Inicio')
+const Precios = pagina(() => import('./pages/Precios'), 'Precios')
 const ReservarCita = pagina(() => import('./pages/ReservarCita'), 'ReservarCita')
 const PaginaNoEncontrada = pagina(() => import('./pages/PaginaNoEncontrada'), 'PaginaNoEncontrada')
 const RestablecerPassword = pagina(() => import('./pages/RestablecerPassword'), 'RestablecerPassword')
@@ -74,6 +75,7 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/contacto" element={<Contacto />} />
         <Route path="/inicio" element={<Inicio />} />
+        <Route path="/precios" element={<Precios />} />
         <Route path="/reservar/:slug" element={<ReservarCita />} />
         <Route path="/restablecer-password" element={<RestablecerPassword />} />
         <Route path="/legal" element={<Legal />} />

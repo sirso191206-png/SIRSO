@@ -23,6 +23,12 @@ export function usePlanActual() {
 // ¿Mostrar esta funcionalidad (o, con una lista, al menos una de ellas)? Solo oculta
 // interfaz: la base de datos (RLS/triggers) es quien realmente la bloquea. El
 // personal de plataforma (superadmin) la ve siempre, igual que en la base.
+// ¿La CLÍNICA tiene esta funcionalidad en su suscripción? (sin el pase libre del superadmin). Sirve para avisarle al
+// superadmin que algo que está configurando no funcionará para la clínica (p. ej. el enlace de reserva en línea).
+export function useFuncionalidadDeLaClinica(codigo) {
+  return alMenosUnaDisponible(useSuscripcionVigente(), codigo)
+}
+
 export function useFuncionalidad(codigo) {
   const suscripcion = useSuscripcionVigente()
   const esSuperAdmin = useAuthStore((s) => s.perfil?.es_super_admin)

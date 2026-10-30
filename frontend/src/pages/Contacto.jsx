@@ -46,7 +46,7 @@ export function Contacto() {
 
   return (
     <div className="flex min-h-screen flex-col bg-white">
-      <HeaderPublico enlace="/login" textoEnlace="Iniciar sesión" />
+      <HeaderPublico enlace="/login" textoEnlace="Iniciar sesión" navegacion />
 
       <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-16 animate-fade-in sm:px-10">
 

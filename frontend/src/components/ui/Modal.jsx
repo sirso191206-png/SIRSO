@@ -1,8 +1,23 @@
-import { useEffect, useId } from 'react'
+import { useEffect, useId, useRef } from 'react'
 import { Icon } from './Icon'
 
 export function Modal({ abierto, onCerrar, titulo, children, ancho = 'normal' }) {
   const idTitulo = useId()
+  const refDialogo = useRef(null)
+  const refQuienAbrio = useRef(null)
+  // Se anota quién tenía el foco ANTES de montar el diálogo (un campo con autoFocus adentro lo tomaría primero).
+  if (abierto && !refQuienAbrio.current && typeof document !== 'undefined') refQuienAbrio.current = document.activeElement
+
+  // Al abrir, el foco entra al diálogo; al cerrar, vuelve al botón que lo abrió (antes se perdía al inicio de la página).
+  useEffect(() => {
+    if (!abierto || typeof document === 'undefined') return
+    if (!refDialogo.current?.contains(document.activeElement)) refDialogo.current?.focus()
+    return () => {
+      const quienAbrio = refQuienAbrio.current
+      refQuienAbrio.current = null
+      if (quienAbrio?.isConnected) quienAbrio.focus?.()
+    }
+  }, [abierto])
 
   // Escape cierra (antes solo la X o el fondo).
   useEffect(() => {
@@ -22,10 +37,12 @@ export function Modal({ abierto, onCerrar, titulo, children, ancho = 'normal' })
       onClick={onCerrar}
     >
       <div
+        ref={refDialogo}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-labelledby={idTitulo}
-        className={`w-full ${anchoClase} max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl shadow-slate-900/10 ring-1 ring-slate-200/60 sm:p-6`}
+        className={`w-full ${anchoClase} max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl shadow-slate-900/10 ring-1 ring-slate-200/60 outline-none sm:p-6`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between gap-3">

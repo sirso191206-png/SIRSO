@@ -20,7 +20,7 @@ const leer = (rel) => readFileSync(join(SRC, rel), 'utf8')
 const RUTAS = [...leer('App.jsx').matchAll(/path="([^"]+)"/g)].map((m) => m[1])
 const MENU = [...leer('components/layout/Sidebar.jsx').matchAll(/to[=:] ?["']([^"']+)["']/g)].map((m) => m[1])
 // Pantallas de entrada (no se llega a ellas «desde» otra) o con regreso propio.
-const ENTRADA = ['/inicio', '/login', '/restablecer-password', '/contacto', '/reservar/:slug', '/legal', '/consulta/:citaId', '*']
+const ENTRADA = ['/inicio', '/precios', '/login', '/restablecer-password', '/contacto', '/reservar/:slug', '/legal', '/consulta/:citaId', '*']
 const ejemplo = (r) => r.replace(/:[^/]+/g, 'x1')
 const render = (el, ruta) => renderToStaticMarkup(h(MemoryRouter, { initialEntries: [ruta] }, el))
 
