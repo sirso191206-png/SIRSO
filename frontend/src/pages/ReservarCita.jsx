@@ -100,9 +100,12 @@ export function ReservarCita() {
         <BarraRegresoPublica />
 
         {errorCarga && (
-          <div role="alert" className="rounded-xl border border-slate-200 bg-slate-50 p-6 text-sm text-slate-600">
+          <div role="alert" className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-600 shadow-sm">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-500" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
+            </div>
             <h1 className="mb-2 text-xl font-semibold text-slate-800">Reserva en línea no disponible</h1>
-            <p>{errorCarga}</p>
+            <p className="mx-auto max-w-md leading-relaxed">{errorCarga}</p>
           </div>
         )}
 

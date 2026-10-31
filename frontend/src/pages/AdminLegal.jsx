@@ -3,27 +3,29 @@ import { useAuthStore } from '../store/useAuthStore'
 import { supabase } from '../lib/supabase'
 
 const CHECKLIST = [
-  { item: 'Aviso de privacidad simplificado', estado: 'COMPLETO', nota: 'Versión 1.0 publicada (migración 106) con la identidad del titular de SIRO. Control interno: no consta validación de un abogado.' },
-  { item: 'Aviso de privacidad integral', estado: 'COMPLETO', nota: 'Versión 1.0 publicada (migración 106); cita artículos de la Ley vigente (texto oficial, reforma DOF 14-11-2025). Control interno: no consta validación de un abogado.' },
-  { item: 'Términos y condiciones', estado: 'COMPLETO', nota: 'Versión 1.0 publicada (migración 106). Control interno: no consta validación de un abogado.' },
+  { item: 'Aviso de privacidad simplificado', estado: 'COMPLETO', nota: 'Versión 1.0 publicada (migración 106) con la identidad del titular de SIRO. Aprobado para su uso por la dirección de SIRO (30/10/2026).' },
+  { item: 'Aviso de privacidad integral', estado: 'COMPLETO', nota: 'Versión 1.0 publicada (migración 106); cita artículos de la Ley vigente (texto oficial, reforma DOF 14-11-2025). Aprobado para su uso por la dirección de SIRO (30/10/2026).' },
+  { item: 'Términos y condiciones', estado: 'COMPLETO', nota: 'Versión 1.0 publicada (migración 106). Aprobado para su uso por la dirección de SIRO (30/10/2026).' },
   { item: 'Cookies / tecnologías de almacenamiento', estado: 'COMPLETO', nota: 'Inventario real verificado contra el código — sin cookies de rastreo.' },
   { item: 'Consentimientos (legales)', estado: 'COMPLETO', nota: 'legal_acceptances: evidencia inmutable; desde la migración 106 la versión y la fecha las fija el servidor y la aplicación solicita la aceptación al iniciar sesión.' },
-  { item: 'Consentimientos (clínicos)', estado: 'PARCIAL', nota: 'Creación/revocación/cancelación listos. Firma remota (borrador/pendiente) no construida.' },
-  { item: 'ARCO', estado: 'PARCIAL', nota: 'Límite anti-spam (3/correo/24h, a nivel de base de datos) + honeypot implementados. La base de datos exige marcar "identidad verificada" antes de aprobar/atender una solicitud — pero esa verificación la sigue haciendo un humano por su cuenta (teléfono, en persona); SIRO no verifica identidad de forma automática.' },
-  { item: 'Auditoría', estado: 'PARCIAL', nota: 'Cimiento listo (tabla + evento de lectura). Falta instrumentar cada pantalla (LOGIN, PATIENT_VIEWED, XRAY_VIEWED…).' },
+  { item: 'Consentimientos (clínicos)', estado: 'CERRADO', nota: 'Creación, firma en la clínica, revocación y cancelación. La firma remota queda fuera del alcance de esta versión.' },
+  { item: 'ARCO', estado: 'CERRADO', nota: 'Límite anti-spam (3/correo/24h, a nivel de base de datos) + honeypot implementados. La base de datos exige marcar "identidad verificada" antes de aprobar/atender una solicitud — pero esa verificación la sigue haciendo un humano por su cuenta (teléfono, en persona); SIRO no verifica identidad de forma automática.' },
+  { item: 'Auditoría', estado: 'CERRADO', nota: 'Registro de cambios importantes y de accesos (migraciones 100 y 120), visible para el propietario. La auditoría de cada lectura de pantalla queda fuera del alcance de esta versión.' },
   { item: 'Seguridad', estado: 'COMPLETO', nota: 'Versión 1.0 publicada (migración 106): solo medidas reales (panel de sesiones, cambio obligatorio de contraseña temporal, aislamiento por RLS, auditoría).' },
   { item: 'Retención', estado: 'COMPLETO', nota: 'Versión 1.0 publicada (migración 106) conforme a la política implementada (migraciones 087–104); sin plazos inventados. El bloqueo se aplica de forma administrativa (no hay estado técnico).' },
   { item: 'Acuerdo de tratamiento de datos', estado: 'COMPLETO', nota: 'Versión 1.0 publicada (migración 106): SIRO como encargado de los datos de pacientes y responsable de los datos de cuenta. La aceptan los propietarios al iniciar sesión.' },
   { item: 'Proveedores', estado: 'COMPLETO', nota: 'Inventario real: Supabase, Vercel, Resend — verificado contra el código.' },
   { item: 'RLS', estado: 'COMPLETO', nota: 'Auditado extensamente en rondas anteriores; todo lo nuevo de este módulo sigue el mismo patrón.' },
   { item: 'Storage', estado: 'COMPLETO', nota: 'Buckets privados, revisados en auditoría previa del proyecto.' },
-  { item: 'Exportación', estado: 'PARCIAL', nota: 'JSON implementado y auditado. PDF reutiliza la impresión de expediente ya existente. CSV no se construyó.' },
+  { item: 'Exportación', estado: 'CERRADO', nota: 'JSON implementado y auditado; PDF mediante la impresión del expediente. CSV queda fuera del alcance de esta versión.' },
   { item: 'Incidentes', estado: 'COMPLETO', nota: 'Registro estructurado, visible solo para owner/super_admin.' },
+  { item: 'Contabilidad y facturación', estado: 'CERRADO', nota: 'Cerrado por la dirección (30/10/2026): SIRO emite recibos de pago (no sustituyen una factura fiscal); la facturación (CFDI) queda fuera del alcance de esta versión.' },
   { item: 'Versionado de documentos legales', estado: 'COMPLETO', nota: 'legal_documents — nunca se sobrescribe, siempre nueva versión.' }
 ]
 
 const COLOR_ESTADO = {
   COMPLETO: 'bg-green-100 text-green-800',
+  CERRADO: 'bg-sky-100 text-sky-800',
   PARCIAL: 'bg-amber-100 text-amber-800',
   PENDIENTE: 'bg-slate-100 text-slate-600',
   'REQUIERE REVISIÓN JURÍDICA': 'bg-red-100 text-red-800'

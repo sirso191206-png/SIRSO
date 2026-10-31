@@ -23,16 +23,21 @@ export function usePlanActual() {
 // ¿Mostrar esta funcionalidad (o, con una lista, al menos una de ellas)? Solo oculta
 // interfaz: la base de datos (RLS/triggers) es quien realmente la bloquea. El
 // personal de plataforma (superadmin) la ve siempre, igual que en la base.
-// ¿La CLÍNICA tiene esta funcionalidad en su suscripción? (sin el pase libre del superadmin). Sirve para avisarle al
-// superadmin que algo que está configurando no funcionará para la clínica (p. ej. el enlace de reserva en línea).
-export function useFuncionalidadDeLaClinica(codigo) {
-  return alMenosUnaDisponible(useSuscripcionVigente(), codigo)
+// Funcionalidades que se muestran SOLO si el plan de la clínica las incluye, también para el superadmin (que en lo demás
+// lo ve todo): si la clínica no las tiene, no aparecen en el menú ni en Configuración. El superadmin las activa para una
+// clínica desde Administración → la clínica → Ajustar condiciones.
+export const SEGUN_PLAN_DE_LA_CLINICA = ['inventario', 'reserva_en_linea']
+
+function disponibleParaLaSesion(suscripcion, esSuperAdmin, codigo) {
+  const codigos = Array.isArray(codigo) ? codigo : [codigo]
+  if (codigos.length === 0) return true
+  return codigos.some((c) => (esSuperAdmin && !SEGUN_PLAN_DE_LA_CLINICA.includes(c)) || alMenosUnaDisponible(suscripcion, c))
 }
 
 export function useFuncionalidad(codigo) {
   const suscripcion = useSuscripcionVigente()
   const esSuperAdmin = useAuthStore((s) => s.perfil?.es_super_admin)
-  return esSuperAdmin ? true : alMenosUnaDisponible(suscripcion, codigo)
+  return disponibleParaLaSesion(suscripcion, esSuperAdmin, codigo)
 }
 
 // ¿Mostrar el módulo Sucursales? (ver puedeVerSucursales). El superadmin siempre lo ve.
@@ -55,5 +60,5 @@ export function usePuedeAgregar(tipo) {
 export function useDisponibilidad() {
   const suscripcion = useSuscripcionVigente()
   const esSuperAdmin = useAuthStore((s) => s.perfil?.es_super_admin)
-  return (codigo) => (esSuperAdmin ? true : alMenosUnaDisponible(suscripcion, codigo))
+  return (codigo) => disponibleParaLaSesion(suscripcion, esSuperAdmin, codigo)
 }
